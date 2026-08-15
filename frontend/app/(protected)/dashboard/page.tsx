@@ -1,0 +1,155 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { getErrorMessage, getSalespersonKpi, getTeamKpi, listSalespeople } from "@/lib/api";
+import { computeTeamAverageScores } from "@/lib/kpiLabels";
+import { DrillDownMetric, PeriodKey, Salesperson, SalespersonKpiResponse } from "@/lib/types";
+import { useAuthStore } from "@/store/useAuthStore";
+import PeriodSelector from "@/components/kpi/PeriodSelector";
+import ScoreCard from "@/components/kpi/ScoreCard";
+import SupplementaryKpisPanel from "@/components/kpi/SupplementaryKpisPanel";
+import KpiDrillDownModal from "@/components/kpi/KpiDrillDownModal";
+import SalespersonSwitcher from "@/components/dashboard/SalespersonSwitcher";
+import RevenueTargetProgress from "@/components/dashboard/RevenueTargetProgress";
+import MonthlyTrendChart from "@/components/dashboard/MonthlyTrendChart";
+import BreakdownPieChart from "@/components/dashboard/BreakdownPieChart";
+import CoachingInsightPanel from "@/components/coaching/CoachingInsightPanel";
+
+function defaultPeriod(): PeriodKey {
+  const now = new Date();
+  return { periodType: "MONTH", year: now.getFullYear(), periodNumber: now.getMonth() + 1 };
+}
+
+export default function DashboardPage() {
+  const token = useAuthStore((state) => state.token);
+  const currentUser = useAuthStore((state) => state.user);
+
+  const [salespeople, setSalespeople] = useState<Salesperson[]>([]);
+  const [salespersonId, setSalespersonId] = useState<string>("");
+  const [period, setPeriod] = useState<PeriodKey>(defaultPeriod());
+  const [kpi, setKpi] = useState<SalespersonKpiResponse | null>(null);
+  const [teamAverages, setTeamAverages] = useState<ReturnType<typeof computeTeamAverageScores>>({});
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [drillDownMetric, setDrillDownMetric] = useState<DrillDownMetric | null>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    listSalespeople(token)
+      .then((data) => {
+        setSalespeople(data.salespeople);
+        setSalespersonId((prev) => {
+          if (prev) return prev;
+          const own = data.salespeople.find((sp) => sp.user?.id === currentUser?.id);
+          return (own ?? data.salespeople[0])?.id ?? "";
+        });
+      })
+      .catch(() => {
+        // salesperson dropdown is a convenience — nothing else on the page depends on it loading
+      });
+  }, [token, currentUser]);
+
+  const loadDashboard = useCallback(async () => {
+    if (!token || !salespersonId) return;
+    setLoading(true);
+    try {
+      const [kpiData, teamData] = await Promise.all([
+        getSalespersonKpi(token, salespersonId, period),
+        getTeamKpi(token, period),
+      ]);
+      setKpi(kpiData);
+      setTeamAverages(computeTeamAverageScores(teamData.results));
+      setLoadError(null);
+    } catch (err) {
+      setLoadError(getErrorMessage(err, "โหลด Dashboard ไม่สำเร็จ"));
+    } finally {
+      setLoading(false);
+    }
+  }, [token, salespersonId, period]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadDashboard();
+  }, [loadDashboard]);
+
+  const revenueMetric = kpi?.composite.metrics.find((m) => m.metric === "REVENUE_VS_TARGET");
+
+  // A SALESPERSON may only generate/regenerate their own coaching insight — matches the
+  // permission the backend actually enforces in coachingInsight.controller.ts. MANAGER can
+  // generate for anyone.
+  const ownSalespersonId = salespeople.find((sp) => sp.user?.id === currentUser?.id)?.id;
+  const canGenerateInsight =
+    currentUser?.role === "MANAGER" || (!!ownSalespersonId && ownSalespersonId === salespersonId);
+
+  return (
+    <div className="mx-auto max-w-5xl p-4 sm:p-6">
+      <h1 className="text-2xl font-semibold text-zinc-900">
+        {kpi ? `Dashboard ของ ${kpi.salesperson.displayName}` : `สวัสดี, ${currentUser?.displayName}`}
+      </h1>
+      <p className="mt-1 text-sm text-zinc-600">ยอดสะสมเทียบเป้า แนวโน้ม และ KPI เทียบค่าเฉลี่ยทีม</p>
+
+      <div className="mt-4 flex flex-wrap items-center gap-4">
+        <SalespersonSwitcher salespeople={salespeople} value={salespersonId} onChange={setSalespersonId} />
+        <PeriodSelector value={period} onChange={setPeriod} />
+      </div>
+
+      {loadError && <p className="mt-4 text-sm text-red-600">{loadError}</p>}
+      {loading && <p className="mt-6 text-zinc-400">กำลังโหลด...</p>}
+
+      {!loading && kpi && revenueMetric && (
+        <div className="mt-6 space-y-4">
+          <RevenueTargetProgress metric={revenueMetric} />
+
+          <MonthlyTrendChart data={kpi.supplementary.monthlyRevenueTrend} />
+
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <BreakdownPieChart
+              title="สัดส่วนยอดตามกลุ่มสินค้า"
+              data={kpi.supplementary.productPenetration.productTypeGroupsSold.map((g) => ({
+                name: g.name,
+                value: g.revenueShare,
+              }))}
+            />
+            <BreakdownPieChart
+              title="สัดส่วนยอดตามโรงพยาบาล"
+              data={kpi.supplementary.revenueShareByHospital.map((h) => ({
+                name: h.hospitalName,
+                value: h.sharePercent,
+              }))}
+            />
+          </div>
+
+          <ScoreCard
+            composite={kpi.composite}
+            onDrillDown={(metric) => setDrillDownMetric(metric)}
+            teamAverages={teamAverages}
+          />
+
+          <CoachingInsightPanel
+            salespersonId={kpi.salesperson.id}
+            period={period}
+            canGenerate={canGenerateInsight}
+            onDrillDown={(metric) => setDrillDownMetric(metric)}
+          />
+
+          <div>
+            <h2 className="mb-2 text-lg font-semibold text-zinc-900">ตัวชี้วัดเพิ่มเติม (ไม่คิดคะแนน)</h2>
+            <SupplementaryKpisPanel
+              supplementary={kpi.supplementary}
+              onDrillDown={(metric) => setDrillDownMetric(metric)}
+            />
+          </div>
+        </div>
+      )}
+
+      {drillDownMetric && kpi && (
+        <KpiDrillDownModal
+          salespersonId={kpi.salesperson.id}
+          metric={drillDownMetric}
+          period={period}
+          onClose={() => setDrillDownMetric(null)}
+        />
+      )}
+    </div>
+  );
+}

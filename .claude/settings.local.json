@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls \"C:\\\\Users\\\\sucha\\\\OneDrive\\\\Documents\\\\\" 2>&1 | grep -i \"รายละเอียดขาย\" || echo \"not found by grep, listing dir\")",
+      "Bash(python3 -c \"import openpyxl\")",
+      "Bash(python -c \"import openpyxl\")",
+      "Bash(npm -v)",
+      "Bash(npx --yes create-next-app@latest frontend --ts --tailwind --eslint --app --src-dir=false --import-alias \"@/*\" --use-npm --no-turbopack)",
+      "Bash(npm install *)",
+      "Bash(npx prisma *)",
+      "Bash(npx tsc *)",
+      "Bash(npm run *)",
+      "Bash(nslookup db.ddrsdizoureqypkxjdrn.supabase.co)",
+      "Bash(ping -n 1 db.ddrsdizoureqypkxjdrn.supabase.co)"
+    ]
+  }
+}
