@@ -1,17 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(ls \"C:\\\\Users\\\\sucha\\\\OneDrive\\\\Documents\\\\\" 2>&1 | grep -i \"รายละเอียดขาย\" || echo \"not found by grep, listing dir\")",
-      "Bash(python3 -c \"import openpyxl\")",
-      "Bash(python -c \"import openpyxl\")",
-      "Bash(npm -v)",
-      "Bash(npx --yes create-next-app@latest frontend --ts --tailwind --eslint --app --src-dir=false --import-alias \"@/*\" --use-npm --no-turbopack)",
-      "Bash(npm install *)",
-      "Bash(npx prisma *)",
-      "Bash(npx tsc *)",
-      "Bash(npm run *)",
-      "Bash(nslookup db.ddrsdizoureqypkxjdrn.supabase.co)",
-      "Bash(ping -n 1 db.ddrsdizoureqypkxjdrn.supabase.co)"
+      "Bash(awk '/^## Phase/{p=$0; b=0; f=0; s=0} /^- \\\\[/{if\\($0 ~ /\\\\[backend\\\\]/\\) b++; else if\\($0 ~ /\\\\[frontend\\\\]/\\) f++; else s++} /^## Sequencing/{exit} {if\\(p!=\"\"&&$0 ~ /^## Phase/&&NR>1\\){}}END{}' plan.md)",
+      "Bash(python -c ' *)",
+      "Bash(awk '{print length\": \"substr\\($0,1,110\\)}' review.md)",
+      "Bash(cp review.md \"/c/Users/jabja/AppData/Local/Temp/claude/C--src-AgentClaude/615677b9-70dc-4791-b83f-5c5086c615f6/scratchpad/review.md.bak\")",
+      "Bash(python \"/c/Users/jabja/AppData/Local/Temp/claude/C--src-AgentClaude/615677b9-70dc-4791-b83f-5c5086c615f6/scratchpad/split_review.py\")"
     ]
   }
 }
