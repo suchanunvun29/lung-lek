@@ -32,6 +32,10 @@ model User {
   weightRevisions   ScoringWeightRevision[]
   settingUpdates    EvaluationSetting[]
   generatedInsights CoachingInsight[]
+
+  salesmanNameRules   SalesmanNameRule[]
+  hospitalAliases     HospitalAlias[]
+  hospitalNameReviews HospitalNameReview[]
 }
 
 // แยกจาก User เพราะ (ก) ผู้จัดการไม่มียอดขาย (ข) ไฟล์อาจมีชื่อพนักงานขายที่ยังไม่มีบัญชี
@@ -49,6 +53,9 @@ model Salesperson {
   salesLines SalesLine[]
   targets    Target[]
   insights   CoachingInsight[]
+
+  credits             SalesLineCredit[]
+  nameRuleMemberships SalesmanNameRuleMember[]
 }
 
 model Hospital {
@@ -61,6 +68,9 @@ model Hospital {
   updatedAt             DateTime @updatedAt
 
   salesLines SalesLine[]
+
+  aliases     HospitalAlias[]
+  nameReviews HospitalNameReview[]
 }
 
 // ---------- Product master ----------
@@ -119,6 +129,8 @@ model SalesLine {
   importBatch     ImportBatch @relation(fields: [importBatchId], references: [id])
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
+
+  credits SalesLineCredit[]
 
   @@index([salespersonId, year, month])
   @@index([hospitalId, invoiceDate])
@@ -305,4 +317,94 @@ model CoachingInsight {
 
   @@unique([salespersonId, periodType, year, periodNumber])
   @@index([year, periodType])
+}
+
+// ---------- การแบ่งเครดิตดีลระหว่างพนักงานขาย (Module J, เพิ่ม 2026-08-16) ----------
+
+model SalesLineCredit {
+  id            String      @id @default(cuid())
+  salesLineId   String
+  salesLine     SalesLine   @relation(fields: [salesLineId], references: [id], onDelete: Cascade)
+  salespersonId String
+  salesperson   Salesperson @relation(fields: [salespersonId], references: [id])
+  sharePercent  Decimal     @db.Decimal(6, 3) // ผลรวมของทุกแถวใน 1 salesLine ต้องเท่ากับ 100.000 เสมอ
+  isPrimary     Boolean     @default(false)
+  createdAt     DateTime    @default(now())
+
+  @@unique([salesLineId, salespersonId])
+  @@index([salespersonId])
+}
+
+// ค่าดิบในคอลัมน์ Salesman ที่แทนคนมากกว่า 1 คน เก็บเป็นกฎไว้ ไม่ต้องให้ผู้จัดการตอบซ้ำทุกเดือน
+model SalesmanNameRule {
+  id            String    @id @default(cuid())
+  normalizedRaw String    @unique // ค่าดิบที่ยุบแล้ว เช่น "CHOKECHAITANGSANGKHAROM/CHIDCHANOKSEETHONG"
+  sampleRaw     String
+  decidedById   String?
+  decidedBy     User?     @relation(fields: [decidedById], references: [id])
+  decidedAt     DateTime?
+  createdAt     DateTime  @default(now())
+
+  members SalesmanNameRuleMember[]
+}
+
+model SalesmanNameRuleMember {
+  id            String           @id @default(cuid())
+  ruleId        String
+  rule          SalesmanNameRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  salespersonId String
+  salesperson   Salesperson      @relation(fields: [salespersonId], references: [id])
+  sharePercent  Decimal          @db.Decimal(6, 3)
+
+  @@unique([ruleId, salespersonId])
+}
+
+// ---------- การจับคู่/รวมชื่อโรงพยาบาล (Module J, เพิ่ม 2026-08-16) ----------
+
+enum NameDecisionSource {
+  AUTO
+  MANAGER
+}
+
+// ทางลัดตอน import: ชื่อดิบที่ยุบแล้ว -> Hospital ตัวจริง (การรวมแสดงด้วยหลายคีย์ชี้ Hospital เดียวกัน)
+model HospitalAlias {
+  id            String             @id @default(cuid())
+  normalizedKey String             @unique
+  sampleRaw     String
+  hospitalId    String
+  hospital      Hospital           @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  source        NameDecisionSource
+  decidedById   String?
+  decidedBy     User?              @relation(fields: [decidedById], references: [id])
+  decidedAt     DateTime?
+  createdAt     DateTime           @default(now())
+
+  @@index([hospitalId])
+}
+
+enum NameReviewStatus {
+  PENDING
+  MERGED
+  KEPT_SEPARATE
+}
+
+// คิวให้ผู้จัดการตัดสิน + บันทึก "ห้ามรวมถาวร" เพื่อไม่ให้ระบบถามซ้ำ
+model HospitalNameReview {
+  id             String           @id @default(cuid())
+  normalizedKeyA String
+  normalizedKeyB String
+  sampleRawA     String
+  sampleRawB     String
+  similarity     Decimal?         @db.Decimal(5, 4)
+  status         NameReviewStatus @default(PENDING)
+  mergedIntoId   String?
+  mergedInto     Hospital?        @relation(fields: [mergedIntoId], references: [id])
+  decidedById    String?
+  decidedBy      User?            @relation(fields: [decidedById], references: [id])
+  decidedAt      DateTime?
+  note           String?
+  createdAt      DateTime         @default(now())
+
+  @@unique([normalizedKeyA, normalizedKeyB])
+  @@index([status])
 }

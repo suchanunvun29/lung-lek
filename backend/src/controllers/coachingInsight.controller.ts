@@ -40,10 +40,10 @@ export async function generateInsight(req: Request, res: Response) {
     return res.status(404).json({ error: "Salesperson not found" });
   }
 
-  // A salesperson may only regenerate their own coaching insight — matches requirement.md's
-  // "salesperson reads their own summary" scope; a manager may generate for anyone.
-  if (req.user!.role === "SALESPERSON" && salesperson.userId !== req.user!.id) {
-    return res.status(403).json({ error: "พนักงานขายสร้างสรุปได้เฉพาะของตัวเองเท่านั้น" });
+  // Only a manager may trigger generation, per requirement.md's 2026-08-16 decision —
+  // salespeople can only read an insight a manager already generated, never their own.
+  if (req.user!.role !== "MANAGER") {
+    return res.status(403).json({ error: "เฉพาะผู้จัดการเท่านั้นที่สั่งสร้างสรุป AI ได้" });
   }
 
   const insight = await coachingInsightService.generateInsight(salespersonId, period, req.user!.id);

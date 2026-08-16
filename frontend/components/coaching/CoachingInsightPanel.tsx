@@ -99,7 +99,7 @@ export default function CoachingInsightPanel({
 
       {!canGenerate && (
         <p className="mt-2 text-xs text-zinc-500">
-          พนักงานขายสร้างสรุปได้เฉพาะของตัวเองเท่านั้น — ให้ผู้จัดการเป็นผู้สร้างสรุปนี้แทน
+          เฉพาะผู้จัดการเท่านั้นที่สั่งสร้างสรุปนี้ได้
         </p>
       )}
 

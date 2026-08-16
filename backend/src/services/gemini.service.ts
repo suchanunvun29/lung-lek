@@ -1,5 +1,5 @@
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
-const DEFAULT_GEMINI_MODEL = "gemini-2.0-flash";
+const DEFAULT_GEMINI_MODEL = "gemini-flash-lite-latest";
 const GEMINI_TIMEOUT_MS = 15_000;
 
 interface GeminiGenerateContentResponse {

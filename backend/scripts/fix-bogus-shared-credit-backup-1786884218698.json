@@ -1,0 +1,145 @@
+[
+  {
+    "bogusSalesperson": {
+      "id": "cmstpcfsk01fkpevgzn2ms2qf",
+      "nameInFile": "Mr.Chokechai/Miss Chidchanok"
+    },
+    "originalSalesLines": [
+      {
+        "id": "cmstpcfvc01fmpevg833dwlf0",
+        "salespersonId": "cmstpcfsk01fkpevgzn2ms2qf"
+      },
+      {
+        "id": "cmstpcfy901fopevgp9vknlvo",
+        "salespersonId": "cmstpcfsk01fkpevgzn2ms2qf"
+      },
+      {
+        "id": "cmstpcg1501fqpevgnmqt6cn9",
+        "salespersonId": "cmstpcfsk01fkpevgzn2ms2qf"
+      },
+      {
+        "id": "cmstpcg4301fspevgotrln8gk",
+        "salespersonId": "cmstpcfsk01fkpevgzn2ms2qf"
+      },
+      {
+        "id": "cmstpcg6z01fupevg3k8sge5g",
+        "salespersonId": "cmstpcfsk01fkpevgzn2ms2qf"
+      },
+      {
+        "id": "cmstpcg9y01fwpevgwx8nzyms",
+        "salespersonId": "cmstpcfsk01fkpevgzn2ms2qf"
+      },
+      {
+        "id": "cmstpcgcu01fypevg9zzpdoc4",
+        "salespersonId": "cmstpcfsk01fkpevgzn2ms2qf"
+      },
+      {
+        "id": "cmstpcgfq01g0pevgvotb73y1",
+        "salespersonId": "cmstpcfsk01fkpevgzn2ms2qf"
+      },
+      {
+        "id": "cmstpcgim01g2pevgjkq22aax",
+        "salespersonId": "cmstpcfsk01fkpevgzn2ms2qf"
+      },
+      {
+        "id": "cmstpcgli01g4pevgyudrmu9g",
+        "salespersonId": "cmstpcfsk01fkpevgzn2ms2qf"
+      },
+      {
+        "id": "cmstpcgoe01g6pevgv2ud6zbg",
+        "salespersonId": "cmstpcfsk01fkpevgzn2ms2qf"
+      }
+    ],
+    "originalCredits": [
+      {
+        "id": "cmsvpgyso014lq7qyk59yrksv",
+        "salesLineId": "cmstpcfvc01fmpevg833dwlf0",
+        "salespersonId": "cmstpcfsk01fkpevgzn2ms2qf",
+        "sharePercent": "100",
+        "isPrimary": true,
+        "createdAt": "2026-08-16T11:12:28.968Z"
+      },
+      {
+        "id": "cmsvpgyvm014nq7qycnamger6",
+        "salesLineId": "cmstpcfy901fopevgp9vknlvo",
+        "salespersonId": "cmstpcfsk01fkpevgzn2ms2qf",
+        "sharePercent": "100",
+        "isPrimary": true,
+        "createdAt": "2026-08-16T11:12:29.074Z"
+      },
+      {
+        "id": "cmsvpgyym014pq7qy81clor8o",
+        "salesLineId": "cmstpcg1501fqpevgnmqt6cn9",
+        "salespersonId": "cmstpcfsk01fkpevgzn2ms2qf",
+        "sharePercent": "100",
+        "isPrimary": true,
+        "createdAt": "2026-08-16T11:12:29.182Z"
+      },
+      {
+        "id": "cmsvpgz1i014rq7qyxh9pbm9t",
+        "salesLineId": "cmstpcg4301fspevgotrln8gk",
+        "salespersonId": "cmstpcfsk01fkpevgzn2ms2qf",
+        "sharePercent": "100",
+        "isPrimary": true,
+        "createdAt": "2026-08-16T11:12:29.287Z"
+      },
+      {
+        "id": "cmsvpgz4i014tq7qyrrv31gbe",
+        "salesLineId": "cmstpcg6z01fupevg3k8sge5g",
+        "salespersonId": "cmstpcfsk01fkpevgzn2ms2qf",
+        "sharePercent": "100",
+        "isPrimary": true,
+        "createdAt": "2026-08-16T11:12:29.395Z"
+      },
+      {
+        "id": "cmsvpgz7g014vq7qyko7yv82b",
+        "salesLineId": "cmstpcg9y01fwpevgwx8nzyms",
+        "salespersonId": "cmstpcfsk01fkpevgzn2ms2qf",
+        "sharePercent": "100",
+        "isPrimary": true,
+        "createdAt": "2026-08-16T11:12:29.501Z"
+      },
+      {
+        "id": "cmsvpgzad014xq7qycgddqpwh",
+        "salesLineId": "cmstpcgcu01fypevg9zzpdoc4",
+        "salespersonId": "cmstpcfsk01fkpevgzn2ms2qf",
+        "sharePercent": "100",
+        "isPrimary": true,
+        "createdAt": "2026-08-16T11:12:29.605Z"
+      },
+      {
+        "id": "cmsvpgzdh014zq7qyf9j6uxuc",
+        "salesLineId": "cmstpcgfq01g0pevgvotb73y1",
+        "salespersonId": "cmstpcfsk01fkpevgzn2ms2qf",
+        "sharePercent": "100",
+        "isPrimary": true,
+        "createdAt": "2026-08-16T11:12:29.717Z"
+      },
+      {
+        "id": "cmsvpgzgn0151q7qyavh40vrm",
+        "salesLineId": "cmstpcgim01g2pevgjkq22aax",
+        "salespersonId": "cmstpcfsk01fkpevgzn2ms2qf",
+        "sharePercent": "100",
+        "isPrimary": true,
+        "createdAt": "2026-08-16T11:12:29.830Z"
+      },
+      {
+        "id": "cmsvpgzjk0153q7qyxg2g2if2",
+        "salesLineId": "cmstpcgli01g4pevgyudrmu9g",
+        "salespersonId": "cmstpcfsk01fkpevgzn2ms2qf",
+        "sharePercent": "100",
+        "isPrimary": true,
+        "createdAt": "2026-08-16T11:12:29.937Z"
+      },
+      {
+        "id": "cmsvpgzmk0155q7qy0l7yi1pb",
+        "salesLineId": "cmstpcgoe01g6pevgv2ud6zbg",
+        "salespersonId": "cmstpcfsk01fkpevgzn2ms2qf",
+        "sharePercent": "100",
+        "isPrimary": true,
+        "createdAt": "2026-08-16T11:12:30.044Z"
+      }
+    ],
+    "ruleCreatedId": "cmsvsq26y0001vt2tnb1qxxsg"
+  }
+]

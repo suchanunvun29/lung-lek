@@ -14,6 +14,8 @@ import settingsRouter from "./routes/settings.routes";
 import leaderboardRouter from "./routes/leaderboard.routes";
 import coachingInsightRouter from "./routes/coachingInsight.routes";
 import reportRouter from "./routes/report.routes";
+import hospitalNameReviewRouter from "./routes/hospitalNameReview.routes";
+import salesmanNameRuleRouter from "./routes/salesmanNameRule.routes";
 
 dotenv.config();
 
@@ -36,6 +38,8 @@ app.use("/settings", settingsRouter);
 app.use("/leaderboard", leaderboardRouter);
 app.use("/coaching-insights", coachingInsightRouter);
 app.use("/reports", reportRouter);
+app.use("/hospital-name-reviews", hospitalNameReviewRouter);
+app.use("/salesman-name-rules", salesmanNameRuleRouter);
 
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ error: "Not found" });

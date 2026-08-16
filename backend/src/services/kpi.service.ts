@@ -1,4 +1,4 @@
-import { EvaluationSetting, KpiMetric } from "@prisma/client";
+import { EvaluationSetting, KpiMetric, Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import {
   PeriodKey,
@@ -17,6 +17,55 @@ export interface MetricResult {
   score: number | null;
   reason: string | null;
   detail: Record<string, unknown>;
+}
+
+// ---------- Credit-weighted sales access ----------
+//
+// design.md (KPI & Scoring Rules, ส่วนขยาย 2026-08-16): a salesperson's per-period figures are
+// now `Σ (SalesLine.total × SalesLineCredit.sharePercent ÷ 100)` read through SalesLineCredit —
+// never `SalesLine.salespersonId` directly. Every per-person aggregation in this file goes
+// through this helper so there is exactly one code path, per the same reasoning design.md gives
+// for not making SalesLineCredit optional.
+
+interface CreditedLine {
+  salesLineId: string;
+  hospitalId: string;
+  productTypeId: string;
+  year: number;
+  month: number;
+  invoiceDate: Date;
+  creditedTotal: number; // SalesLine.total × sharePercent ÷ 100
+}
+
+async function getCreditedSalesLines(salespersonId: string, salesLineWhere: Prisma.SalesLineWhereInput): Promise<CreditedLine[]> {
+  const credits = await prisma.salesLineCredit.findMany({
+    where: { salespersonId, salesLine: salesLineWhere },
+    select: {
+      sharePercent: true,
+      salesLine: {
+        select: { id: true, hospitalId: true, productTypeId: true, year: true, month: true, invoiceDate: true, total: true },
+      },
+    },
+  });
+
+  return credits.map((c) => ({
+    salesLineId: c.salesLine.id,
+    hospitalId: c.salesLine.hospitalId,
+    productTypeId: c.salesLine.productTypeId,
+    year: c.salesLine.year,
+    month: c.salesLine.month,
+    invoiceDate: c.salesLine.invoiceDate,
+    creditedTotal: Number(c.salesLine.total) * (Number(c.sharePercent) / 100),
+  }));
+}
+
+function getCreditedSalesLinesInMonths(salespersonId: string, months: YearMonth[]): Promise<CreditedLine[]> {
+  return getCreditedSalesLines(salespersonId, { OR: monthsWhereOr(months) });
+}
+
+/** WHERE clause matching every SalesLine whose credited salesperson filter this file uses for drill-downs. */
+function creditedToSalesperson(salespersonId: string): Prisma.SalesLineWhereInput {
+  return { credits: { some: { salespersonId } } };
 }
 
 export async function getDataCoverageMonths(): Promise<number> {
@@ -46,18 +95,15 @@ function insufficientDataReason(required: number, current: number): string {
 
 export async function computeRevenueVsTarget(salespersonId: string, period: PeriodKey): Promise<MetricResult> {
   const months = monthsInPeriod(period);
-  const [actualAgg, targets] = await Promise.all([
-    prisma.salesLine.aggregate({
-      where: { salespersonId, OR: monthsWhereOr(months) },
-      _sum: { total: true },
-    }),
+  const [creditedLines, targets] = await Promise.all([
+    getCreditedSalesLinesInMonths(salespersonId, months),
     prisma.target.findMany({
       where: { salespersonId, OR: monthsWhereOr(months) },
       select: { revenueTarget: true },
     }),
   ]);
 
-  const actual = Number(actualAgg._sum.total ?? 0);
+  const actual = creditedLines.reduce((sum, l) => sum + l.creditedTotal, 0);
   const target = targets.reduce((sum, t) => sum + Number(t.revenueTarget), 0);
 
   if (target === 0) {
@@ -99,31 +145,28 @@ export async function computeNewCustomers(salespersonId: string, period: PeriodK
   }
 
   const creditedLines = await getNewCustomerCreditedLines(salespersonId, period);
-  const actual = creditedLines.length;
+  const actual = creditedLines.reduce((sum, l) => sum + l.sharePercent / 100, 0);
 
   return {
     metric: "NEW_CUSTOMERS",
     computable: true,
     score: Math.min((actual / target) * 100, 100),
     reason: null,
-    detail: { actual, target, hospitalIds: creditedLines.map((l) => l.hospitalId) },
+    detail: {
+      actual: Math.round(actual * 10) / 10,
+      target,
+      hospitalIds: creditedLines.map((l) => l.hospitalId),
+    },
   };
 }
 
-// The first-ever sale of each non-pre-existing hospital, system-wide, determines who gets the
-// "new customer" credit and which period it lands in — independent of who is asking.
+// The first-ever sale of each non-pre-existing hospital, system-wide, determines which period
+// the "new customer" credit lands in — independent of who is asking. Company-wide identity of
+// the first sale doesn't depend on credit sharing; only who gets *how much* of the credit does.
 async function getFirstSalePerHospital() {
   const lines = await prisma.salesLine.findMany({
     where: { hospital: { isPreExistingCustomer: false } },
-    select: {
-      id: true,
-      hospitalId: true,
-      salespersonId: true,
-      year: true,
-      month: true,
-      invoiceDate: true,
-      createdAt: true,
-    },
+    select: { id: true, hospitalId: true, year: true, month: true, invoiceDate: true, createdAt: true },
     orderBy: [{ year: "asc" }, { month: "asc" }, { invoiceDate: "asc" }, { createdAt: "asc" }],
   });
 
@@ -136,14 +179,33 @@ async function getFirstSalePerHospital() {
   return firstSaleByHospital;
 }
 
-async function getNewCustomerCreditedLines(salespersonId: string, period: PeriodKey) {
+interface NewCustomerCredit {
+  hospitalId: string;
+  salesLineId: string;
+  sharePercent: number;
+}
+
+// A hospital's first-sale line is credited to whichever salesperson(s) hold a SalesLineCredit
+// on it, split by sharePercent (design.md: a 50/50 shared deal counts as 0.5 new customers each).
+async function getNewCustomerCreditedLines(salespersonId: string, period: PeriodKey): Promise<NewCustomerCredit[]> {
   const months = monthsInPeriod(period);
   const periodKeys = new Set(months.map(monthKey));
   const firstSaleByHospital = await getFirstSalePerHospital();
 
-  return [...firstSaleByHospital.values()].filter(
-    (line) => line.salespersonId === salespersonId && periodKeys.has(monthKey(line))
-  );
+  const firstSaleLinesInPeriod = [...firstSaleByHospital.values()].filter((line) => periodKeys.has(monthKey(line)));
+  if (firstSaleLinesInPeriod.length === 0) return [];
+
+  const credits = await prisma.salesLineCredit.findMany({
+    where: { salespersonId, salesLineId: { in: firstSaleLinesInPeriod.map((l) => l.id) } },
+    select: { salesLineId: true, sharePercent: true },
+  });
+  const salesLineById = new Map(firstSaleLinesInPeriod.map((l) => [l.id, l]));
+
+  return credits.map((c) => ({
+    hospitalId: salesLineById.get(c.salesLineId)!.hospitalId,
+    salesLineId: c.salesLineId,
+    sharePercent: Number(c.sharePercent),
+  }));
 }
 
 // Actual new-customer count regardless of whether a target is set — computeNewCustomers()
@@ -152,7 +214,8 @@ async function getNewCustomerCreditedLines(salespersonId: string, period: Period
 // needs the real count even for salespeople with no target configured.
 export async function getNewCustomerActualCount(salespersonId: string, period: PeriodKey): Promise<number> {
   const creditedLines = await getNewCustomerCreditedLines(salespersonId, period);
-  return creditedLines.length;
+  const actual = creditedLines.reduce((sum, l) => sum + l.sharePercent / 100, 0);
+  return Math.round(actual * 10) / 10;
 }
 
 export async function computeProductGroup(salespersonId: string, period: PeriodKey): Promise<MetricResult> {
@@ -192,12 +255,12 @@ export async function computeProductGroup(salespersonId: string, period: PeriodK
     };
   }
 
-  const actualGroups = await prisma.salesLine.groupBy({
-    by: ["productTypeId"],
-    where: { salespersonId, productTypeId: { in: [...targetByType.keys()] }, OR: monthsWhereOr(months) },
-    _sum: { total: true },
-  });
-  const actualByType = new Map(actualGroups.map((g) => [g.productTypeId, Number(g._sum.total ?? 0)]));
+  const creditedLines = await getCreditedSalesLinesInMonths(salespersonId, months);
+  const actualByType = new Map<string, number>();
+  for (const l of creditedLines) {
+    if (!targetByType.has(l.productTypeId)) continue;
+    actualByType.set(l.productTypeId, (actualByType.get(l.productTypeId) ?? 0) + l.creditedTotal);
+  }
 
   let cappedSum = 0;
   const groups = [...targetByType.entries()].map(([productTypeId, { target, name }]) => {
@@ -235,20 +298,13 @@ export async function computeRetention(
   const prevMonths = monthsInPeriod(previousPeriod(period));
   const curMonths = monthsInPeriod(period);
 
-  const [prevHospitals, curHospitals] = await Promise.all([
-    prisma.salesLine.findMany({
-      where: { salespersonId, OR: monthsWhereOr(prevMonths) },
-      select: { hospitalId: true },
-      distinct: ["hospitalId"],
-    }),
-    prisma.salesLine.findMany({
-      where: { salespersonId, OR: monthsWhereOr(curMonths) },
-      select: { hospitalId: true },
-      distinct: ["hospitalId"],
-    }),
+  const [prevCreditedLines, curCreditedLines] = await Promise.all([
+    getCreditedSalesLinesInMonths(salespersonId, prevMonths),
+    getCreditedSalesLinesInMonths(salespersonId, curMonths),
   ]);
+  const prevHospitalIds = [...new Set(prevCreditedLines.map((l) => l.hospitalId))];
 
-  if (prevHospitals.length === 0) {
+  if (prevHospitalIds.length === 0) {
     return {
       metric: "RETENTION",
       computable: false,
@@ -258,16 +314,16 @@ export async function computeRetention(
     };
   }
 
-  const curSet = new Set(curHospitals.map((h) => h.hospitalId));
-  const retainedHospitalIds = prevHospitals.map((h) => h.hospitalId).filter((id) => curSet.has(id));
+  const curSet = new Set(curCreditedLines.map((l) => l.hospitalId));
+  const retainedHospitalIds = prevHospitalIds.filter((id) => curSet.has(id));
 
   return {
     metric: "RETENTION",
     computable: true,
-    score: (retainedHospitalIds.length / prevHospitals.length) * 100,
+    score: (retainedHospitalIds.length / prevHospitalIds.length) * 100,
     reason: null,
     detail: {
-      previousHospitalCount: prevHospitals.length,
+      previousHospitalCount: prevHospitalIds.length,
       retainedHospitalCount: retainedHospitalIds.length,
       retainedHospitalIds,
       previousPeriod: previousPeriod(period),
@@ -294,12 +350,12 @@ export async function computeConsistency(
   const { year: endYear, month: endMonth } = lastMonthOfPeriod(period);
   const trailing = trailingMonths(endYear, endMonth, settings.minMonthsForConsistency);
 
-  const sums = await prisma.salesLine.groupBy({
-    by: ["year", "month"],
-    where: { salespersonId, OR: monthsWhereOr(trailing) },
-    _sum: { total: true },
-  });
-  const sumMap = new Map(sums.map((s) => [monthKey(s), Number(s._sum.total ?? 0)]));
+  const creditedLines = await getCreditedSalesLinesInMonths(salespersonId, trailing);
+  const sumMap = new Map<string, number>();
+  for (const l of creditedLines) {
+    const key = monthKey(l);
+    sumMap.set(key, (sumMap.get(key) ?? 0) + l.creditedTotal);
+  }
   const monthlyValues = trailing.map((m) => sumMap.get(monthKey(m)) ?? 0);
 
   const mean = monthlyValues.reduce((a, b) => a + b, 0) / monthlyValues.length;
@@ -404,53 +460,34 @@ export async function computeSupplementaryKpis(
 ): Promise<SupplementaryKpis> {
   const months = monthsInPeriod(period);
   const periodEnd = lastMonthOfPeriod(period);
+  const trailing12 = trailingMonths(periodEnd.year, periodEnd.month, 12);
 
-  const [activeHospitals, revenueByHospitalGroups, penetrationLines, trendSums] = await Promise.all([
-    prisma.salesLine.findMany({
-      where: { salespersonId, OR: monthsWhereOr(months) },
-      select: { hospitalId: true },
-      distinct: ["hospitalId"],
-    }),
-    prisma.salesLine.groupBy({
-      by: ["hospitalId"],
-      where: { salespersonId, OR: monthsWhereOr(months) },
-      _sum: { total: true },
-    }),
-    prisma.salesLine.findMany({
-      where: { salespersonId, OR: monthsWhereOr(months) },
-      select: {
-        hospitalId: true,
-        productTypeId: true,
-        total: true,
-        productType: { select: { name: true } },
-      },
-    }),
-    prisma.salesLine.groupBy({
-      by: ["year", "month"],
-      where: { salespersonId, OR: monthsWhereOr(trailingMonths(periodEnd.year, periodEnd.month, 12)) },
-      _sum: { total: true },
-    }),
+  const [periodCreditedLines, trendCreditedLines] = await Promise.all([
+    getCreditedSalesLinesInMonths(salespersonId, months),
+    getCreditedSalesLinesInMonths(salespersonId, trailing12),
   ]);
 
-  const activeCustomers = {
-    count: activeHospitals.length,
-    hospitalIds: activeHospitals.map((h) => h.hospitalId),
-  };
+  const activeHospitalIds = [...new Set(periodCreditedLines.map((l) => l.hospitalId))];
+  const activeCustomers = { count: activeHospitalIds.length, hospitalIds: activeHospitalIds };
 
-  const churnedCustomers = await computeChurnedCustomers(salespersonId, periodEnd, settings.churnMonths, activeCustomers.hospitalIds);
+  const churnedCustomers = await computeChurnedCustomers(salespersonId, periodEnd, settings.churnMonths, activeHospitalIds);
 
   const distinctProductTypesByHospital = new Map<string, Set<string>>();
-  const revenueByProductType = new Map<string, { name: string; revenue: number }>();
-  for (const line of penetrationLines) {
+  const revenueByProductTypeId = new Map<string, number>();
+  for (const line of periodCreditedLines) {
     const set = distinctProductTypesByHospital.get(line.hospitalId) ?? new Set<string>();
     set.add(line.productTypeId);
     distinctProductTypesByHospital.set(line.hospitalId, set);
 
-    const entry = revenueByProductType.get(line.productTypeId) ?? { name: line.productType.name, revenue: 0 };
-    entry.revenue += Number(line.total);
-    revenueByProductType.set(line.productTypeId, entry);
+    revenueByProductTypeId.set(line.productTypeId, (revenueByProductTypeId.get(line.productTypeId) ?? 0) + line.creditedTotal);
   }
-  const totalRevenueForPenetration = [...revenueByProductType.values()].reduce((sum, r) => sum + r.revenue, 0);
+  const productTypeNames = await prisma.productType.findMany({
+    where: { id: { in: [...revenueByProductTypeId.keys()] } },
+    select: { id: true, name: true },
+  });
+  const productTypeNameById = new Map(productTypeNames.map((p) => [p.id, p.name]));
+
+  const totalRevenueForPenetration = [...revenueByProductTypeId.values()].reduce((sum, r) => sum + r, 0);
   const avgDistinctProductTypesPerCustomer =
     distinctProductTypesByHospital.size === 0
       ? 0
@@ -459,33 +496,38 @@ export async function computeSupplementaryKpis(
 
   const productPenetration = {
     avgDistinctProductTypesPerCustomer,
-    productTypeGroupsSold: [...revenueByProductType.entries()].map(([productTypeId, { name, revenue }]) => ({
+    productTypeGroupsSold: [...revenueByProductTypeId.entries()].map(([productTypeId, revenue]) => ({
       productTypeId,
-      name,
+      name: productTypeNameById.get(productTypeId) ?? productTypeId,
       revenueShare: totalRevenueForPenetration > 0 ? (revenue / totalRevenueForPenetration) * 100 : 0,
     })),
   };
 
+  const revenueByHospitalId = new Map<string, number>();
+  for (const line of periodCreditedLines) {
+    revenueByHospitalId.set(line.hospitalId, (revenueByHospitalId.get(line.hospitalId) ?? 0) + line.creditedTotal);
+  }
   const hospitalNames = await prisma.hospital.findMany({
-    where: { id: { in: revenueByHospitalGroups.map((g) => g.hospitalId) } },
+    where: { id: { in: [...revenueByHospitalId.keys()] } },
     select: { id: true, displayName: true },
   });
   const hospitalNameById = new Map(hospitalNames.map((h) => [h.id, h.displayName]));
-  const totalRevenue = revenueByHospitalGroups.reduce((sum, g) => sum + Number(g._sum.total ?? 0), 0);
-  const revenueShareByHospital = revenueByHospitalGroups
-    .map((g) => {
-      const revenue = Number(g._sum.total ?? 0);
-      return {
-        hospitalId: g.hospitalId,
-        hospitalName: hospitalNameById.get(g.hospitalId) ?? g.hospitalId,
-        revenue,
-        sharePercent: totalRevenue > 0 ? (revenue / totalRevenue) * 100 : 0,
-      };
-    })
+  const totalRevenue = [...revenueByHospitalId.values()].reduce((sum, r) => sum + r, 0);
+  const revenueShareByHospital = [...revenueByHospitalId.entries()]
+    .map(([hospitalId, revenue]) => ({
+      hospitalId,
+      hospitalName: hospitalNameById.get(hospitalId) ?? hospitalId,
+      revenue,
+      sharePercent: totalRevenue > 0 ? (revenue / totalRevenue) * 100 : 0,
+    }))
     .sort((a, b) => b.revenue - a.revenue);
 
-  const trendSumMap = new Map(trendSums.map((s) => [monthKey(s), Number(s._sum.total ?? 0)]));
-  const monthlyRevenueTrend = trailingMonths(periodEnd.year, periodEnd.month, 12).map((m) => ({
+  const trendSumMap = new Map<string, number>();
+  for (const l of trendCreditedLines) {
+    const key = monthKey(l);
+    trendSumMap.set(key, (trendSumMap.get(key) ?? 0) + l.creditedTotal);
+  }
+  const monthlyRevenueTrend = trailing12.map((m) => ({
     year: m.year,
     month: m.month,
     revenue: trendSumMap.get(monthKey(m)) ?? 0,
@@ -502,12 +544,8 @@ async function computeChurnedCustomers(
 ) {
   const activeSet = new Set(activeHospitalIdsInPeriod);
 
-  const linesUpToPeriodEnd = await prisma.salesLine.findMany({
-    where: {
-      salespersonId,
-      OR: [{ year: { lt: periodEnd.year } }, { year: periodEnd.year, month: { lte: periodEnd.month } }],
-    },
-    select: { hospitalId: true, year: true, month: true },
+  const linesUpToPeriodEnd = await getCreditedSalesLines(salespersonId, {
+    OR: [{ year: { lt: periodEnd.year } }, { year: periodEnd.year, month: { lte: periodEnd.month } }],
   });
 
   const lastOrderByHospital = new Map<string, YearMonth>();
@@ -549,7 +587,7 @@ export async function getScoredMetricDrillDown(salespersonId: string, metric: Kp
 
   if (metric === "REVENUE_VS_TARGET") {
     const salesLines = await prisma.salesLine.findMany({
-      where: { salespersonId, OR: monthsWhereOr(months) },
+      where: { ...creditedToSalesperson(salespersonId), OR: monthsWhereOr(months) },
       include: { hospital: { select: { displayName: true } }, product: { select: { name: true } } },
       orderBy: [{ year: "asc" }, { month: "asc" }, { invoiceDate: "asc" }],
     });
@@ -559,7 +597,7 @@ export async function getScoredMetricDrillDown(salespersonId: string, metric: Kp
   if (metric === "NEW_CUSTOMERS") {
     const creditedLines = await getNewCustomerCreditedLines(salespersonId, period);
     const salesLines = await prisma.salesLine.findMany({
-      where: { id: { in: creditedLines.map((l) => l.id) } },
+      where: { id: { in: creditedLines.map((l) => l.salesLineId) } },
       include: { hospital: { select: { displayName: true } }, product: { select: { name: true } } },
     });
     return { metric, salesLines };
@@ -572,7 +610,7 @@ export async function getScoredMetricDrillDown(salespersonId: string, metric: Kp
     });
     const productTypeIds = [...new Set(targetGroups.map((g) => g.productTypeId))];
     const salesLines = await prisma.salesLine.findMany({
-      where: { salespersonId, productTypeId: { in: productTypeIds }, OR: monthsWhereOr(months) },
+      where: { ...creditedToSalesperson(salespersonId), productTypeId: { in: productTypeIds }, OR: monthsWhereOr(months) },
       include: { hospital: { select: { displayName: true } }, product: { select: { name: true } }, productType: true },
       orderBy: [{ productTypeId: "asc" }, { year: "asc" }, { month: "asc" }],
     });
@@ -587,7 +625,7 @@ export async function getScoredMetricDrillDown(salespersonId: string, metric: Kp
     const prevMonths = monthsInPeriod(previousPeriod(period));
     const salesLines = await prisma.salesLine.findMany({
       where: {
-        salespersonId,
+        ...creditedToSalesperson(salespersonId),
         hospitalId: { in: retainedHospitalIds },
         OR: [...monthsWhereOr(months), ...monthsWhereOr(prevMonths)],
       },
@@ -602,7 +640,7 @@ export async function getScoredMetricDrillDown(salespersonId: string, metric: Kp
   const { year: endYear, month: endMonth } = lastMonthOfPeriod(period);
   const trailing = trailingMonths(endYear, endMonth, settings.minMonthsForConsistency);
   const salesLines = await prisma.salesLine.findMany({
-    where: { salespersonId, OR: monthsWhereOr(trailing) },
+    where: { ...creditedToSalesperson(salespersonId), OR: monthsWhereOr(trailing) },
     include: { hospital: { select: { displayName: true } } },
     orderBy: [{ year: "asc" }, { month: "asc" }],
   });
@@ -628,7 +666,7 @@ export async function getSupplementaryDrillDown(
   if (metric === "MONTHLY_TREND") {
     const trailing = trailingMonths(periodEnd.year, periodEnd.month, 12);
     const salesLines = await prisma.salesLine.findMany({
-      where: { salespersonId, OR: monthsWhereOr(trailing) },
+      where: { ...creditedToSalesperson(salespersonId), OR: monthsWhereOr(trailing) },
       include: { hospital: { select: { displayName: true } } },
       orderBy: [{ year: "asc" }, { month: "asc" }],
     });
@@ -639,7 +677,7 @@ export async function getSupplementaryDrillDown(
     const settings = await getEvaluationSettings();
     const linesUpToPeriodEnd = await prisma.salesLine.findMany({
       where: {
-        salespersonId,
+        ...creditedToSalesperson(salespersonId),
         ...(hospitalId ? { hospitalId } : {}),
         OR: [{ year: { lt: periodEnd.year } }, { year: periodEnd.year, month: { lte: periodEnd.month } }],
       },
@@ -651,7 +689,7 @@ export async function getSupplementaryDrillDown(
 
   // ACTIVE_CUSTOMERS, PRODUCT_PENETRATION, REVENUE_BY_HOSPITAL all reduce to the period's sales lines
   const salesLines = await prisma.salesLine.findMany({
-    where: { salespersonId, OR: monthsWhereOr(months), ...(hospitalId ? { hospitalId } : {}) },
+    where: { ...creditedToSalesperson(salespersonId), OR: monthsWhereOr(months), ...(hospitalId ? { hospitalId } : {}) },
     include: {
       hospital: { select: { displayName: true } },
       product: { select: { name: true } },

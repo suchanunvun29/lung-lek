@@ -74,12 +74,9 @@ export default function DashboardPage() {
 
   const revenueMetric = kpi?.composite.metrics.find((m) => m.metric === "REVENUE_VS_TARGET");
 
-  // A SALESPERSON may only generate/regenerate their own coaching insight — matches the
-  // permission the backend actually enforces in coachingInsight.controller.ts. MANAGER can
-  // generate for anyone.
-  const ownSalespersonId = salespeople.find((sp) => sp.user?.id === currentUser?.id)?.id;
-  const canGenerateInsight =
-    currentUser?.role === "MANAGER" || (!!ownSalespersonId && ownSalespersonId === salespersonId);
+  // Only a MANAGER may generate/regenerate a coaching insight — matches the permission the
+  // backend enforces in coachingInsight.controller.ts.
+  const canGenerateInsight = currentUser?.role === "MANAGER";
 
   return (
     <div className="mx-auto max-w-5xl p-4 sm:p-6">

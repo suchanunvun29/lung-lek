@@ -1,6 +1,13 @@
 import ExcelJS, { Row, Worksheet } from "exceljs";
 import { ImportIssueLevel, ImportStatus, Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
+import {
+  assertSharesSumTo100,
+  buildHospitalIndex,
+  buildSalespersonIndex,
+  resolveHospitalViaAlias,
+  resolveSalesmanCredits,
+} from "./creditResolution.service";
 
 const MAX_HEADER_SEARCH_ROWS = 10;
 const TOTAL_MISMATCH_TOLERANCE = 0.05;
@@ -65,7 +72,7 @@ type ColumnMap = Record<ColumnKey, number>;
 interface ParsedRow {
   rowNumber: number;
   hospitalName: string;
-  salesmanName: string;
+  salesmanRaw: string;
   invoiceDate: Date;
   year: number;
   month: number;
@@ -206,7 +213,7 @@ function parseDataRow(
   const get = (key: ColumnKey) => row.getCell(columnMap[key]).value;
 
   const hospitalName = cellToTrimmedString(get("hospitalName"));
-  const salesmanName = cellToTrimmedString(get("salesman"));
+  const salesmanRaw = cellToTrimmedString(get("salesman"));
   const invoiceNo = cellToTrimmedString(get("invNo"));
   const productName = cellToTrimmedString(get("productName"));
   const productTypeName = cellToTrimmedString(get("productType"));
@@ -215,7 +222,7 @@ function parseDataRow(
 
   const missingFields: string[] = [];
   if (!hospitalName) missingFields.push("Hospital Name");
-  if (!salesmanName) missingFields.push("Salesman");
+  if (!salesmanRaw) missingFields.push("Salesman");
   if (!invoiceNo) missingFields.push("Inv No.");
   if (!productName) missingFields.push("Product Name");
   if (!productTypeName) missingFields.push("Product type");
@@ -304,7 +311,7 @@ function parseDataRow(
     data: {
       rowNumber,
       hospitalName,
-      salesmanName,
+      salesmanRaw,
       invoiceDate,
       year,
       month,
@@ -327,86 +334,6 @@ function parseDataRow(
 }
 
 type TxClient = Prisma.TransactionClient;
-
-interface HospitalCacheEntry {
-  id: string;
-  province: string | null;
-}
-
-async function resolveHospital(
-  tx: TxClient,
-  cache: Map<string, HospitalCacheEntry>,
-  name: string,
-  province: string | null,
-  issues: IssueInput[],
-  sheetName: string,
-  rowNumber: number
-): Promise<string> {
-  const cacheKey = name.toLowerCase();
-  const cached = cache.get(cacheKey);
-  if (cached) {
-    if (province && province !== cached.province) {
-      await tx.hospital.update({ where: { id: cached.id }, data: { province } });
-      cached.province = province;
-    }
-    return cached.id;
-  }
-
-  let hospital = await tx.hospital.findFirst({ where: { nameInFile: { equals: name, mode: "insensitive" } } });
-  let isNew = false;
-  if (!hospital) {
-    hospital = await tx.hospital.create({
-      data: { nameInFile: name, displayName: name, province, isPreExistingCustomer: false },
-    });
-    isNew = true;
-  } else if (province && province !== hospital.province) {
-    hospital = await tx.hospital.update({ where: { id: hospital.id }, data: { province } });
-  }
-
-  cache.set(cacheKey, { id: hospital.id, province: hospital.province });
-  if (isNew) {
-    issues.push({
-      level: "WARNING",
-      code: "NEW_HOSPITAL",
-      sheetName,
-      rowNumber,
-      message: `สร้างโรงพยาบาลใหม่: ${name}`,
-    });
-  }
-  return hospital.id;
-}
-
-async function resolveSalesperson(
-  tx: TxClient,
-  cache: Map<string, string>,
-  name: string,
-  issues: IssueInput[],
-  sheetName: string,
-  rowNumber: number
-): Promise<string> {
-  const cacheKey = name.toLowerCase();
-  const cached = cache.get(cacheKey);
-  if (cached) return cached;
-
-  let salesperson = await tx.salesperson.findFirst({ where: { nameInFile: { equals: name, mode: "insensitive" } } });
-  let isNew = false;
-  if (!salesperson) {
-    salesperson = await tx.salesperson.create({ data: { nameInFile: name, displayName: name } });
-    isNew = true;
-  }
-
-  cache.set(cacheKey, salesperson.id);
-  if (isNew) {
-    issues.push({
-      level: "WARNING",
-      code: "UNKNOWN_SALESMAN",
-      sheetName,
-      rowNumber,
-      message: `สร้างพนักงานขายใหม่: ${name}`,
-    });
-  }
-  return salesperson.id;
-}
 
 async function resolveProductType(tx: TxClient, cache: Map<string, string>, name: string): Promise<string> {
   const cacheKey = name.toLowerCase();
@@ -561,6 +488,8 @@ export async function importSalesFile({ fileBuffer, fileName, fileSizeBytes, upl
       parsedRows.push(data);
     }
 
+    let creditErrorRows = 0;
+
     ({ insertedRows, updatedRows, periodsTouched } = await prisma.$transaction(
       async (tx) => {
         const [{ locked }] = await tx.$queryRaw<{ locked: boolean }[]>`
@@ -570,41 +499,49 @@ export async function importSalesFile({ fileBuffer, fileName, fileSizeBytes, upl
           throw new Error("มีการนำเข้าไฟล์อื่นกำลังดำเนินการอยู่ กรุณารอให้เสร็จก่อนแล้วลองใหม่อีกครั้ง");
         }
 
-        const hospitalCache = new Map<string, HospitalCacheEntry>();
-        const salespersonCache = new Map<string, string>();
+        const hospitalIndex = await buildHospitalIndex(tx);
+        const salespersonIndex = await buildSalespersonIndex(tx);
         const productTypeCache = new Map<string, string>();
         const productCache = new Map<string, string>();
         const periodsTouchedSet = new Set<string>();
 
         const rowKeys = parsedRows.map((row) => row.rowKey);
         const existingRows = rowKeys.length
-          ? await tx.salesLine.findMany({ where: { rowKey: { in: rowKeys } }, select: { rowKey: true } })
+          ? await tx.salesLine.findMany({ where: { rowKey: { in: rowKeys } }, select: { id: true, rowKey: true } })
           : [];
-        const existingRowKeys = new Set(existingRows.map((row) => row.rowKey));
+        const existingSalesLineByRowKey = new Map(existingRows.map((row) => [row.rowKey, row.id]));
 
         let inserted = 0;
         let updated = 0;
 
         for (const row of parsedRows) {
-          const hospitalId = await resolveHospital(
+          const credits = await resolveSalesmanCredits(
             tx,
-            hospitalCache,
+            salespersonIndex,
+            row.salesmanRaw,
+            issues,
+            firstSheet.name,
+            row.rowNumber
+          );
+          if (!credits) {
+            creditErrorRows++;
+            continue;
+          }
+          assertSharesSumTo100(credits);
+
+          const hospitalId = await resolveHospitalViaAlias(
+            tx,
+            hospitalIndex,
             row.hospitalName,
             row.province,
             issues,
             firstSheet.name,
             row.rowNumber
           );
-          const salespersonId = await resolveSalesperson(
-            tx,
-            salespersonCache,
-            row.salesmanName,
-            issues,
-            firstSheet.name,
-            row.rowNumber
-          );
           const productTypeId = await resolveProductType(tx, productTypeCache, row.productTypeName);
           const productId = await resolveProduct(tx, productCache, row.productName, productTypeId);
+
+          const primaryCredit = credits.find((c) => c.isPrimary) ?? credits[0];
 
           const salesLineData = {
             invoiceNo: row.invoiceNo,
@@ -613,7 +550,7 @@ export async function importSalesFile({ fileBuffer, fileName, fileSizeBytes, upl
             year: row.year,
             month: row.month,
             hospitalId,
-            salespersonId,
+            salespersonId: primaryCredit.salespersonId,
             productId,
             productTypeId,
             lot: row.lot,
@@ -629,13 +566,28 @@ export async function importSalesFile({ fileBuffer, fileName, fileSizeBytes, upl
             importBatchId: batch.id,
           };
 
-          if (existingRowKeys.has(row.rowKey)) {
-            await tx.salesLine.update({ where: { rowKey: row.rowKey }, data: salesLineData });
+          let salesLineId: string;
+          const existingId = existingSalesLineByRowKey.get(row.rowKey);
+          if (existingId) {
+            await tx.salesLine.update({ where: { id: existingId }, data: salesLineData });
+            await tx.salesLineCredit.deleteMany({ where: { salesLineId: existingId } });
+            salesLineId = existingId;
             updated++;
           } else {
-            await tx.salesLine.create({ data: { ...salesLineData, rowKey: row.rowKey } });
+            const created = await tx.salesLine.create({ data: { ...salesLineData, rowKey: row.rowKey } });
+            salesLineId = created.id;
             inserted++;
           }
+
+          await tx.salesLineCredit.createMany({
+            data: credits.map((credit) => ({
+              salesLineId,
+              salespersonId: credit.salespersonId,
+              sharePercent: credit.sharePercent,
+              isPrimary: credit.isPrimary,
+            })),
+          });
+
           periodsTouchedSet.add(periodKey(row.year, row.month));
         }
 
@@ -643,6 +595,8 @@ export async function importSalesFile({ fileBuffer, fileName, fileSizeBytes, upl
       },
       { timeout: IMPORT_TRANSACTION_TIMEOUT_MS, maxWait: IMPORT_TRANSACTION_MAX_WAIT_MS }
     ));
+
+    errorRows += creditErrorRows;
 
     const status = determineStatus(totalRows, errorRows, insertedRows, updatedRows);
     const periodsTouchedArray = [...periodsTouched].map((key) => {

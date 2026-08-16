@@ -10,7 +10,7 @@ const router = Router();
 
 // Reading a coaching insight is open to everyone, same "auth gates actions, not visibility"
 // pattern as /kpi and /targets. Generating one is gated inside the controller instead of here:
-// MANAGER can generate for anyone, SALESPERSON only for their own linked record.
+// MANAGER-only, per requirement.md's 2026-08-16 decision.
 router.use(authenticate, requirePasswordChanged);
 
 router.get(

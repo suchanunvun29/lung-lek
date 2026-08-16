@@ -97,9 +97,9 @@ export default function IndividualReportPage() {
   const revenueMetric = report?.composite.metrics.find((m) => m.metric === "REVENUE_VS_TARGET");
   const previousMetricByKey = new Map(report?.previousComposite.metrics.map((m) => [m.metric, m]) ?? []);
 
-  const ownSalespersonId = salespeople.find((sp) => sp.user?.id === currentUser?.id)?.id;
-  const canGenerateInsight =
-    currentUser?.role === "MANAGER" || (!!ownSalespersonId && ownSalespersonId === salespersonId);
+  // Only a MANAGER may generate/regenerate a coaching insight — matches the permission the
+  // backend enforces in coachingInsight.controller.ts.
+  const canGenerateInsight = currentUser?.role === "MANAGER";
 
   return (
     <div className="mx-auto max-w-5xl p-4 sm:p-6">
