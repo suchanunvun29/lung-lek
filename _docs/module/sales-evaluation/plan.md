@@ -10,6 +10,8 @@
 
 **เพิ่ม 2026-08-16 — ขยายแผนด้วย Phase 8–10 (Module J/K/L)**: หลังจาก Phase 1–7 verified แล้ว `design.md`/`requirement.md` เพิ่มขอบเขตใหญ่ (แบ่งเครดิตดีล, ทะเบียนโรงพยาบาล/พื้นที่รับผิดชอบ, ตัวช่วยตั้งเป้า) ลำดับ **J → K → L ถูกล็อกโดย `system-analyst` ห้ามสลับ** เพราะ K ต้องใช้ชื่อที่สะอาดแล้วจาก J และ L ต้องใช้ทั้งพื้นที่จาก K และ Target ที่มีอยู่แล้วจาก Module D — ไม่มีการทำขนานกันระหว่าง J/K/L เหมือนที่ F/G เคยทำได้ **จุดที่ต้องระวังที่สุดคือ Module J เปลี่ยนสัญญาของ query การรวมยอดรายคนที่ Phase 4–7 ถูกสร้างและตรวจผ่านไปแล้ว** (`SalesLine.salespersonId` → `SalesLineCredit`) จึงต้องแก้ endpoint/service ของ Phase 4–7 เป็นส่วนหนึ่งของ Phase 8 เอง และให้ `qa-engineer` ตรวจตัวเลข Phase 4–7 ซ้ำทั้งหมดหลัง Phase 8 เสร็จ — ไม่ใช่งาน cleanup ที่ข้ามได้ ดู Sequencing Notes Module I (Cross-sell) ยังไม่อยู่ในแผนนี้เช่นเดิม เพราะยังรอข้อมูลสะสม
 
+**เพิ่ม 2026-08-17 — ขยายแผนด้วย Phase 11–16 (Module M/N/O/P) หลัง `system-analyst` เพิ่มโครงสร้างเขต (Territory) + รายงาน 3 ตัว**: `design.md` ล็อกลำดับใหม่ **J → M → (N, P1, O ส่วนที่ 2) → K → (L, P2)** — **ผู้ใช้เลือกให้ Module M เริ่มขนานไปกับงานที่เหลือของ J (หน้าจอ/QA ของ Phase 8 ที่ยังค้างอยู่) แทนการรอ J ปิดรอบให้จบก่อน** (design.md การตัดสินใจแถวที่ 20 / Risks ข้อ 26) — Phase 12 (Module M) จึงเริ่มได้ทันที ไม่ต้องรอ Phase 8 verified เพียงแต่ backend ของ J (`SalesLineCredit`/`creditResolution.service.ts`) ต้องมีอยู่แล้วซึ่งมีอยู่แล้วจริง มีข้อยกเว้นหนึ่งเดียวคือ Module O ส่วนที่ 1 (ทะเบียนสินค้า) ที่ไม่ขึ้นกับเขตเลยและเริ่มขนานกับ M ได้ตั้งแต่วันแรกเช่นกัน (จัดเป็น Phase 11 นำหน้า M) **จุดที่ต้องระวังที่สุดของรอบนี้คือ `Target.salespersonId` เปลี่ยนเป็น nullable + เพิ่ม `scope`** ซึ่งทำลายสัญญาของ query ที่ Phase 3/4 verified ไปแล้ว (รูปแบบเดียวกับที่ `SalesLineCredit` เคยบังคับ Phase 4–7 ให้ตรวจซ้ำ) — งานแก้ query ของ Phase 3/4 เป็นส่วนหนึ่งของ Phase 12 (Module M) เอง และ `qa-engineer` ต้องตรวจ Phase 3/4 ซ้ำแบบ TARGETED หลัง Phase 12 เสร็จ **Phase 9 (Module K) และ Phase 10 (Module L) ที่เขียนไว้ก่อนรอบนี้ ยังคงเลขเฟสเดิมในไฟล์นี้ แต่ลำดับการ implement จริงต้องขยับไปอยู่หลัง Phase 15** (ดู Sequencing Notes) — ห้ามเริ่ม Phase 9 ก่อน Phase 12–15 เสร็จ แม้เลขเฟสจะน้อยกว่าก็ตาม
+
 ## Phase 0: Scaffold (ไม่ใช่ frontend/backend engineer)
 - [ ] [setup] รัน `setup` agent เพื่อสร้างโครงโปรเจกต์: Next.js App Router ใน `web/`, Express + TypeScript ใน `api/`, Prisma + PostgreSQL, `.env`/`.env.example`, `.gitignore`
 - [ ] [setup] เขียน `prisma/schema.prisma` ตาม Data Model ใน `design.md` ทั้งหมด (17 models / 8 enums) แล้วรัน migration แรก
@@ -191,6 +193,98 @@
 - [ ] [frontend] ขยายหน้าตั้งค่าคงที่ของการประเมิน (จาก Phase 4) ให้มี 6 ฟิลด์ใหม่: `potentialMetric`, `minRegionCoverage`, `targetSuggestionAlpha`, `targetLookbackMonths`, `targetOutlierThreshold`, `targetGrowthRate`
 - [ ] [frontend] ป้ายกำกับบังคับบนทุกหน้าที่โชว์ศักยภาพ/penetration: "คำนวณจากโรงพยาบาลที่จับคู่ทะเบียนได้ X% ของยอดขาย" และข้อความเฉพาะของ กทม. ตามข้อ 7 — ห้ามแสดงเลข 0 เฉย ๆ
 
+## Phase 11: ทะเบียนสินค้า (Module O ส่วนที่ 1 — Product Master)
+
+ไม่ขึ้นกับเขตเลย เริ่มขนานไปกับ Phase 12 (Module M) ได้ตั้งแต่วันแรก — ดู Sequencing Notes
+
+- [ ] [backend] Migration: ขยาย `Product` (`code` nullable unique, `displayName` nullable, `source` เพิ่ม enum `ProductSource` default `SALES_HISTORY`, `isActive` default true) + โมเดล `ProductAlias` (`normalizedKey` unique, `sampleRaw`, `productId`, `source: NameDecisionSource`, `decidedById`, `decidedAt`) + back-relation บน `User` (`productAliases`) ลง `schema.prisma` ตาม Data Model — ไม่ต้อง backfill ข้อมูลเพราะ `Product` มีอยู่แล้วครบและทุกคอลัมน์มี default
+- [ ] [backend] Seed script: สร้าง `ProductAlias` 1 แถวต่อ `Product` ที่มีอยู่แล้วทุกแถว โดย `normalizedKey = latinCore(product.name)` (reuse `nameNormalizer.util.ts` ของ Module J ห้ามเขียน normalizer ตัวที่สอง), `sampleRaw = product.name`, `source = AUTO`
+- [ ] [backend] แก้ import service: resolve ชื่อสินค้าผ่าน `ProductAlias` ก่อนเสมอเมื่อ auto-create/lookup `Product` จากคอลัมน์ `Product Name` — ชื่อใหม่ที่ไม่เจอใน alias สร้าง `Product`(`source = SALES_HISTORY`) + `ProductAlias`(`source = AUTO`) ใหม่ให้อัตโนมัติ (ยังไม่ต้องมีคิวถามผู้จัดการ — `ProductNameReview` เลื่อนไปเป็นระยะ 2 ตาม Product Master & Ranking Rules ข้อ 2 ห้าม implement ล่วงหน้า)
+- [ ] [backend] Endpoint `GET /products` — list ทะเบียนสินค้า (code/displayName/name/productType/source/isActive)
+- [ ] [backend] Endpoint `PATCH /products/:id` (MANAGER เท่านั้น) — แก้ `code`/`displayName`/`isActive`
+- [ ] [backend] Zod schema สำหรับ body ของ `PATCH /products/:id`
+- [ ] [frontend] หน้าทะเบียนสินค้า — ตาราง code (แสดง **"—"** พร้อม tooltip คำเตือนเมื่อ `code = null` ห้ามแสดงช่องว่างเปล่าหรือเอา `id` มาแทน) / ชื่อ / กลุ่มสินค้า / ที่มา (`SALES_HISTORY`/`CATALOG`) / สถานะ, ฟอร์มแก้ไข (MANAGER เท่านั้น)
+
+## Phase 12: โครงสร้างเขต (Territory) และเป้าระดับเขต (Module M) 🔒 Security gate
+
+**เป็น blocker ของ Phase 13–15 ทั้งหมด — ต้องเสร็จก่อนเริ่มเฟสถัดไป** ดู Sequencing Notes สำหรับเหตุผลที่เริ่มได้ทันทีแบบขนานกับงานค้างของ Phase 8
+
+- [ ] [backend] Migration: เพิ่ม `Territory` (`name` unique, `code` unique nullable, `regionId` nullable — ป้ายอ้างอิงเท่านั้น ห้ามใช้แทน `Region` ในสูตรศักยภาพ, `sortOrder`, `isActive`, `note`), enum `TerritoryRole` (`OWNER`/`SUPERVISOR`), `TerritoryAssignment` **นิยามใหม่** (`territoryId`, `salespersonId`, `role`, `effectiveFrom`, `effectiveTo`, `assignedById`, `note`, `@@unique([territoryId, salespersonId, effectiveFrom])`), enum `TerritoryLinkSource` (`INFERRED`/`MANUAL`), `HospitalTerritoryChange` (audit อย่างเดียว ไม่มี relation ออก) ลง `schema.prisma` — **ห้ามสร้าง `TerritoryAssignment` แบบเดิมที่ Phase 9 เขียนไว้ก่อนหน้านี้ นี่คือของจริงตัวเดียวที่ implement** ดู Sequencing Notes
+- [ ] [backend] Seed script: `Region` 5 แถว (เหนือ/อีสาน/กลาง/ใต้/กทม.) — ย้ายมาจาก Module K ตามที่ `design.md` ระบุ (ต้องมีก่อน `Territory.regionId` อ้างถึงได้)
+- [ ] [backend] เพิ่มคอลัมน์ `Hospital.territoryId`/`territorySource` (default `INFERRED`) + back-relation `territoryAssignments` — **ยังไม่เพิ่มคอลัมน์เดียวกันบน `HospitalRegistry` ตอนนี้เพราะโมเดลนั้นยังไม่ถูกสร้าง (รอ Phase 9/Module K) — เพิ่มพร้อมกับตอนสร้าง `HospitalRegistry` แทน**
+- [ ] [backend] เพิ่มคอลัมน์ `Salesperson.excludedFromTerritoryTotals` (default false) / `employmentEndedAt` (nullable) + back-relation `territoryAssignments` — ตั้ง `excludedFromTerritoryTotals = true` ให้ Mr.Sathit เพียงคนเดียวผ่านข้อมูล ห้าม hardcode logic ตามชื่อในโค้ด
+- [ ] [backend] เพิ่ม back-relation `territoryAssignmentsMade` บน `User`
+- [ ] [backend] **Target re-scope**: เพิ่ม enum `TargetScope` (`TERRITORY`/`SALESPERSON`), เพิ่ม `Target.scope` (default `SALESPERSON` — ทำให้แถวเดิมย้ายมาได้โดยไม่ backfill), `Target.territoryId` (nullable, relation ไป `Territory`), เปลี่ยน `Target.salespersonId` เป็น nullable, เพิ่ม `@@unique([territoryId, year, month])` คู่กับ `@@unique([salespersonId, year, month])` เดิม — `TargetProductGroup`/`TargetRevision` ไม่เปลี่ยนโครงสร้าง
+- [ ] [backend] **ตรวจและแก้ทุก query/validator ของ Phase 3 ที่สมมติว่า `Target.salespersonId` ไม่เป็น null**: `GET /targets`, `PUT /targets/:salespersonId/:year/:month`, `PUT /targets/:targetId/product-groups`, `POST /targets/copy`, `GET /targets/:targetId/revisions` + Zod validators ที่เกี่ยวข้อง — ทุกจุดที่อ่าน `Target` ต้องระบุ `scope` เสมอ ห้าม query แบบไม่กรอง scope (Risks ข้อ 21)
+- [ ] [backend] **ตรวจและแก้ทุกจุดใน `kpi.service.ts` (Phase 4) ที่อ่าน `Target.revenueTarget`/`newCustomerTarget`/`TargetProductGroup` เพื่อคำนวณ `REVENUE_VS_TARGET`/`PRODUCT_GROUP` รายคน** ให้ระบุ `scope = SALESPERSON` explicit เสมอ ไม่ให้หลุดไปอ่านแถว `scope = TERRITORY` ปนกัน
+- [ ] [backend] เขียน assertion/guard: ทุกแถว `Target` มี `territoryId` หรือ `salespersonId` อย่างใดอย่างหนึ่งเท่านั้น (XOR) และต้องตรงกับ `scope` — บังคับในโค้ด Zod validator ของทุก endpoint ที่เขียน `Target`
+- [ ] [backend] สคริปต์ bootstrap เขตให้โรงพยาบาล 141 แห่งตาม Territory KPI Rules ข้อ 9: หา salesperson ที่มียอด `SalesLineCredit` สูงสุดต่อโรงพยาบาล (ไม่รวมคนที่ `excludedFromTerritoryTotals = true`) → ถ้ามี `TerritoryAssignment` ACTIVE เขตเดียว ตั้ง `territoryId`/`territorySource = INFERRED` ให้ทันที → ถ้าดูแลหลายเขต หรืออันดับ 2 ได้ยอด ≥30% ของอันดับ 1 ปล่อย `territoryId = null` และตีธงให้ผู้จัดการตัดสิน (ห้ามเลือกให้เอง) — สคริปต์ต้อง idempotent รันซ้ำได้
+- [ ] [backend] Endpoint `POST /territories` และ `PATCH /territories/:id` (MANAGER เท่านั้น) — สร้าง/แก้เขต (`name`/`code`/`regionId`/`isActive`/`note`)
+- [ ] [backend] Endpoint `GET /territories` — list เขตทั้งหมดพร้อมจำนวนผู้ดูแลปัจจุบันและจำนวนโรงพยาบาลที่สังกัด
+- [ ] [backend] Endpoint `GET /territory-assignments` — list, filter ตามเขต/พนักงานขาย/สถานะ (ACTIVE = `effectiveTo IS NULL หรือ ≥ วันนี้`)
+- [ ] [backend] Endpoint `PUT /territory-assignments` (MANAGER เท่านั้น) 🔒 — มอบ/ถอนผู้ดูแลเขต: สร้างแถวใหม่ (`source = MANUAL`, `effectiveFrom`) และปิดแถวเดิมด้วย `effectiveTo` เมื่อถอน — ไม่มีตารางประวัติแยก
+- [ ] [backend] Endpoint `PATCH /hospitals/:id/territory` (MANAGER เท่านั้น) — ย้ายโรงพยาบาลรายแห่งเข้า/ออกเขต (`territorySource = MANUAL`), เขียน `HospitalTerritoryChange` ทุกครั้ง
+- [ ] [backend] Endpoint `POST /hospitals/territory/bulk-by-province` (MANAGER เท่านั้น) — กำหนดเขตยกทั้งจังหวัดในครั้งเดียว (ข้อบังคับตาม Territory KPI Rules ข้อ 9.4), เขียน `HospitalTerritoryChange` ต่อแถวที่เปลี่ยน
+- [ ] [backend] Endpoint `GET /hospitals/unassigned-territory` — list โรงพยาบาลที่ `territoryId = null` พร้อมยอดรวมที่ยังค้างอยู่ใน `unassignedBucket` (Territory KPI Rules ข้อ 9.5)
+- [ ] [backend] Service คำนวณ `derivedTarget(sp, งวด)` สดตาม Territory KPI Rules ข้อ 6 — **ห้ามเขียนลงตาราง `Target`**: รวมเป้าของทุกเขตที่ `sp` มี `TerritoryAssignment` ACTIVE หารด้วย `activeOwnerCount(T, งวด)` ของแต่ละเขตแล้วรวม, ถ้ามีแถว `Target(scope=SALESPERSON)` ของคนนั้นในงวดนั้น → ใช้แทนทั้งก้อน, เขตที่ `activeOwnerCount = 0` → เป้าก้อนนั้นแสดงแยกเป็น "เป้าของเขตที่ยังไม่มีผู้ดูแล" ห้ามหารเข้าคนอื่น
+- [ ] [backend] Endpoint `GET /targets/derived/:salespersonId/:year/:month` — คืน `derivedTarget` พร้อมที่มา ("กรอกเอง"/"คำนวณจากเขต") และรายการเขตย่อยที่ประกอบกันเป็นก้อนนั้น
+- [ ] [backend] Endpoint `PUT /targets/:territoryId/:year/:month` (MANAGER เท่านั้น) 🔒 — upsert เป้าระดับเขต (`scope = TERRITORY`, `revenueTarget`, `newCustomerTarget`) พร้อมบันทึก `TargetRevision` เหมือน endpoint เป้ารายคนเดิมของ Phase 3
+- [ ] [backend] ตรวจว่า `PUT /targets/:targetId/product-groups` (Phase 3 เดิม) ใช้งานได้กับ `Target` ที่ `scope = TERRITORY` โดยไม่ต้องแก้โค้ดเพิ่ม (targetId เป็น key อยู่แล้ว) — เขียน note/comment ยืนยันไว้ในโค้ดถ้าจำเป็นต้องแก้จริง
+- [ ] [backend] Zod schemas: territory create/update body, `PUT /territory-assignments` body, `PATCH /hospitals/:id/territory` body, bulk-by-province body, territory-target upsert body
+- [ ] [frontend] หน้าจัดการเขต (MANAGER เท่านั้นแก้ได้) — list/สร้าง/แก้เขต, ผูกป้าย `Region` (แสดงชัดว่าเป็นป้ายอ้างอิงเท่านั้น)
+- [ ] [frontend] หน้าจัดการผู้ดูแลเขต — มอบ/ถอนผู้ดูแลรายเขต พร้อมวันที่มีผล, ตารางประวัติ (คำนวณจาก `effectiveFrom`/`effectiveTo`)
+- [ ] [frontend] หน้า/เครื่องมือย้ายโรงพยาบาลเข้าเขต — ย้ายรายแห่ง + เครื่องมือย้ายยกทั้งจังหวัด
+- [ ] [frontend] หน้าโรงพยาบาลที่ยังไม่ผูกเขต — แสดงจำนวน + ยอด `unassignedBucket` ที่ค้างอยู่ตลอดเวลาจนกว่าจะเป็น 0, ปุ่มผูกเขตอย่างเร็ว, badge เมื่อกำกวม (อันดับ 2 ได้ ≥30% ของอันดับ 1)
+- [ ] [frontend] หน้าตั้งเป้าระดับเขตแบบตาราง (คู่ขนานกับหน้าตั้งเป้ารายคนเดิมของ Phase 3, MANAGER เท่านั้นแก้ได้) — แถวต่อเขต คอลัมน์ต่อเดือน, inline edit revenueTarget/newCustomerTarget, **กรอกเป้าจริงปี 2026** (2 เขตของ Tasanee/Tanyapat ที่ยังไม่แตกตัวเลข 14M/13M จะยังกรอกไม่ได้จนกว่าจะมีตัวเลข — ดู Unresolved Open Questions)
+- [ ] [frontend] Component แสดงเป้ารายคนที่ derive — ป้ายที่มา "กรอกเอง"/"คำนวณจากเขต" เสมอ + บล็อกแยก "เป้าของเขตที่ยังไม่มีผู้ดูแล" ในหน้ารวม — ใช้ซ้ำได้ทั้ง Dashboard/Leaderboard ของ Phase 5
+
+## Phase 13: KPI รายเขต และรายงาน KPI รายเขต (Module N)
+
+- [ ] [backend] Service คำนวณ `revenue(T, งวด)` ตาม Territory KPI Rules ข้อ 2 — `Σ SalesLine.total × SalesLineCredit.sharePercent ÷ 100` เงื่อนไข `hospital.territoryId = T`, `salesperson.excludedFromTerritoryTotals = false`, งวดตรงกัน — **ต้องผ่าน `SalesLineCredit` เสมอ ห้ามรวมผ่าน `SalesLine.salespersonId`**
+- [ ] [backend] Service คำนวณ `personalBucket` และ `unassignedBucket` ตามข้อ 3 พร้อม helper รวม 3 ก้อนให้เท่ากับ `Σ SalesLine.total` ของงวดนั้น — เปิด endpoint ให้ค่าทั้ง 3 ก้อนออกมาด้วยกันเพื่อให้ `qa-engineer` ตรวจกฎ "Σ revenue(ทุกเขต) + personalBucket + unassignedBucket = Σ SalesLine.total" ได้ตรง ๆ
+- [ ] [backend] Service คำนวณ KPI 5 ตัวที่ระดับเขต ตามข้อ 4 (`REVENUE_VS_TARGET`/`NEW_CUSTOMERS`/`PRODUCT_GROUP`/`RETENTION`/`CONSISTENCY`) — reuse นิยาม/เงื่อนไข "คำนวณไม่ได้" และกฎ renormalize ของ Phase 4 ทั้งดุ้น เปลี่ยนแค่หน่วยจากคนเป็นเขต **ห้ามแก้สูตรคะแนนรวมหรือ `ScoringWeight`**
+- [ ] [backend] Service ป้ายกำกับเกณฑ์ตามข้อ 5: เกณฑ์ไม่มีเป้า → "ยังไม่ได้ตั้งเป้า", ข้อมูลไม่พอ → "ข้อมูลยังไม่เพียงพอ (ต้องการ 6 เดือน ปัจจุบันมี X เดือน)" — ห้ามคืน 0% หรือซ่อนเกณฑ์ทิ้ง
+- [ ] [backend] Endpoint `GET /territory-kpi/:territoryId` — คะแนนรวม+แยกราย KPI ของเขตเดียว ตาม period
+- [ ] [backend] Endpoint `GET /territory-kpi/team` — ทุกเขตของ period เดียวกัน (grain รายงาน: 1 แถว = 1 เขต ห้ามเป็น 1 แถวต่อคู่คน×เขต) รวม `personalBucket`/`unassignedBucket` ในผลลัพธ์
+- [ ] [backend] Endpoint `GET /territory-kpi/:territoryId/drill-down/:metric` — รายการ `Product type` ที่ขายได้และรายชื่อโรงพยาบาลที่ขายให้พร้อมยอด (drill-down บังคับตามข้อ 7)
+- [ ] [backend] Endpoint `GET /reports/territory-overview` — ประกอบรายงาน 1 แถว/เขต ครบทุกคอลัมน์บังคับ (เขต/ผู้ดูแล/ยอดขาย/เป้า/%ถึงเป้า/KPI5/คะแนนรวม+ป้าย) พร้อมแถว `personalBucket`/`unassignedBucket` ท้ายตาราง
+- [ ] [backend] Endpoint `GET /reports/territory-overview/export` — Excel export (ใช้ `exceljs` เดิม)
+- [ ] [backend] Zod schemas สำหรับ query ของ endpoint ข้างต้นทั้งหมด (period type/year/periodNumber, territoryId)
+- [ ] [frontend] หน้ารายงาน KPI รายเขต — ตาราง 1 แถว/เขต, ผู้ดูแลทุกคนในช่องเดียว (หรือ "ยังไม่มีผู้ดูแล"), %ถึงเป้าเป็นตัวเลขหลัก, คะแนนรวมคนละคอลัมน์พร้อมป้าย "คิดจาก X จาก 5 เกณฑ์" เสมอ, แถว `personalBucket`/`unassignedBucket` ท้ายตาราง, ตัวเลือกช่วงเวลา (เดือน/ไตรมาส/ปี)
+- [ ] [frontend] Drill-down จากแต่ละเขต — กลุ่มสินค้าที่ขายได้ + รายชื่อโรงพยาบาลที่ขายให้พร้อมยอด (reuse component drill-down จาก Phase 4)
+- [ ] [frontend] ปุ่ม Export Excel ในหน้ารายงาน KPI รายเขต
+
+## Phase 14: มุมมองรายเซลล์ ส่วนที่ 1 — โรงพยาบาลที่ขายได้แล้ว (Module P1)
+
+- [ ] [backend] Service "โรงพยาบาลที่ขายได้แล้ว" ในเขตของพนักงานขายคนหนึ่ง — นับแบบเขต (ทุกโรงพยาบาลในเขตที่มียอดในงวดที่เลือก ไม่ใช่เฉพาะที่เขามีเครดิต) ตามหลัก "KPI เป็นก้อนเดียวที่ระดับเขต" + toggle "เฉพาะที่ฉันมีเครดิต" (กรองผ่าน `SalesLineCredit` ของคนนั้นเอง)
+- [ ] [backend] Service "เคยขายได้ แต่ไม่มีในงวดที่เลือก" — reuse นิยาม churn/active เดียวกับ KPI & Scoring Rules ห้ามสร้างนิยามคู่ขนานใหม่
+- [ ] [backend] Service โหมดสำรองสำหรับคนที่ไม่มีเขต (`excludedFromTerritoryTotals = true` หรือไม่มี `TerritoryAssignment` เลย) — ตกไปที่โหมด "กรองตาม `Product type` ทั่วประเทศ" อัตโนมัติ ห้ามคืนหน้าว่างเปล่า
+- [ ] [backend] Endpoint `GET /my-territory-view/:salespersonId` — คืนทั้ง 2 รายการ (ขายได้แล้ว/เคยขายไม่มีในงวดนี้) + เขตที่เขาดูแล + toggle เครดิต + filter `Product type` + โหมดสำรองเมื่อไม่มีเขต
+- [ ] [backend] Endpoint `GET /my-territory-view/:salespersonId/export` — Excel export
+- [ ] [backend] Zod schema สำหรับ query (period, productTypeId, creditOnly)
+- [ ] [frontend] หน้ามุมมองรายเซลล์ — แสดงชื่อพนักงานขาย + เขตที่ดูแล, ตาราง "โรงพยาบาลที่ขายได้แล้ว" คู่กับ "เคยขายแต่ไม่มีในงวดนี้", toggle "เฉพาะที่ฉันมีเครดิต" พร้อมข้อความบอกโหมดที่กำลังดู, filter `Product type`, banner โหมดสำรองสำหรับคนไม่มีเขต, ตัวเลือกช่วงเวลา, ปุ่ม Export
+
+## Phase 15: อันดับสินค้าขายดี/ขายไม่ได้ รายเขต (Module O ส่วนที่ 2)
+
+- [ ] [backend] Service จัดอันดับสินค้ารายเขต ตาม Product Master & Ranking Rules ข้อ 3 — grain 1 แถว = 1 สินค้า × 1 เขต, ยอดขายผ่าน `revenue(T)` สูตรเดียวกับ Territory KPI Rules ข้อ 2 (ผ่าน `SalesLineCredit`, ไม่รวมคนที่ถูก exclude), เรียงขายดีที่สุดไปน้อยที่สุดตาม `Total`, จัดกลุ่มตาม `Product type`
+- [ ] [backend] Service ต่อท้ายรายการด้วยสินค้าที่ขายได้ 0 เรียงตามชื่อ แยก 2 ป้าย: "ยังไม่เคยขายในเขตนี้เลย" (ไม่มียอดทุกงวดที่มีข้อมูล) และ "เคยขายได้ แต่ไม่มีในงวดที่เลือก" — ห้ามซ่อน
+- [ ] [backend] Service บล็อก `personalBucket` แยกสำหรับสินค้าที่ขายโดยคนที่ `excludedFromTerritoryTotals = true` (ไม่งั้นรายงานจะบอกว่าสินค้านั้นไม่เคยขายที่ไหนเลยทั้งที่ Mr.Sathit ขายได้)
+- [ ] [backend] Endpoint `GET /territory-product-ranking/:territoryId` — อันดับเต็มของเขตหนึ่งตาม period, `Product.code = null` → serialize เป็น `"—"` เสมอ (ห้ามส่ง `null`/`id` ดิบให้ frontend ตัดสินใจเอง)
+- [ ] [backend] Endpoint `GET /territory-product-ranking/:territoryId/export` — Excel export พร้อมคำเตือนบังคับของระยะแรกฝังอยู่ในไฟล์ด้วย
+- [ ] [backend] Zod schema สำหรับ query (period, territoryId)
+- [ ] [frontend] หน้าอันดับสินค้ารายเขต — คอลัมน์บังคับ: รหัสสินค้า (`"—"` พร้อม tooltip เมื่อไม่มี) · ชื่อสินค้า · `Product type` · เขต · ผู้ดูแลเขต (หรือ "ยังไม่มีผู้ดูแล") + ยอดขาย/จำนวน, สินค้าขายได้ 0 ต่อท้ายพร้อม 2 ป้ายแยกกัน, บล็อก `personalBucket`, **คำเตือนบังคับถาวร** ตาม Product Master & Ranking Rules ข้อ 4 คำต่อคำ ("ทะเบียนสินค้าปัจจุบันสร้างจากประวัติการขาย รายการนี้จึงหมายถึงสินค้าที่เขตอื่นขายได้แต่เขตนี้ยังไม่ได้ขาย ไม่ใช่ทั้งแคตตาล็อกของบริษัท") ทั้งบนหน้าจอและไฟล์ export, ตัวเลือกช่วงเวลา, ปุ่ม Export
+
+## Phase 16: มุมมองรายเซลล์ ส่วนที่ 2 — โรงพยาบาลที่ยังไม่เคยขายเลย (Module P2)
+
+**ขึ้นกับ Phase 9 (Module K) — ต้องมี `HospitalRegistry` และการจับคู่ทะเบียนก่อนจึงเริ่มได้** ทำขนานกับ Phase 10 (Module L) ได้ ดู Sequencing Notes
+
+- [ ] [backend] Service "โรงพยาบาลรัฐทั่วไป (`GOVERNMENT_GENERAL`) ที่ยังไม่เคยมีรายการขายเลย" ในเขตของพนักงานขายคนหนึ่ง — จาก `HospitalRegistry` ที่ผูกเขตแล้วแต่ไม่มี `Hospital` ที่มียอดขายจริงเชื่อมอยู่
+- [ ] [backend] Service จำกัดจำนวนด้วย 2 กลไกพร้อมกันเสมอ (Territory KPI Rules ข้อ 8): Top N ตามเกณฑ์ศักยภาพที่เลือก (ค่าเริ่มต้น = จำนวนเตียง) **และ** ตัวกรองรายจังหวัด — ไม่ใช่เลือกอย่างใดอย่างหนึ่ง
+- [ ] [backend] Endpoint `GET /my-territory-view/:salespersonId/never-sold` — คืนรายการตามเงื่อนไขข้างต้น + filter `Product type` + Top N + จังหวัด
+- [ ] [backend] Endpoint `GET /my-territory-view/:salespersonId/never-sold/export` — Excel export
+- [ ] [backend] Zod schema สำหรับ query (topN, provinceMappingId, potentialMetric, productTypeId, period)
+- [ ] [frontend] ขยายหน้ามุมมองรายเซลล์ (จาก Phase 14) เพิ่ม section "โรงพยาบาลรัฐที่ยังไม่เคยขายเลย" — ตัวเลือก Top N ตามเกณฑ์ศักยภาพ + ตัวกรองจังหวัดพร้อมกันเสมอ, filter `Product type` ร่วมกับ section เดิม, ปุ่ม Export
+
 ## Sequencing Notes
 
 - **Phase 0 เป็น hard blocker** — ไม่มี Phase 1 ใดเริ่มได้จนกว่าโปรเจกต์จะ scaffold เสร็จ เพราะไม่มี `package.json`/`prisma/schema.prisma`/`app/` ให้แก้เลย
@@ -214,6 +308,18 @@
 - **ข้อห้ามเด็ดขาดของ Phase 10**: ห้ามแก้สูตรคะแนนรวม 0–100 หรือ `ScoringWeight` ของ Phase 4 ที่ verified แล้ว, ห้ามเพิ่มฟิลด์/ตาราง "เป้าบริษัทรายปี/รายภาค", ห้าม renormalize `suggested` ให้ผลรวมของภาคเท่ากับ `R` — ศักยภาพพื้นที่มีผลต่อ KPI **ผ่านทางตัวเลขเป้าที่ผู้จัดการบันทึกเท่านั้น**
 - Module I (Cross-sell) ยังไม่อยู่ในแผนนี้เช่นเดิม เพราะรอข้อมูลสะสม 6–12 เดือน
 
+**Phase 11–16 (Module M/N/O/P, เพิ่ม 2026-08-17)**
+
+- **ลำดับที่ `design.md` ล็อกไว้ห้ามสลับ**: J → **M** → (**N**, **P1**, **O ส่วนที่ 2** ทำขนานกันได้ทั้งสาม) → **K** → (**L**, **P2**) — ในไฟล์นี้คือ Phase 8 → **Phase 12** → (**Phase 13**, **Phase 14**, **Phase 15** ขนานกัน) → **Phase 9** → (**Phase 10**, **Phase 16** ขนานกัน) **Phase 11 (Module O ส่วนที่ 1 — ทะเบียนสินค้า) เป็นข้อยกเว้นเดียว**: ไม่ขึ้นกับเขตเลยตาม `design.md` จึงเริ่มขนานไปกับ Phase 12 ได้ตั้งแต่วันแรก ไม่ต้องรอ M เสร็จก่อน
+- **Phase 12 (Module M) เริ่มได้ทันที ไม่ต้องรอ Phase 8 (Module J) ปิดรอบ QA ก่อน** — ผู้ใช้เลือกไว้ตรง ๆ (`design.md` การตัดสินใจแถวที่ 20 / Risks ข้อ 26) ให้ทำ M ขนานไปกับงานหน้าจอ/QA ที่ยังค้างของ Phase 8 แทนการรอให้ Phase 8 ปิดรอบให้จบก่อน เงื่อนไขเดียวคือ backend ของ J (`SalesLineCredit`, `creditResolution.service.ts`, `nameNormalizer.util.ts`) ต้องมีอยู่แล้วซึ่งมีอยู่แล้วจริงในโค้ดปัจจุบัน — **ความเสี่ยงที่รับไว้แล้ว**: ตัวเลขในรายงาน Phase 13–16 อาจขยับเมื่อ `qa-engineer` ตรวจ Phase 8 เสร็จและพบว่าต้องแก้การรวมชื่อซ้ำเพิ่ม เพราะ bootstrap ของ Phase 12 อิงยอดจาก `SalesLineCredit` ตรง ๆ และทุกรายงานคำนวณสดไม่มี cache จึงสะท้อนข้อมูลที่แก้แล้วทันทีโดยไม่ต้อง rebuild
+- **Phase 12 (Module M) เปลี่ยนสัญญาของ query ที่ Phase 3/4 ถูกสร้างและตรวจผ่านไปแล้ว** (`Target.salespersonId` เปลี่ยนเป็น nullable + เพิ่ม `scope`) — งานแก้ query/validator ของ Phase 3 (targets CRUD) และ Phase 4 (`kpi.service.ts` อ่านเป้ารายคน) เป็นส่วนหนึ่งของ Phase 12 เอง ไม่ใช่ cleanup ที่ทำทีหลังได้ (รูปแบบเดียวกับที่ Module J เคยบังคับให้ตรวจ Phase 4–7 ซ้ำ) และ **ต้องให้ `qa-engineer` ตรวจ Phase 3 และ Phase 4 ซ้ำแบบ TARGETED (ไม่ใช่ FULL) หลัง Phase 12 implement เสร็จ** — ขอบเขตของรอบ TARGETED นั้นคือทุก endpoint ที่อ่าน/เขียน `Target` บวก blast radius ของ `kpi.service.ts` ที่อ่านเป้า บวกกฎตรวจอัตโนมัติ: ทุกแถว `Target` มี `territoryId` หรือ `salespersonId` อย่างใดอย่างหนึ่งเท่านั้น
+- **Phase 12 ถูกตั้ง `🔒 Security gate`** เพราะมี endpoint แก้ตัวเลขเป้า (`PUT /territory-assignments`, `PUT /targets/:territoryId/:year/:month`) ซึ่งอยู่ในระดับความอ่อนไหวเดียวกับ endpoint ตั้งเป้าของ Module D — `security` ต้องตรวจสิทธิ์ MANAGER ให้ครบทุก endpoint ใหม่ของเฟสนี้
+- **Phase 9 (Module K) และ Phase 10 (Module L) เขียนไว้ในไฟล์นี้ก่อนรอบนี้ (ยังไม่มีงานเริ่ม ไม่มี `[x]` เลย) เลขเฟสจึงยังน้อยกว่า Phase 12–15 แต่ลำดับการ implement จริงต้องขยับไปอยู่หลัง Phase 15 เสมอ** — `design.md` ล็อกลำดับใหม่ให้ K มาหลัง M/N/P1/O2 ไม่ใช่หลัง J ตรง ๆ แบบเดิม **ห้ามเริ่ม Phase 9 ก่อน Phase 12–15 เสร็จ แม้เลขเฟสจะน้อยกว่าก็ตาม** — เมื่อถึงเวลาทำ Phase 9 จริง มีจุดที่ต้องแก้ตัว task list เดิม 2 จุด (ตัว task ยังไม่ถูกแก้ในรอบนี้เพราะยังไม่ถึงคิว แต่ `backend-engineer` ต้องรู้ก่อนเริ่ม):
+  1. **task แรกของ Phase 9 ที่เขียนว่าให้สร้าง `TerritoryAssignment` ตาม Data Model — ห้ามทำซ้ำ** ตารางนี้ถูกสร้างไปแล้วด้วยนิยามใหม่ตอน Phase 12 (Module M) migration ของ Phase 9 ต้อง **ข้าม** `TerritoryAssignment` ไปเลย
+  2. **คอลัมน์ `territoryId`/`territorySource` บน `HospitalRegistry`** (ที่ `design.md` ระบุไว้คู่กับ `Hospital`) ยังไม่ได้เพิ่มตอน Phase 12 เพราะโมเดล `HospitalRegistry` ยังไม่มีอยู่ตอนนั้น — ต้องเพิ่ม 2 คอลัมน์นี้พร้อมกับตอนสร้าง `HospitalRegistry` เองใน migration ของ Phase 9
+- **Phase 16 (Module P2) ขึ้นกับ Phase 9 (Module K) เท่านั้น ไม่ขึ้นกับ Phase 10 (Module L)** — ทำขนานกับ Phase 10 ได้ทั้งคู่หลัง Phase 9 เสร็จ (เหมือนที่ F/G เคยทำขนานกันได้)
+- Module I (Cross-sell) ยังไม่อยู่ในแผนนี้เช่นเดิม เพราะรอข้อมูลสะสม 6–12 เดือน
+
 ## Unresolved Open Questions
 
 รายการด้านล่างไม่ block การเริ่ม Phase 0/1 — เป็นการตัดสินใจที่ทำเพิ่มได้ทีหลังโดยไม่กระทบ schema:
@@ -224,10 +330,15 @@
 4. **สิทธิ์เรียก `POST /coaching-insights/:salespersonId/generate`** — `design.md` ไม่ได้ระบุชัดว่าพนักงานขายกดสร้าง insight ของตัวเองได้ไหม หรือต้องเป็นผู้จัดการเท่านั้น ระบุไว้ใน Phase 6 ว่าต้องตรวจ `requirement.md` เพิ่มเติม — ถ้ายังไม่ชัดตอนเริ่ม Phase 6 ให้ backend-engineer ถามผู้ใช้ตรง ๆ ก่อน implement (ไม่ใช่เดา)
 5. **การจัด 4 จังหวัดเข้าภาค** (นครสวรรค์ กำแพงเพชร พิจิตร อุทัยธานี — Open Question ข้อ 4 ใน `design.md`) — ไม่ block การเริ่ม Phase 8 เพราะไม่กระทบ Module J แต่ **block เฉพาะขั้นตอน seed `ProvinceMapping` ใน Phase 9** ต้องถามผู้ใช้ก่อนตอนถึงงานนั้น
 6. **สัดส่วนการแบ่งเครดิตดีล** (`design.md` Open Question ข้อ 3) — ออกแบบให้ค่าเริ่มต้นเป็น "แบ่งเท่ากันทุกคน" แก้รายบรรทัดได้ทีหลังผ่านหน้าคิวยืนยันใน Phase 8 ไม่ block การเริ่มงาน
-7. **แหล่งที่มาของรหัสสินค้า** (`requirement.md` Open Question ข้อ 11) — ยังไม่ตอบ ไม่กระทบ Phase 8–10
-8. **คำสั่ง "ลบข้อมูลตามงวด"** และ **การให้คะแนนเมื่อทำเกินเป้า** (`achievementCapPercent`) — ยังค้างจาก MVP เดิม (ดูข้อ 1 และข้อ 3 ด้านบน) ไม่กระทบ Phase 8–10
+7. **แหล่งที่มาของรหัสสินค้า** (`requirement.md` Open Question ข้อ 11) — ✅ ปิดแล้วใน `design.md` รอบ 2026-08-16 (รอบที่ 2): รหัสมาจากทะเบียนสินค้าในระบบ ไม่ใช่คอลัมน์ในไฟล์ Excel ดู Phase 11 — คำถามที่แตกออกมาแทนและยังค้าง: ผู้ใช้จะส่งไฟล์แคตตาล็อกสินค้าทั้งหมดของบริษัทมาเมื่อไหร่ (ระยะ 2)
+8. **คำสั่ง "ลบข้อมูลตามงวด"** และ **การให้คะแนนเมื่อทำเกินเป้า** (`achievementCapPercent`) — ยังค้างจาก MVP เดิม (ดูข้อ 1 และข้อ 3 ด้านบน) ไม่กระทบ Phase 8–16
+9. **การแตกตัวเลขเป้า 14M (Tasanee: กท1+ภาคตะวันตก) / 13M (Tanyapat: กท2+ภาคกลาง) เป็นรายเขต** (`design.md` Open Question ข้อ 11) — ยังไม่ได้ตัวเลขที่แตกแล้ว **ไม่ block การเริ่ม/implement Phase 12** (หน้าตั้งเป้าระดับเขตสร้างได้เลย) แต่ **block เฉพาะการกรอกเป้าจริงของ 2 เขตนี้ให้ครบ** — จนกว่าจะได้ตัวเลข เขตทั้งสองจะแสดง "ยังไม่ได้ตั้งเป้า" ตามกฎเดิมของ `REVENUE_VS_TARGET`
+10. **วันที่พ้นสภาพจริงของพนักงาน 3 คนที่ลาออก** (`requirement.md` OQ20 / `design.md` Open Question ข้อ 12) — ยังไม่ได้รับคำตอบ **ไม่ block Phase 12** (ตั้ง `TerritoryAssignment.effectiveTo`/`Salesperson.employmentEndedAt` เป็น `null` แล้วแก้ทีหลังได้) แต่ตัวเลข `activeOwnerCount` ของงวดย้อนหลังใน Phase 12/13 จะยังไม่ตรงจนกว่าจะได้วันที่จริง
+11. **การแยกเครดิตภายในเขตที่มีหลายคนดูแล** (`requirement.md` OQ22 / `design.md` Open Question ข้อ 13) — Phase 12 implement ด้วยกฎ "หารเท่ากันตามจำนวนผู้ดูแล" ไปก่อนตามที่ผู้ใช้เลือกและรับทราบว่าเป็นการชิงตัดสิน ถ้า OQ22 ปิดด้วยกฎอื่นภายหลัง ต้องกลับมาแก้สูตร `derivedTarget` ใน Phase 12 เท่านั้น (แก้ที่เดียว ไม่ต้อง migrate เพราะไม่มีการเขียนค่าลงฐานข้อมูล)
+12. **การจัด 4 จังหวัดเข้าภาค** (นครสวรรค์/กำแพงเพชร/พิจิตร/อุทัยธานี) — ยังคงเป็น blocker เฉพาะขั้นตอน seed `ProvinceMapping` ใน Phase 9 (Module K) เหมือนเดิม (ดูข้อ 5 ด้านบน) ไม่กระทบ Phase 11–16
 
 ## Change Log
 
 - 2026-08-14 — สร้างแผนครั้งแรกจาก `design.md` (confirmed) และ `requirement.md` แบ่งเป็น Phase 0 (setup, ไม่ใช่ frontend/backend) + Phase 1–7 ตรงกับ module B–H ตามลำดับ dependency ที่ยืนยันแล้ว (A→B→C→D→E→(F,G)→H) Module I (Cross-sell) ไม่รวมในแผนเพราะรอข้อมูลสะสม
 - 2026-08-16 — เพิ่ม Phase 8 (Module J: ซ่อมข้อมูลชื่อซ้ำ + แบ่งเครดิตดีล, 🔒 Security gate), Phase 9 (Module K: ทะเบียนโรงพยาบาล/ภาค/พื้นที่รับผิดชอบ, 🔒 Security gate), Phase 10 (Module L: คะแนนศักยภาพพื้นที่ + ตัวช่วยตั้งเป้า) ต่อจาก Phase 7 ตามลำดับ dependency J→K→L ที่ `design.md` ล็อกไว้ห้ามสลับ/ห้ามขนาน แหล่งที่มา: `design.md` ส่วนขยาย 2026-08-16 (Data Model, Territory & Potential Rules, Modules J/K/L, Risks ข้อ 13–20, Open Questions ข้อ 1–5) ปิด blocker ครบทั้ง 3 ข้อแล้วก่อนจัดเฟสนี้ · เพิ่ม Sequencing Notes อธิบายเหตุผล security gate ของ Phase 8/9, จุดที่ Phase 9 ไม่ต้องรอ Phase 8's QA re-verify, และจุดที่ต้องหยุดถามผู้ใช้ก่อน seed 4 จังหวัด · เพิ่ม Open Questions ข้อ 5–8
+- 2026-08-17 — เพิ่ม Phase 11 (Module O ส่วนที่ 1: ทะเบียนสินค้า, ขนานกับ Phase 12 ได้ตั้งแต่วันแรก), Phase 12 (Module M: โครงสร้างเขต + เป้าระดับเขต, 🔒 Security gate, รวมงานแก้ query Phase 3/4 ที่ `Target` re-scope ทำลายสัญญา), Phase 13 (Module N: KPI รายเขต + รายงาน), Phase 14 (Module P1: มุมมองรายเซลล์ ส่วนที่ 1 — ขายได้แล้ว), Phase 15 (Module O ส่วนที่ 2: อันดับสินค้ารายเขต), Phase 16 (Module P2: มุมมองรายเซลล์ ส่วนที่ 2 — ยังไม่เคยขายเลย ขึ้นกับ Phase 9) ตามลำดับ dependency ใหม่ที่ `design.md` ล็อกไว้ **J → M → (N, P1, O ส่วนที่ 2) → K → (L, P2)** แหล่งที่มา: `design.md` ส่วนขยาย 2026-08-16 รอบที่ 2 (Data Model ส่วนขยายเขต/ทะเบียนสินค้า, Territory KPI Rules, Product Master & Ranking Rules, Modules M/N/O/P, Risks ข้อ 21/26, Open Questions ข้อ 11–15) — ไม่มี blocker ค้างที่กันการจัดเฟสนี้ · **ไม่แก้เนื้อหา task ของ Phase 9/10 เดิม** (ยังไม่มีงานเริ่ม ไม่มี `[x]`) แต่เพิ่ม Sequencing Notes อธิบายว่าเลขเฟส 9/10 ไม่ตรงกับลำดับ implement จริงอีกต่อไป (ต้องขยับไปอยู่หลัง Phase 15) พร้อมชี้จุดที่ต้องแก้ตอนถึงคิว Phase 9 จริง (ห้ามสร้าง `TerritoryAssignment` ซ้ำ, ต้องเพิ่ม `territoryId`/`territorySource` บน `HospitalRegistry` ตอนนั้นแทน) · เพิ่ม Sequencing Notes อธิบายเหตุผลที่ Phase 12 เริ่มขนานกับงานค้างของ Phase 8 ได้ (ผู้ใช้ยืนยันแล้ว, ความเสี่ยงข้อ 26), เหตุผล security gate ของ Phase 12, และข้อกำหนด TARGETED QA re-check ของ Phase 3/4 หลัง Phase 12 · เพิ่ม Open Questions ข้อ 9–12 (แตกเป้า 14M/13M, วันที่พ้นสภาพพนักงาน, การแยกเครดิตในเขต, 4 จังหวัดยังเป็น blocker เฉพาะ seed ของ Phase 9) · ปิด Open Questions ข้อ 7 เดิม (แหล่งที่มารหัสสินค้า) ตามที่ `design.md` ปิดแล้ว
