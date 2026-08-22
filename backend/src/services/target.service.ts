@@ -146,7 +146,7 @@ interface CopyTargetsParams {
 export async function copyTargets({ fromYear, fromMonth, toYear, toMonth, overwrite, changedById }: CopyTargetsParams) {
   return prisma.$transaction(async (tx) => {
     const sourceTargets = await tx.target.findMany({
-      where: { year: fromYear, month: fromMonth },
+      where: { year: fromYear, month: fromMonth, scope: "SALESPERSON" },
       include: { productGroupTargets: true },
     });
 
@@ -156,20 +156,23 @@ export async function copyTargets({ fromYear, fromMonth, toYear, toMonth, overwr
     const revisionNote = `คัดลอกจากเป้าเดือน ${fromMonth}/${fromYear}`;
 
     for (const source of sourceTargets) {
+      const salespersonId = source.salespersonId;
+      if (!salespersonId) continue;
       const destination = await tx.target.findUnique({
-        where: { salespersonId_year_month: { salespersonId: source.salespersonId, year: toYear, month: toMonth } },
+        where: { salespersonId_year_month: { salespersonId, year: toYear, month: toMonth } },
         include: { productGroupTargets: true },
       });
 
       if (destination && !overwrite) {
-        skipped.push(source.salespersonId);
+        skipped.push(salespersonId);
         continue;
       }
 
       if (!destination) {
         const newTarget = await tx.target.create({
           data: {
-            salespersonId: source.salespersonId,
+            salespersonId,
+            scope: "SALESPERSON",
             year: toYear,
             month: toMonth,
             revenueTarget: source.revenueTarget,
@@ -194,7 +197,7 @@ export async function copyTargets({ fromYear, fromMonth, toYear, toMonth, overwr
             note: revisionNote,
           },
         });
-        created.push(source.salespersonId);
+        created.push(salespersonId);
         continue;
       }
 
@@ -225,7 +228,7 @@ export async function copyTargets({ fromYear, fromMonth, toYear, toMonth, overwr
           note: revisionNote,
         },
       });
-      updated.push(source.salespersonId);
+      updated.push(salespersonId);
     }
 
     return { sourceCount: sourceTargets.length, created, updated, skipped };

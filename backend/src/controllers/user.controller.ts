@@ -25,7 +25,7 @@ export async function listUsers(_req: Request, res: Response) {
     select: userWithSalespersonSelect,
     orderBy: { createdAt: "asc" },
   });
-  res.json({ users });
+  res.json({ users: users.map((user) => ({ ...user, isSalespersonLinked: user.role !== "SALESPERSON" || user.salesperson !== null })) });
 }
 
 export async function createUser(req: Request, res: Response) {

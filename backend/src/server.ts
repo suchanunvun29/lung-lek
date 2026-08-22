@@ -8,6 +8,7 @@ import importRouter from "./routes/import.routes";
 import salespersonRouter from "./routes/salesperson.routes";
 import hospitalRouter from "./routes/hospital.routes";
 import productTypeRouter from "./routes/productType.routes";
+import productRouter from "./routes/product.routes";
 import targetRouter from "./routes/target.routes";
 import kpiRouter from "./routes/kpi.routes";
 import settingsRouter from "./routes/settings.routes";
@@ -16,6 +17,14 @@ import coachingInsightRouter from "./routes/coachingInsight.routes";
 import reportRouter from "./routes/report.routes";
 import hospitalNameReviewRouter from "./routes/hospitalNameReview.routes";
 import salesmanNameRuleRouter from "./routes/salesmanNameRule.routes";
+import territoryRouter from "./routes/territory.routes";
+import territoryAssignmentRouter from "./routes/territoryAssignment.routes";
+import territoryGroupRouter from "./routes/territoryGroup.routes";
+import registryRouter, { provinceRouter } from "./routes/registry.routes";
+import territoryKpiRouter from "./routes/territoryKpi.routes";
+import territoryViewRouter from "./routes/territoryView.routes";
+import territoryProductRankingRouter from "./routes/territoryProductRanking.routes";
+import territoryLeaderboardRouter from "./routes/territoryLeaderboard.routes";
 
 dotenv.config();
 
@@ -32,6 +41,7 @@ app.use("/", importRouter);
 app.use("/salespeople", salespersonRouter);
 app.use("/hospitals", hospitalRouter);
 app.use("/product-types", productTypeRouter);
+app.use("/products", productRouter);
 app.use("/targets", targetRouter);
 app.use("/kpi", kpiRouter);
 app.use("/settings", settingsRouter);
@@ -40,6 +50,15 @@ app.use("/coaching-insights", coachingInsightRouter);
 app.use("/reports", reportRouter);
 app.use("/hospital-name-reviews", hospitalNameReviewRouter);
 app.use("/salesman-name-rules", salesmanNameRuleRouter);
+app.use("/territories", territoryRouter);
+app.use("/territory-assignments", territoryAssignmentRouter);
+app.use("/territory-groups", territoryGroupRouter);
+app.use("/territory-kpi", territoryKpiRouter);
+app.use("/my-territory-view", territoryViewRouter);
+app.use("/territory-product-ranking", territoryProductRankingRouter);
+app.use("/leaderboard", territoryLeaderboardRouter);
+app.use("/provinces", provinceRouter);
+app.use("/", registryRouter);
 
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ error: "Not found" });

@@ -14,15 +14,12 @@ const DEFAULT_DRILL_DOWN_METRIC: ScoredKpiMetric = "REVENUE_VS_TARGET";
 interface CoachingInsightPanelProps {
   salespersonId: string;
   period: PeriodKey;
-  /** False when a SALESPERSON is viewing someone else's insight — the backend rejects generate in that case. */
-  canGenerate: boolean;
   onDrillDown: (metric: ScoredKpiMetric) => void;
 }
 
 export default function CoachingInsightPanel({
   salespersonId,
   period,
-  canGenerate,
   onDrillDown,
 }: CoachingInsightPanelProps) {
   const token = useAuthStore((state) => state.token);
@@ -32,6 +29,7 @@ export default function CoachingInsightPanel({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
+  const [canGenerate, setCanGenerate] = useState(false);
 
   const loadInsight = useCallback(async () => {
     if (!token || !salespersonId) return;
@@ -39,6 +37,7 @@ export default function CoachingInsightPanel({
     try {
       const data = await getCoachingInsight(token, salespersonId, period);
       setInsight(data.insight);
+      setCanGenerate(data.canGenerate);
       setLoadError(null);
     } catch (err) {
       setLoadError(getErrorMessage(err, "โหลดสรุป AI ไม่สำเร็จ"));
@@ -99,7 +98,7 @@ export default function CoachingInsightPanel({
 
       {!canGenerate && (
         <p className="mt-2 text-xs text-zinc-500">
-          เฉพาะผู้จัดการเท่านั้นที่สั่งสร้างสรุปนี้ได้
+          คุณไม่มีสิทธิ์สั่งสร้างสรุปนี้
         </p>
       )}
 

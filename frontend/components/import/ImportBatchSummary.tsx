@@ -65,6 +65,7 @@ export default function ImportBatchSummary({ batch }: ImportBatchSummaryProps) {
         <StatCard label="อัปเดต" value={batch.updatedRows} />
         <StatCard label="ข้าม" value={batch.skippedRows} tone="warning" />
         <StatCard label="ผิดพลาด" value={batch.errorRows} tone="danger" />
+        {batch.removedRows > 0 && <StatCard label="ลบออก" value={batch.removedRows} tone="danger" />}
       </div>
 
       {batch.periodsTouched && batch.periodsTouched.length > 0 && (

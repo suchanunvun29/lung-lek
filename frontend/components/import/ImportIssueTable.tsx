@@ -6,6 +6,11 @@ import { IMPORT_ISSUE_LEVEL_BADGE_CLASS, IMPORT_ISSUE_LEVEL_LABEL_TH } from "@/l
 
 type LevelFilter = ImportIssueLevel | "ALL";
 
+const SHARED_CREDIT_ISSUE_LABELS: Record<string, string> = {
+  SHARED_CREDIT_RULE_CREATED: "สร้างกฎแบ่งเครดิตดีลร่วมใหม่",
+  UNKNOWN_SALESMAN_IN_SHARED_DEAL: "ไม่พบพนักงานขายในดีลร่วม",
+};
+
 interface ImportIssueTableProps {
   issues: ImportIssue[];
 }
@@ -68,7 +73,15 @@ export default function ImportIssueTable({ issues }: ImportIssueTableProps) {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-zinc-600">{issue.rowNumber ?? "-"}</td>
-                <td className="px-4 py-3 font-mono text-xs text-zinc-500">{issue.code}</td>
+                <td className="px-4 py-3">
+                  {SHARED_CREDIT_ISSUE_LABELS[issue.code] ? (
+                    <span className="inline-flex rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-700">
+                      {SHARED_CREDIT_ISSUE_LABELS[issue.code]}
+                    </span>
+                  ) : (
+                    <span className="font-mono text-xs text-zinc-500">{issue.code}</span>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-zinc-700">{issue.message}</td>
               </tr>
             ))}

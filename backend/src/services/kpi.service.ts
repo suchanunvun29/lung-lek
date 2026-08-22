@@ -98,7 +98,7 @@ export async function computeRevenueVsTarget(salespersonId: string, period: Peri
   const [creditedLines, targets] = await Promise.all([
     getCreditedSalesLinesInMonths(salespersonId, months),
     prisma.target.findMany({
-      where: { salespersonId, OR: monthsWhereOr(months) },
+      where: { salespersonId, scope: "SALESPERSON", OR: monthsWhereOr(months) },
       select: { revenueTarget: true },
     }),
   ]);
@@ -129,7 +129,7 @@ export async function computeRevenueVsTarget(salespersonId: string, period: Peri
 export async function computeNewCustomers(salespersonId: string, period: PeriodKey): Promise<MetricResult> {
   const months = monthsInPeriod(period);
   const targets = await prisma.target.findMany({
-    where: { salespersonId, OR: monthsWhereOr(months) },
+    where: { salespersonId, scope: "SALESPERSON", OR: monthsWhereOr(months) },
     select: { newCustomerTarget: true },
   });
   const target = targets.reduce((sum, t) => sum + t.newCustomerTarget, 0);
@@ -221,7 +221,7 @@ export async function getNewCustomerActualCount(salespersonId: string, period: P
 export async function computeProductGroup(salespersonId: string, period: PeriodKey): Promise<MetricResult> {
   const months = monthsInPeriod(period);
   const targetGroups = await prisma.targetProductGroup.findMany({
-    where: { target: { salespersonId, OR: monthsWhereOr(months) } },
+    where: { target: { salespersonId, scope: "SALESPERSON", OR: monthsWhereOr(months) } },
     select: { productTypeId: true, revenueTarget: true, productType: { select: { name: true } } },
   });
 

@@ -33,9 +33,12 @@ model User {
   settingUpdates    EvaluationSetting[]
   generatedInsights CoachingInsight[]
 
-  salesmanNameRules   SalesmanNameRule[]
-  hospitalAliases     HospitalAlias[]
-  hospitalNameReviews HospitalNameReview[]
+  salesmanNameRules        SalesmanNameRule[]
+  hospitalAliases          HospitalAlias[]
+  hospitalNameReviews      HospitalNameReview[]
+  registryLinkReviews      HospitalRegistryLink[]
+  productAliases           ProductAlias[]
+  territoryAssignmentsMade TerritoryAssignment[]
 }
 
 // แยกจาก User เพราะ (ก) ผู้จัดการไม่มียอดขาย (ข) ไฟล์อาจมีชื่อพนักงานขายที่ยังไม่มีบัญชี
@@ -54,8 +57,11 @@ model Salesperson {
   targets    Target[]
   insights   CoachingInsight[]
 
-  credits             SalesLineCredit[]
-  nameRuleMemberships SalesmanNameRuleMember[]
+  credits                     SalesLineCredit[]
+  nameRuleMemberships         SalesmanNameRuleMember[]
+  territoryAssignments        TerritoryAssignment[]
+  excludedFromTerritoryTotals Boolean                  @default(false)
+  employmentEndedAt           DateTime?                @db.Date
 }
 
 model Hospital {
@@ -69,8 +75,14 @@ model Hospital {
 
   salesLines SalesLine[]
 
-  aliases     HospitalAlias[]
-  nameReviews HospitalNameReview[]
+  aliases         HospitalAlias[]
+  nameReviews     HospitalNameReview[]
+  territoryId     String?
+  territory       Territory?           @relation(fields: [territoryId], references: [id])
+  territorySource TerritoryLinkSource  @default(INFERRED)
+  provinceMappingId String?
+  provinceMapping   ProvinceMapping?   @relation(fields: [provinceMappingId], references: [id])
+  registryLink      HospitalRegistryLink?
 }
 
 // ---------- Product master ----------
@@ -85,16 +97,42 @@ model ProductType {
   targetProductGroups TargetProductGroup[]
 }
 
+enum ProductSource {
+  SALES_HISTORY // ระยะแรก: สร้างจากสินค้าที่เคยปรากฏในประวัติการขาย
+  CATALOG // ระยะหลัง: นำเข้าจากรายการสินค้าทั้งหมดของบริษัท
+}
+
 model Product {
-  id            String      @id @default(cuid())
+  id            String        @id @default(cuid())
   name          String
   productTypeId String
-  productType   ProductType @relation(fields: [productTypeId], references: [id])
-  createdAt     DateTime    @default(now())
+  productType   ProductType   @relation(fields: [productTypeId], references: [id])
+  code          String?       @unique // ระยะแรกเป็น null ทั้งหมด — ประวัติการขายไม่มีคอลัมน์รหัส
+  displayName   String? // ชื่อทางการจากแคตตาล็อก (ต่างจาก name ที่มาจากไฟล์ยอดขาย)
+  source        ProductSource @default(SALES_HISTORY)
+  isActive      Boolean       @default(true)
+  createdAt     DateTime      @default(now())
 
   salesLines SalesLine[]
+  aliases    ProductAlias[]
 
   @@unique([name, productTypeId])
+}
+
+// ทางลัดตอน import: ชื่อดิบที่ยุบแล้ว -> Product ตัวจริง (Module O ส่วนที่ 1, เพิ่ม 2026-08-19)
+model ProductAlias {
+  id            String             @id @default(cuid())
+  normalizedKey String             @unique
+  sampleRaw     String
+  productId     String
+  product       Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
+  source        NameDecisionSource
+  decidedById   String?
+  decidedBy     User?              @relation(fields: [decidedById], references: [id])
+  decidedAt     DateTime?
+  createdAt     DateTime           @default(now())
+
+  @@index([productId])
 }
 
 // ---------- Sales fact ----------
@@ -148,6 +186,17 @@ enum ImportStatus {
   FAILED
 }
 
+enum ImportMode {
+  APPEND
+  REPLACE_PERIOD
+  PERIOD_DELETE
+}
+
+enum ArchiveReason {
+  SUPERSEDED_BY_REIMPORT
+  MANUAL_PERIOD_DELETE
+}
+
 enum ImportIssueLevel {
   WARNING
   ERROR
@@ -171,9 +220,31 @@ model ImportBatch {
   errorRows      Int          @default(0)
   periodsTouched Json?
   errorMessage   String?
+  mode           ImportMode   @default(APPEND)
+  targetPeriods  Json?
+  removedRows    Int          @default(0)
+  confirmedById  String?
 
-  salesLines SalesLine[]
-  issues     ImportIssue[]
+  salesLines    SalesLine[]
+  issues        ImportIssue[]
+  archivedLines SalesLineArchive[]
+}
+
+model SalesLineArchive {
+  id               String        @id @default(cuid())
+  salesLineId      String
+  rowKey           String
+  year             Int
+  month            Int
+  total            Decimal       @db.Decimal(14, 2)
+  reason           ArchiveReason
+  removedByBatchId String
+  removedByBatch   ImportBatch   @relation(fields: [removedByBatchId], references: [id])
+  removedAt        DateTime      @default(now())
+  payload          Json
+
+  @@index([year, month])
+  @@index([removedByBatchId])
 }
 
 model ImportIssue {
@@ -194,22 +265,35 @@ model ImportIssue {
 // ---------- Targets ----------
 
 model Target {
-  id                String      @id @default(cuid())
-  salespersonId     String
-  salesperson       Salesperson @relation(fields: [salespersonId], references: [id])
+  id                String          @id @default(cuid())
+  scope             TargetScope     @default(SALESPERSON)
+  territoryId       String?
+  territory         Territory?      @relation(fields: [territoryId], references: [id])
+  territoryGroupId  String?
+  territoryGroup    TerritoryGroup? @relation(fields: [territoryGroupId], references: [id])
+  salespersonId     String?
+  salesperson       Salesperson?    @relation(fields: [salespersonId], references: [id])
   year              Int
   month             Int
-  revenueTarget     Decimal     @default(0) @db.Decimal(14, 2)
-  newCustomerTarget Int         @default(0)
+  revenueTarget     Decimal         @default(0) @db.Decimal(14, 2)
+  newCustomerTarget Int             @default(0)
   note              String?
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
 
   productGroupTargets TargetProductGroup[]
   revisions           TargetRevision[]
 
   @@unique([salespersonId, year, month])
+  @@unique([territoryId, year, month])
+  @@unique([territoryGroupId, year, month])
   @@index([year, month])
+}
+
+enum TargetScope {
+  TERRITORY
+  TERRITORY_GROUP
+  SALESPERSON
 }
 
 model TargetProductGroup {
@@ -242,6 +326,216 @@ model TargetRevision {
   note        String?
 
   @@index([targetId, changedAt])
+}
+
+model Region {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  sortOrder Int
+  createdAt DateTime @default(now())
+
+  territories Territory[]
+  provinces         ProvinceMapping[]
+  registryHospitals HospitalRegistry[]
+}
+
+model ProvinceMapping {
+  id            String   @id @default(cuid())
+  canonicalName String   @unique
+  regionId      String
+  region        Region   @relation(fields: [regionId], references: [id])
+  createdAt     DateTime @default(now())
+
+  aliases           ProvinceAlias[]
+  hospitals         Hospital[]
+  registryHospitals HospitalRegistry[]
+}
+
+model ProvinceAlias {
+  id                String          @id @default(cuid())
+  normalizedAlias   String          @unique
+  sampleRaw         String
+  provinceMappingId String
+  provinceMapping   ProvinceMapping @relation(fields: [provinceMappingId], references: [id])
+  isDistrictLevel   Boolean         @default(false)
+  createdAt         DateTime        @default(now())
+}
+
+enum HospitalCategory {
+  GOVERNMENT_GENERAL
+  UNIVERSITY
+  PRIVATE
+  OTHER
+}
+
+model HospitalRegistry {
+  id                  String           @id @default(cuid())
+  sourceCode          String?          @unique
+  nameInFile          String
+  displayName         String
+  provinceMappingId   String?
+  provinceMapping     ProvinceMapping? @relation(fields: [provinceMappingId], references: [id])
+  provinceRaw         String
+  regionId            String?
+  region              Region?          @relation(fields: [regionId], references: [id])
+  healthZone          String?
+  tier                String?
+  category            HospitalCategory @default(GOVERNMENT_GENERAL)
+  potentialAdjustment Decimal          @default(1.000) @db.Decimal(6, 3)
+  isActive            Boolean          @default(true)
+  sourceFile          String?
+  territoryId         String?
+  territory           Territory?       @relation(fields: [territoryId], references: [id])
+  territorySource     TerritoryLinkSource @default(INFERRED)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  metrics HospitalPotentialMetric[]
+  links   HospitalRegistryLink[]
+
+  @@unique([nameInFile, provinceRaw])
+  @@index([regionId])
+  @@index([category, tier])
+}
+
+enum PotentialMetricKey {
+  BEDS
+  CMI
+  SUM_ADJ_RW
+  OCCUPANCY_RATE
+  PATIENTS
+  VISITS
+}
+
+model HospitalPotentialMetric {
+  id                 String             @id @default(cuid())
+  hospitalRegistryId String
+  hospitalRegistry   HospitalRegistry   @relation(fields: [hospitalRegistryId], references: [id], onDelete: Cascade)
+  metric             PotentialMetricKey
+  value              Decimal            @db.Decimal(16, 4)
+  periodYear         Int?
+  periodMonth        Int?
+  sourceFile         String?
+  createdAt          DateTime           @default(now())
+
+  @@unique([hospitalRegistryId, metric, periodYear, periodMonth])
+}
+
+enum RegistryLinkStatus {
+  UNREVIEWED
+  LINKED
+  CONFIRMED_ABSENT
+}
+
+enum RegistryLinkMethod {
+  EXACT
+  NORMALIZED
+  FUZZY
+  MANUAL
+}
+
+model HospitalRegistryLink {
+  id                 String              @id @default(cuid())
+  hospitalId         String              @unique
+  hospital           Hospital            @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  hospitalRegistryId String?
+  hospitalRegistry   HospitalRegistry?   @relation(fields: [hospitalRegistryId], references: [id])
+  status             RegistryLinkStatus  @default(UNREVIEWED)
+  method             RegistryLinkMethod?
+  confidence         Decimal?            @db.Decimal(5, 4)
+  reviewedById       String?
+  reviewedBy         User?               @relation(fields: [reviewedById], references: [id])
+  reviewedAt         DateTime?
+  note               String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@index([status])
+}
+
+model Territory {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  code      String?  @unique
+  regionId  String?
+  region    Region?  @relation(fields: [regionId], references: [id])
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignments     TerritoryAssignment[]
+  hospitals       Hospital[]
+  targets         Target[]
+  groupMemberships TerritoryGroupMember[]
+  registryHospitals HospitalRegistry[]
+}
+
+model TerritoryAssignment {
+  id            String      @id @default(cuid())
+  territoryId   String
+  territory     Territory   @relation(fields: [territoryId], references: [id], onDelete: Cascade)
+  salespersonId String
+  salesperson   Salesperson @relation(fields: [salespersonId], references: [id])
+  isSupervisor  Boolean     @default(false)
+  effectiveFrom DateTime    @db.Date
+  effectiveTo   DateTime?   @db.Date
+  assignedById  String?
+  assignedBy    User?       @relation(fields: [assignedById], references: [id])
+  note          String?
+  createdAt     DateTime    @default(now())
+
+  @@unique([territoryId, salespersonId, effectiveFrom])
+  @@index([territoryId, effectiveTo])
+  @@index([salespersonId, effectiveTo])
+  @@index([salespersonId, isSupervisor, effectiveTo])
+}
+
+enum TerritoryLinkSource {
+  INFERRED
+  MANUAL
+}
+
+model HospitalTerritoryChange {
+  id              String   @id @default(cuid())
+  hospitalId      String?
+  registryId      String?
+  fromTerritoryId String?
+  toTerritoryId   String?
+  changedById     String?
+  changedAt       DateTime @default(now())
+  note            String?
+
+  @@index([hospitalId, changedAt])
+  @@index([registryId, changedAt])
+}
+
+model TerritoryGroup {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members TerritoryGroupMember[]
+  targets Target[]
+}
+
+model TerritoryGroupMember {
+  id            String         @id @default(cuid())
+  groupId       String
+  group         TerritoryGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  territoryId   String
+  territory     Territory      @relation(fields: [territoryId], references: [id], onDelete: Cascade)
+  effectiveFrom DateTime       @db.Date
+  effectiveTo   DateTime?      @db.Date
+  createdAt     DateTime       @default(now())
+
+  @@unique([groupId, territoryId, effectiveFrom])
+  @@index([territoryId, effectiveTo])
+  @@index([groupId, effectiveTo])
 }
 
 // ---------- Scoring config ----------

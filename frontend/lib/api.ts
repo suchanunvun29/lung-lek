@@ -15,14 +15,37 @@ import {
   Salesperson,
   SalespersonKpiResponse,
   SalesLine,
+  HospitalNameReview,
+  HospitalRegistry,
+  HospitalRegistryLink,
+  ProductMasterItem,
+  ProvinceMapping,
+  Region,
+  RegistryLinkStatus,
+  SalesmanNameRule,
   ScoringWeight,
   ScoringWeightRevision,
   ScoredKpiMetric,
   Target,
   TargetRevision,
+  Territory,
+  TerritoryAssignment,
+  TerritoryGroup,
+  TerritoryGroupMember,
+  UnassignedTerritoryHospital,
+  DerivedTarget,
+  TargetScope,
+  TerritoryKpiDrillDownResponse,
+  TerritoryOverviewResponse,
+  MyTerritoryViewResponse,
+  TerritoryProductRankingResponse,
+  TerritoryKpiTeamResponse,
   TeamKpiResponse,
   TeamOverviewData,
   UserRole,
+  PeriodTouched,
+  PeriodDryRunResponse,
+  PeriodImportConfirmedResponse,
 } from "./types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
@@ -118,10 +141,45 @@ export function resetUserPassword(token: string, id: string) {
   );
 }
 
-export function uploadImportFile(token: string, file: File) {
+export interface ReplacePeriodImportInput {
+  mode: "REPLACE_PERIOD";
+  targetPeriods: PeriodTouched[];
+  confirm: boolean;
+}
+
+export type UploadImportResponse =
+  | { importBatch: ImportBatch }
+  | PeriodDryRunResponse
+  | PeriodImportConfirmedResponse;
+
+export function uploadImportFile(
+  token: string,
+  file: File,
+  input?: ReplacePeriodImportInput
+) {
   const formData = new FormData();
   formData.append("file", file);
-  return request<{ importBatch: ImportBatch }>("/import", { method: "POST", body: formData }, token);
+  if (input) {
+    formData.append("mode", input.mode);
+    formData.append("targetPeriods", JSON.stringify(input.targetPeriods));
+    formData.append("confirm", String(input.confirm));
+  }
+  return request<UploadImportResponse>("/import", { method: "POST", body: formData }, token);
+}
+
+export interface PeriodDeleteInput {
+  targetPeriods: PeriodTouched[];
+  confirm: boolean;
+}
+
+export type PeriodDeleteResponse = PeriodDryRunResponse | PeriodImportConfirmedResponse;
+
+export function deleteImportPeriods(token: string, input: PeriodDeleteInput) {
+  return request<PeriodDeleteResponse>(
+    "/import/period-delete",
+    { method: "POST", body: JSON.stringify(input) },
+    token
+  );
 }
 
 export function listImportBatches(token: string) {
@@ -170,6 +228,141 @@ export function listHospitals(token: string) {
   return request<{ hospitals: Hospital[] }>("/hospitals", { method: "GET" }, token);
 }
 
+export function uploadHospitalRegistryFile(token: string, file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+  return request<{ importBatch: ImportBatch; links: { linked: number; unreviewed: number } }>(
+    "/registry-import",
+    { method: "POST", body: formData },
+    token
+  );
+}
+
+export function listProvinces(token: string) {
+  return request<{ provinces: ProvinceMapping[]; regions: Region[] }>("/provinces", { method: "GET" }, token);
+}
+
+export function updateProvince(token: string, id: string, input: { canonicalName?: string; regionId?: string }) {
+  return request<{ province: ProvinceMapping }>(`/provinces/${id}`, { method: "PATCH", body: JSON.stringify(input) }, token);
+}
+
+export function listHospitalRegistryLinks(token: string, status?: RegistryLinkStatus) {
+  const query = status ? `?status=${status}` : "";
+  return request<{ hospitalRegistryLinks: HospitalRegistryLink[] }>(`/hospital-registry-links${query}`, { method: "GET" }, token);
+}
+
+export function updateHospitalRegistryLink(
+  token: string,
+  hospitalId: string,
+  input: { status: Exclude<RegistryLinkStatus, "UNREVIEWED">; hospitalRegistryId?: string | null; note?: string | null }
+) {
+  return request<{ hospitalRegistryLink: HospitalRegistryLink }>(
+    `/hospital-registry-links/${hospitalId}`,
+    { method: "PATCH", body: JSON.stringify(input) },
+    token
+  );
+}
+
+export function listHospitalRegistries(
+  token: string,
+  filter: { q?: string; provinceMappingId?: string; territoryId?: string; page?: number; pageSize?: number } = {}
+) {
+  const params = new URLSearchParams();
+  Object.entries(filter).forEach(([key, value]) => value !== undefined && params.set(key, String(value)));
+  const query = params.toString();
+  return request<{ hospitalRegistries: HospitalRegistry[]; total: number; page: number; pageSize: number }>(
+    `/hospital-registries${query ? `?${query}` : ""}`,
+    { method: "GET" },
+    token
+  );
+}
+
+export interface TerritoryInput {
+  name: string;
+  code?: string | null;
+  regionId?: string | null;
+  isActive?: boolean;
+  note?: string | null;
+}
+
+export function listTerritories(token: string) {
+  return request<{ territories: Territory[] }>("/territories", { method: "GET" }, token);
+}
+
+export function createTerritory(token: string, input: TerritoryInput) {
+  return request<{ territory: Territory }>("/territories", { method: "POST", body: JSON.stringify(input) }, token);
+}
+
+export function updateTerritory(token: string, id: string, input: Partial<TerritoryInput>) {
+  return request<{ territory: Territory }>(`/territories/${id}`, { method: "PATCH", body: JSON.stringify(input) }, token);
+}
+
+export function listTerritoryAssignments(token: string, filters: { territoryId?: string; salespersonId?: string; status?: "ACTIVE" | "INACTIVE" } = {}) {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => value && params.set(key, value));
+  const query = params.toString();
+  return request<{ territoryAssignments: TerritoryAssignment[] }>(`/territory-assignments${query ? `?${query}` : ""}`, { method: "GET" }, token);
+}
+
+export function saveTerritoryAssignment(token: string, input: { territoryId: string; salespersonId: string; isSupervisor: boolean; effectiveFrom: string; effectiveTo?: string | null; note?: string | null }) {
+  return request<{ territoryAssignment: TerritoryAssignment }>("/territory-assignments", { method: "PUT", body: JSON.stringify(input) }, token);
+}
+
+export function moveHospitalToTerritory(token: string, hospitalId: string, territoryId: string | null, note?: string) {
+  return request<{ hospital: Hospital }>(`/hospitals/${hospitalId}/territory`, { method: "PATCH", body: JSON.stringify({ territoryId, note }) }, token);
+}
+
+export function bulkMoveHospitalsByProvince(token: string, province: string, territoryId: string | null, note?: string) {
+  return request<{ updatedCount: number }>("/hospitals/territory/bulk-by-province", { method: "POST", body: JSON.stringify({ province, territoryId, note }) }, token);
+}
+
+export function listUnassignedTerritoryHospitals(token: string) {
+  return request<{ hospitals: UnassignedTerritoryHospital[]; unassignedBucket: string }>("/hospitals/unassigned-territory", { method: "GET" }, token);
+}
+
+export function getDerivedTarget(token: string, salespersonId: string, year: number, month: number) {
+  return request<{ derivedTarget: DerivedTarget }>(`/targets/derived/${salespersonId}/${year}/${month}`, { method: "GET" }, token);
+}
+
+export function listTerritoryGroups(token: string) {
+  return request<{ territoryGroups: TerritoryGroup[] }>("/territory-groups", { method: "GET" }, token);
+}
+
+export function createTerritoryGroup(token: string, input: { name: string; isActive?: boolean; note?: string | null }) {
+  return request<{ territoryGroup: TerritoryGroup }>("/territory-groups", { method: "POST", body: JSON.stringify(input) }, token);
+}
+
+export function updateTerritoryGroup(token: string, id: string, input: { name?: string; isActive?: boolean; note?: string | null }) {
+  return request<{ territoryGroup: TerritoryGroup }>(`/territory-groups/${id}`, { method: "PATCH", body: JSON.stringify(input) }, token);
+}
+
+export interface TerritoryGroupMemberInput {
+  territoryId: string;
+  effectiveFrom: string;
+  effectiveTo?: string | null;
+}
+
+export function addTerritoryGroupMember(token: string, groupId: string, input: TerritoryGroupMemberInput) {
+  return request<{ member: TerritoryGroupMember }>(`/territory-groups/${groupId}/members`, { method: "POST", body: JSON.stringify(input) }, token);
+}
+
+export function updateTerritoryGroupMember(
+  token: string,
+  groupId: string,
+  memberId: string,
+  input: Partial<Pick<TerritoryGroupMemberInput, "effectiveFrom" | "effectiveTo">>
+) {
+  return request<{ member: TerritoryGroupMember }>(`/territory-groups/${groupId}/members/${memberId}`, { method: "PATCH", body: JSON.stringify(input) }, token);
+}
+
+export function upsertTerritoryTarget(token: string, territoryId: string, year: number, month: number, input: UpsertTargetInput) {
+  return request<{ target: Target }>(`/targets/${territoryId}/${year}/${month}`, { method: "PUT", body: JSON.stringify(input) }, token);
+}
+
+export function upsertTerritoryGroupTarget(token: string, groupId: string, year: number, month: number, input: UpsertTargetInput) {
+  return request<{ target: Target }>(`/targets/group/${groupId}/${year}/${month}`, { method: "PUT", body: JSON.stringify(input) }, token);
+}
+
 export function updateHospital(token: string, id: string, isPreExistingCustomer: boolean) {
   return request<{ hospital: Hospital }>(
     `/hospitals/${id}`,
@@ -190,8 +383,58 @@ export function updateSalesperson(token: string, id: string, userId: string | nu
   );
 }
 
-export function listTargets(token: string, year: number) {
-  return request<{ targets: Target[] }>(`/targets?year=${year}`, { method: "GET" }, token);
+export function listHospitalNameReviews(token: string) {
+  return request<{ hospitalNameReviews: HospitalNameReview[] }>("/hospital-name-reviews", { method: "GET" }, token);
+}
+
+export type HospitalNameReviewDecision =
+  | { decision: "MERGED"; mergedIntoId?: string; note?: string }
+  | { decision: "KEPT_SEPARATE"; note?: string };
+
+export function decideHospitalNameReview(token: string, id: string, input: HospitalNameReviewDecision) {
+  return request<{ hospitalNameReview: HospitalNameReview }>(
+    `/hospital-name-reviews/${id}`,
+    { method: "PATCH", body: JSON.stringify(input) },
+    token
+  );
+}
+
+export function listSalesmanNameRules(token: string) {
+  return request<{ salesmanNameRules: SalesmanNameRule[] }>("/salesman-name-rules", { method: "GET" }, token);
+}
+
+export function updateSalesmanNameRule(
+  token: string,
+  id: string,
+  members: { salespersonId: string; sharePercent: number }[]
+) {
+  return request<{ salesmanNameRule: SalesmanNameRule }>(
+    `/salesman-name-rules/${id}`,
+    { method: "PATCH", body: JSON.stringify({ members }) },
+    token
+  );
+}
+
+export function listProducts(token: string) {
+  return request<{ products: ProductMasterItem[] }>("/products", { method: "GET" }, token);
+}
+
+export interface UpdateProductInput {
+  code?: string | null;
+  displayName?: string | null;
+  isActive?: boolean;
+}
+
+export function updateProduct(token: string, id: string, input: UpdateProductInput) {
+  return request<{ product: ProductMasterItem }>(
+    `/products/${id}`,
+    { method: "PATCH", body: JSON.stringify(input) },
+    token
+  );
+}
+
+export function listTargets(token: string, year: number, scope: TargetScope = "SALESPERSON") {
+  return request<{ targets: Target[] }>(`/targets?year=${year}&scope=${scope}`, { method: "GET" }, token);
 }
 
 export interface UpsertTargetInput {
@@ -271,6 +514,41 @@ export function getSalespersonKpi(token: string, salespersonId: string, period: 
 export function getTeamKpi(token: string, period: PeriodKey) {
   return request<TeamKpiResponse>(`/kpi/team?${periodQueryParams(period)}`, { method: "GET" }, token);
 }
+
+export function getTerritoryKpiTeam(token: string, period: PeriodKey) {
+  return request<TerritoryKpiTeamResponse>(`/territory-kpi/team?${periodQueryParams(period)}`, { method: "GET" }, token);
+}
+
+export function getTerritoryKpiDrillDown(
+  token: string,
+  territoryId: string,
+  metric: DrillDownMetric,
+  period: PeriodKey
+) {
+  return request<TerritoryKpiDrillDownResponse>(
+    `/territory-kpi/${territoryId}/drill-down/${metric}?${periodQueryParams(period)}`,
+    { method: "GET" },
+    token
+  );
+}
+
+export function getTerritoryOverview(token: string, period: PeriodKey) {
+  return request<TerritoryOverviewResponse>(`/reports/territory-overview?${periodQueryParams(period)}`, { method: "GET" }, token);
+}
+
+export function getMyTerritoryView(
+  token: string,
+  salespersonId: string,
+  period: PeriodKey,
+  filters: { productTypeId?: string; creditOnly?: boolean } = {}
+) {
+  const params = new URLSearchParams(periodQueryParams(period));
+  if (filters.productTypeId) params.set("productTypeId", filters.productTypeId);
+  if (filters.creditOnly) params.set("creditOnly", "true");
+  return request<MyTerritoryViewResponse>(`/my-territory-view/${salespersonId}?${params.toString()}`, { method: "GET" }, token);
+}
+
+export function getTerritoryProductRanking(token: string, territoryId: string, period: PeriodKey) { return request<TerritoryProductRankingResponse>(`/territory-product-ranking/${territoryId}?${periodQueryParams(period)}`, { method: "GET" }, token); }
 
 export function getKpiDrillDown(
   token: string,
@@ -401,6 +679,24 @@ export function exportIndividualReport(token: string, salespersonId: string, per
 export function exportTeamOverviewReport(token: string, period: PeriodKey) {
   return downloadFile(`/reports/team-overview/export?${periodQueryParams(period)}`, token);
 }
+
+export function exportTerritoryOverviewReport(token: string, period: PeriodKey) {
+  return downloadFile(`/reports/territory-overview/export?${periodQueryParams(period)}`, token);
+}
+
+export function exportMyTerritoryView(
+  token: string,
+  salespersonId: string,
+  period: PeriodKey,
+  filters: { productTypeId?: string; creditOnly?: boolean } = {}
+) {
+  const params = new URLSearchParams(periodQueryParams(period));
+  if (filters.productTypeId) params.set("productTypeId", filters.productTypeId);
+  if (filters.creditOnly) params.set("creditOnly", "true");
+  return downloadFile(`/my-territory-view/${salespersonId}/export?${params.toString()}`, token);
+}
+
+export function exportTerritoryProductRanking(token: string, territoryId: string, period: PeriodKey) { return downloadFile(`/territory-product-ranking/${territoryId}/export?${periodQueryParams(period)}`, token); }
 
 const KNOWN_ERROR_TRANSLATIONS: Record<string, string> = {
   "Invalid email or password": "อีเมลหรือรหัสผ่านไม่ถูกต้อง",

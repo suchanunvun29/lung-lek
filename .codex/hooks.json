@@ -1,0 +1,53 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node 'C:\\src\\lung-lek\\.codex\\hooks\\block-git.js'"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node 'C:\\src\\lung-lek\\.codex\\hooks\\block-outside-repo.js'"
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node 'C:\\src\\lung-lek\\.codex\\hooks\\block-doc-rewrite.js'"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node 'C:\\src\\lung-lek\\.codex\\hooks\\require-green-before-stop.js'"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node 'C:\\src\\lung-lek\\.codex\\hooks\\require-green-before-stop.js'"
+          }
+        ]
+      }
+    ]
+  }
+}

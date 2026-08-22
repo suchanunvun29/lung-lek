@@ -175,7 +175,7 @@ async function revert(backupFile: string): Promise<void> {
 
   for (const backup of backups.reverse()) {
     await prisma.$transaction(async (tx) => {
-      const restored = await tx.salesperson.create({
+      await tx.salesperson.create({
         data: {
           id: backup.bogusSalesperson.id,
           nameInFile: backup.bogusSalesperson.nameInFile,

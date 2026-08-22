@@ -38,6 +38,7 @@ export default function UsersPage() {
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
   const [tempPassword, setTempPassword] = useState<TemporaryPasswordState | null>(null);
   const [busyUserId, setBusyUserId] = useState<string | null>(null);
+  const unlinkedSalespersonUsers = users.filter((user) => user.role === "SALESPERSON" && !user.isSalespersonLinked);
 
   const loadUsers = useCallback(async () => {
     if (!token) return;
@@ -140,6 +141,21 @@ export default function UsersPage() {
       )}
 
       {loadError && <p className="mt-4 text-sm text-red-600">{loadError}</p>}
+
+      {unlinkedSalespersonUsers.length > 0 && (
+        <section className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-4">
+          <h2 className="font-semibold text-amber-900">บัญชีพนักงานขายที่ยังไม่ผูกข้อมูลพนักงาน</h2>
+          <p className="mt-1 text-sm text-amber-800">บัญชีเหล่านี้จะยังเปิดดูข้อมูลส่วนตัวไม่ได้จนกว่าจะผูกกับพนักงานขาย</p>
+          <ul className="mt-3 space-y-2 text-sm text-amber-900">
+            {unlinkedSalespersonUsers.map((user) => (
+              <li key={user.id} className="flex flex-wrap items-center justify-between gap-2">
+                <span>{user.displayName} · {user.email}</span>
+                <button type="button" onClick={() => setEditingUser(user)} className="font-medium underline">ไปผูกพนักงานขาย</button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <div className="mt-6 overflow-x-auto rounded-lg border border-zinc-200 bg-white">
         <table className="min-w-full divide-y divide-zinc-200 text-sm">

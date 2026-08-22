@@ -32,6 +32,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [drillDownMetric, setDrillDownMetric] = useState<DrillDownMetric | null>(null);
+  const [accountNotLinked, setAccountNotLinked] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -50,13 +51,20 @@ export default function DashboardPage() {
   }, [token, currentUser]);
 
   const loadDashboard = useCallback(async () => {
-    if (!token || !salespersonId) return;
+    if (!token) return;
     setLoading(true);
     try {
-      const [kpiData, teamData] = await Promise.all([
-        getSalespersonKpi(token, salespersonId, period),
-        getTeamKpi(token, period),
-      ]);
+      const teamData = await getTeamKpi(token, period);
+      if (teamData.reason === "ACCOUNT_NOT_LINKED") {
+        setAccountNotLinked(true);
+        setKpi(null);
+        setTeamAverages({});
+        setLoadError(null);
+        return;
+      }
+      setAccountNotLinked(false);
+      if (!salespersonId) return;
+      const kpiData = await getSalespersonKpi(token, salespersonId, period);
       setKpi(kpiData);
       setTeamAverages(computeTeamAverageScores(teamData.results));
       setLoadError(null);
@@ -74,10 +82,6 @@ export default function DashboardPage() {
 
   const revenueMetric = kpi?.composite.metrics.find((m) => m.metric === "REVENUE_VS_TARGET");
 
-  // Only a MANAGER may generate/regenerate a coaching insight — matches the permission the
-  // backend enforces in coachingInsight.controller.ts.
-  const canGenerateInsight = currentUser?.role === "MANAGER";
-
   return (
     <div className="mx-auto max-w-5xl p-4 sm:p-6">
       <h1 className="text-2xl font-semibold text-zinc-900">
@@ -91,9 +95,10 @@ export default function DashboardPage() {
       </div>
 
       {loadError && <p className="mt-4 text-sm text-red-600">{loadError}</p>}
+      {accountNotLinked && <p className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">บัญชีนี้ยังไม่ได้ผูกกับพนักงานขาย กรุณาติดต่อผู้จัดการ</p>}
       {loading && <p className="mt-6 text-zinc-400">กำลังโหลด...</p>}
 
-      {!loading && kpi && revenueMetric && (
+      {!loading && !accountNotLinked && kpi && revenueMetric && (
         <div className="mt-6 space-y-4">
           <RevenueTargetProgress metric={revenueMetric} />
 
@@ -125,7 +130,6 @@ export default function DashboardPage() {
           <CoachingInsightPanel
             salespersonId={kpi.salesperson.id}
             period={period}
-            canGenerate={canGenerateInsight}
             onDrillDown={(metric) => setDrillDownMetric(metric)}
           />
 

@@ -99,8 +99,6 @@ export default function IndividualReportPage() {
 
   // Only a MANAGER may generate/regenerate a coaching insight — matches the permission the
   // backend enforces in coachingInsight.controller.ts.
-  const canGenerateInsight = currentUser?.role === "MANAGER";
-
   return (
     <div className="mx-auto max-w-5xl p-4 sm:p-6">
       <h1 className="text-2xl font-semibold text-zinc-900">รายงาน Coaching รายบุคคล</h1>
@@ -167,7 +165,6 @@ export default function IndividualReportPage() {
           <CoachingInsightPanel
             salespersonId={report.salesperson.id}
             period={period}
-            canGenerate={canGenerateInsight}
             onDrillDown={(metric) => setDrillDownMetric(metric)}
           />
 

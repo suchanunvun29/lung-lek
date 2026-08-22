@@ -14,7 +14,7 @@ export async function listTargets(req: Request, res: Response) {
   const { year } = req.query as unknown as TargetsQuery;
 
   const targets = await prisma.target.findMany({
-    where: { year },
+    where: { year, scope: "SALESPERSON" },
     include: {
       salesperson: { select: { id: true, displayName: true } },
       productGroupTargets: { include: { productType: { select: { id: true, name: true } } } },

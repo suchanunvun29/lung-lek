@@ -25,10 +25,6 @@ const TERRITORIES = [
   { key: "อีสานตอนล่าง", owners: ["Miss Kulnattida Sangkaew"], targetPerMonth: 666_666 },
 ] as const;
 
-const SATHIT_NAME = "Mr.Sathit Ratanakuakul";
-const SATHIT_TARGET_PER_MONTH = 166_666.67;
-const SATHIT_PRODUCT_TYPE_HINT = "Cook Critical Care"; // matched loosely against ProductType.name below
-
 // Thai canonical province -> territory key (standard regional grouping; ภาคกลาง excludes the
 // Bangkok-vicinity provinces already folded into กท1/กท2 splits per how requirement.md's table
 // reads — Pathum Thani/Nonthaburi/Samut Prakan/Samut Sakhon/Samut Songkhram grouped into กลาง).
@@ -195,7 +191,7 @@ async function main() {
   interface RegistryHospital { province: string; code: string; name: string; type: string; beds: number }
   const registryHospitals: RegistryHospital[] = [];
   for (let i = 2; i <= registryWs.rowCount; i++) {
-    const row = registryWs.getRow(i).values as any[];
+    const row = registryWs.getRow(i).values as ExcelJS.CellValue[];
     if (!row[3]) continue;
     registryHospitals.push({ province: String(row[2] ?? ""), code: String(row[3] ?? ""), name: String(row[4] ?? ""), type: String(row[5] ?? ""), beds: Number(row[6] ?? 0) });
   }

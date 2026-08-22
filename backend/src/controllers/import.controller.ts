@@ -1,21 +1,45 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
-import { importSalesFile } from "../services/import.service";
-import { SalesLinesQuery } from "../validators/import.validators";
+import { ImportInProgressError, importSalesFile, deleteSalesPeriods } from "../services/import.service";
+import { ImportConfirmQuery, ImportRequest, PeriodDeleteRequest, SalesLinesQuery } from "../validators/import.validators";
 
 export async function uploadImport(req: Request, res: Response) {
   if (!req.file) {
     return res.status(400).json({ error: "File is required (field name: file)" });
   }
 
-  const batch = await importSalesFile({
-    fileBuffer: req.file.buffer,
-    fileName: req.file.originalname,
-    fileSizeBytes: req.file.size,
-    uploadedById: req.user!.id,
-  });
+  try {
+    const result = await importSalesFile({
+      fileBuffer: req.file.buffer,
+      fileName: req.file.originalname,
+      fileSizeBytes: req.file.size,
+      uploadedById: req.user!.id,
+      ...(req.body as ImportRequest),
+      ...(req.query as unknown as ImportConfirmQuery),
+    });
+    return res.status(result.dryRun ? 200 : 201).json(result);
+  } catch (error) {
+    if (error instanceof ImportInProgressError) {
+      return res.status(409).json({ error: "Import already in progress", code: "IMPORT_IN_PROGRESS" });
+    }
+    throw error;
+  }
+}
 
-  res.status(201).json({ importBatch: batch });
+export async function periodDelete(req: Request, res: Response) {
+  try {
+    const result = await deleteSalesPeriods({
+      uploadedById: req.user!.id,
+      ...(req.body as PeriodDeleteRequest),
+      ...(req.query as unknown as ImportConfirmQuery),
+    });
+    return res.status(result.dryRun ? 200 : 201).json(result);
+  } catch (error) {
+    if (error instanceof ImportInProgressError) {
+      return res.status(409).json({ error: "Import already in progress", code: "IMPORT_IN_PROGRESS" });
+    }
+    throw error;
+  }
 }
 
 export async function listImportBatches(_req: Request, res: Response) {

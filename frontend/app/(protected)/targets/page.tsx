@@ -63,7 +63,9 @@ export default function TargetsPage() {
 
   const targetsByKey = useMemo(() => {
     const map = new Map<string, Target>();
-    targets.forEach((t) => map.set(targetKey(t.salespersonId, t.month), t));
+    targets.forEach((t) => {
+      if (t.salespersonId) map.set(targetKey(t.salespersonId, t.month), t);
+    });
     return map;
   }, [targets]);
 

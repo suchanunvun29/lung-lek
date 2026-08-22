@@ -46,20 +46,21 @@ export default function ImportBatchesPage() {
               <th className="px-4 py-3">เวลา</th>
               <th className="px-4 py-3">สถานะ</th>
               <th className="px-4 py-3 text-right">นำเข้า/อัปเดต/ผิดพลาด</th>
+              <th className="px-4 py-3 text-right">ลบออก</th>
               <th className="px-4 py-3 text-right">รายละเอียด</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
             {loading && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-zinc-400">
+                <td colSpan={7} className="px-4 py-6 text-center text-zinc-400">
                   กำลังโหลด...
                 </td>
               </tr>
             )}
             {!loading && batches.length === 0 && !loadError && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-zinc-400">
+                <td colSpan={7} className="px-4 py-6 text-center text-zinc-400">
                   ยังไม่มีประวัติการนำเข้า
                 </td>
               </tr>
@@ -84,6 +85,7 @@ export default function ImportBatchesPage() {
                 <td className="px-4 py-3 text-right text-zinc-600">
                   {batch.insertedRows} / {batch.updatedRows} / {batch.errorRows}
                 </td>
+                <td className="px-4 py-3 text-right text-zinc-600">{batch.removedRows}</td>
                 <td className="px-4 py-3 text-right">
                   <Link href={`/import-batches/${batch.id}`} className="text-zinc-700 hover:underline">
                     ดูรายละเอียด

@@ -21,6 +21,7 @@ export interface AppUser {
   createdAt: string;
   updatedAt: string;
   salesperson: SalespersonSummary | null;
+  isSalespersonLinked: boolean;
 }
 
 /** Minimal user shape returned by POST /auth/login — what we keep in the auth store. */
@@ -40,6 +41,7 @@ export interface AuthUser {
 
 export type ImportStatus = "PROCESSING" | "SUCCESS" | "PARTIAL" | "FAILED";
 export type ImportIssueLevel = "WARNING" | "ERROR";
+export type ImportMode = "APPEND" | "REPLACE_PERIOD" | "PERIOD_DELETE";
 
 export interface UploaderSummary {
   id: string;
@@ -64,6 +66,44 @@ export interface ImportIssue {
   rawRow: Record<string, unknown> | null;
 }
 
+// ---------- Module J: name-resolution review queues ----------
+
+export type NameDecisionSource = "AUTO" | "MANAGER";
+export type HospitalNameReviewStatus = "PENDING" | "MERGED" | "KEPT_SEPARATE";
+
+export interface HospitalNameReview {
+  id: string;
+  normalizedKeyA: string;
+  normalizedKeyB: string;
+  sampleRawA: string;
+  sampleRawB: string;
+  similarity: string | null;
+  status: HospitalNameReviewStatus;
+  mergedIntoId: string | null;
+  decidedById: string | null;
+  decidedAt: string | null;
+  note: string | null;
+  createdAt: string;
+}
+
+export interface SalesmanNameRuleMember {
+  id: string;
+  ruleId: string;
+  salespersonId: string;
+  sharePercent: string;
+  salesperson: SalespersonSummary;
+}
+
+export interface SalesmanNameRule {
+  id: string;
+  normalizedRaw: string;
+  sampleRaw: string;
+  decidedById: string | null;
+  decidedAt: string | null;
+  createdAt: string;
+  members: SalesmanNameRuleMember[];
+}
+
 /** Full ImportBatch record — `issues` is only present on POST /import and GET /import-batches/:id. */
 export interface ImportBatch {
   id: string;
@@ -81,9 +121,40 @@ export interface ImportBatch {
   updatedRows: number;
   skippedRows: number;
   errorRows: number;
+  mode: ImportMode;
+  targetPeriods: PeriodTouched[] | null;
+  removedRows: number;
+  confirmedById: string | null;
   periodsTouched: PeriodTouched[] | null;
   errorMessage: string | null;
   issues?: ImportIssue[];
+}
+
+export interface PeriodRemovalSample {
+  invoiceNo: string;
+  hospitalName: string;
+  total: string;
+}
+
+export interface PeriodDryRunPreview {
+  targetPeriods: PeriodTouched[];
+  existingRows: number;
+  existingTotal: string;
+  insertedRows: number;
+  updatedRows: number;
+  removedRows: number;
+  removalSamples: PeriodRemovalSample[];
+  willDeletePeriodWithoutReplacement: boolean;
+}
+
+export interface PeriodDryRunResponse {
+  dryRun: true;
+  preview: PeriodDryRunPreview;
+}
+
+export interface PeriodImportConfirmedResponse {
+  dryRun: false;
+  importBatch: ImportBatch;
 }
 
 export interface EntitySummary {
@@ -131,6 +202,70 @@ export interface Hospital {
   updatedAt: string;
 }
 
+// ---------- Module K: Hospital registry, province mapping and registry links ----------
+
+export type RegistryLinkStatus = "UNREVIEWED" | "LINKED" | "CONFIRMED_ABSENT";
+export type RegistryLinkMethod = "EXACT" | "NORMALIZED" | "FUZZY" | "MANUAL";
+export type HospitalCategory = "GOVERNMENT_GENERAL" | "UNIVERSITY" | "PRIVATE" | "OTHER";
+export type PotentialMetricKey = "BEDS" | "CMI" | "SUM_ADJ_RW" | "OCCUPANCY_RATE" | "PATIENTS" | "VISITS";
+export type TerritoryLinkSource = "INFERRED" | "MANUAL";
+
+export interface Region {
+  id: string;
+  name: string;
+  sortOrder: number;
+}
+
+export interface ProvinceMapping {
+  id: string;
+  canonicalName: string;
+  regionId: string;
+  region: Region;
+}
+
+export interface HospitalRegistryMetric {
+  id: string;
+  metric: PotentialMetricKey;
+  value: string;
+  periodYear: number | null;
+  periodMonth: number | null;
+}
+
+export interface HospitalRegistry {
+  id: string;
+  sourceCode: string | null;
+  nameInFile: string;
+  displayName: string;
+  provinceMappingId: string | null;
+  provinceMapping: ProvinceMapping | null;
+  provinceRaw: string;
+  regionId: string | null;
+  region: Region | null;
+  healthZone: string | null;
+  tier: string | null;
+  category: HospitalCategory;
+  potentialAdjustment: string;
+  isActive: boolean;
+  sourceFile: string | null;
+  territoryId: string | null;
+  territory: EntitySummary | null;
+  territorySource: TerritoryLinkSource;
+  metrics: HospitalRegistryMetric[];
+}
+
+export interface HospitalRegistryLink {
+  id: string;
+  hospitalId: string;
+  hospitalRegistryId: string | null;
+  status: RegistryLinkStatus;
+  method: RegistryLinkMethod | null;
+  confidence: string | null;
+  note: string | null;
+  updatedAt: string;
+  hospital: Hospital & { provinceMapping?: ProvinceMapping | null };
+  hospitalRegistry: HospitalRegistry | null;
+}
+
 export interface LinkedUserSummary {
   id: string;
   email: string;
@@ -146,6 +281,187 @@ export interface Salesperson {
   user: LinkedUserSummary | null;
   createdAt: string;
   updatedAt: string;
+}
+
+// ---------- Module M: Territories ----------
+
+export type TargetScope = "SALESPERSON" | "TERRITORY" | "TERRITORY_GROUP";
+
+export interface RegionSummary {
+  id: string;
+  name: string;
+}
+
+export interface Territory {
+  id: string;
+  name: string;
+  code: string | null;
+  regionId: string | null;
+  region: RegionSummary | null;
+  sortOrder: number;
+  isActive: boolean;
+  note: string | null;
+  activeOwnerCount: number;
+  hospitalCount: number;
+}
+
+export interface TerritoryAssignment {
+  id: string;
+  territoryId: string;
+  salespersonId: string;
+  isSupervisor: boolean;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  note: string | null;
+  territory: EntitySummary;
+  salesperson: SalespersonSummary;
+}
+
+export interface UnassignedTerritoryHospital {
+  id: string;
+  displayName: string;
+  province: string | null;
+  unassignedRevenue: string;
+  isAmbiguous: boolean;
+}
+
+export interface TerritoryGroup {
+  id: string;
+  name: string;
+  isActive: boolean;
+  note: string | null;
+  members: TerritoryGroupMember[];
+}
+
+export interface TerritoryGroupMember {
+  id: string;
+  territoryId: string;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  territory: EntitySummary;
+}
+
+export interface DerivedTarget {
+  salespersonId: string;
+  year: number;
+  month: number;
+  revenueTarget: string;
+  newCustomerTarget: number;
+  source: "PERSONAL" | "TERRITORY" | "TERRITORY_GROUP";
+  components: { name: string; revenueTarget: string; activeOwnerCount: number }[];
+  unownedTerritories: { id: string; name: string; revenueTarget: string }[];
+}
+
+// ---------- Module N: Territory KPI ----------
+
+export type TerritoryKpiVisibility = "TERRITORY_FULL" | "TERRITORY_RANK_ONLY";
+
+export interface TerritoryKpiFullRow {
+  territoryId: string;
+  name: string;
+  ownerNames: string[];
+  revenue: number;
+  target: number | null;
+  achievementPercent: number | null;
+  compositeScore: number | null;
+  computedMetricLabel: string;
+  metrics: MetricResult[];
+  visibility: "TERRITORY_FULL";
+  rank: number;
+}
+
+export interface TerritoryKpiRankOnlyRow {
+  territoryId: string;
+  name: string;
+  ownerNames: string[];
+  compositeScore: number | null;
+  computedMetricLabel: string;
+  visibility: "TERRITORY_RANK_ONLY";
+  rank: number;
+}
+
+export type TerritoryKpiRow = TerritoryKpiFullRow | TerritoryKpiRankOnlyRow;
+
+export interface TerritoryKpiBuckets {
+  companyTotal: number;
+  personalBucket: number;
+  unassignedBucket: number;
+}
+
+export interface TerritoryKpiTeamResponse {
+  period: PeriodKey;
+  territories: TerritoryKpiRow[];
+  buckets?: TerritoryKpiBuckets;
+}
+
+export interface TerritoryKpiDrillDownResponse {
+  territory: EntitySummary;
+  metric: DrillDownMetric;
+  productTypes: { id: string; name: string; revenue: number }[];
+  hospitals: { id: string; name: string; revenue: number }[];
+}
+
+export interface TerritoryGroupKpiFullRow {
+  territoryId: string;
+  name: string;
+  ownerNames: string[];
+  memberTerritoryIds: string[];
+  revenue: number;
+  revenueTarget: number | null;
+  achievementPercent: number | null;
+  compositeScore: number | null;
+  computedMetricLabel: string;
+  rank: number;
+  visibility: "TERRITORY_FULL";
+}
+
+export interface TerritoryGroupKpiRankOnlyRow {
+  territoryId: string;
+  name: string;
+  ownerNames: string[];
+  compositeScore: number | null;
+  computedMetricLabel: string;
+  rank: number;
+  visibility: "TERRITORY_RANK_ONLY";
+}
+
+export type TerritoryGroupKpiRow = TerritoryGroupKpiFullRow | TerritoryGroupKpiRankOnlyRow;
+
+export interface TerritoryOverviewResponse extends TerritoryKpiTeamResponse {
+  territoryGroups: TerritoryGroupKpiRow[];
+}
+
+// ---------- Module P1: Salesperson territory view ----------
+
+export type MyTerritoryViewMode = "TERRITORY_TOTAL" | "OWN_CREDIT_ONLY" | "NATIONWIDE_PRODUCT_TYPE_FALLBACK";
+
+export interface MyTerritoryViewResponse {
+  period: PeriodKey;
+  salesperson: EntitySummary;
+  territories: EntitySummary[];
+  mode: MyTerritoryViewMode;
+  creditOnly: boolean;
+  productTypeId: string | null;
+  soldHospitals: { hospital: Hospital; revenue: number }[];
+  soldBeforeButNotInPeriod: Hospital[];
+}
+
+export type ProductZeroSaleStatus = "SOLD_BEFORE_NOT_IN_PERIOD" | "NEVER_SOLD_IN_TERRITORY";
+export interface TerritoryProductRankingItem { productId: string; code: string; name: string; productType: { id: string; name: string }; revenue: number; quantity: number; zeroSaleStatus: ProductZeroSaleStatus | null; }
+export interface TerritoryProductRankingResponse { period: PeriodKey; territory: EntitySummary; items: TerritoryProductRankingItem[]; zeroSaleWarning: string; personalBucket?: Omit<TerritoryProductRankingItem, "zeroSaleStatus">[]; }
+
+// ---------- Module O: Product Master ----------
+
+export type ProductSource = "SALES_HISTORY" | "CATALOG";
+
+export interface ProductMasterItem {
+  id: string;
+  name: string;
+  code: string | null;
+  displayName: string | null;
+  source: ProductSource;
+  isActive: boolean;
+  productType: { id: string; name: string };
 }
 
 // ---------- Module D: Targets ----------
@@ -169,7 +485,10 @@ export interface TargetProductGroupTarget {
 
 export interface Target {
   id: string;
-  salespersonId: string;
+  scope: TargetScope;
+  territoryId: string | null;
+  territoryGroupId: string | null;
+  salespersonId: string | null;
   year: number;
   month: number;
   revenueTarget: string;
@@ -180,6 +499,8 @@ export interface Target {
   productGroupTargets: TargetProductGroupTarget[];
   /** Only present on GET /targets — listTargets includes it, the PUT endpoints don't. */
   salesperson?: { id: string; displayName: string };
+  territory?: { id: string; name: string };
+  territoryGroup?: { id: string; name: string };
 }
 
 export interface TargetProductGroupSnapshot {
@@ -315,6 +636,7 @@ export interface TeamKpiResultRow {
 export interface TeamKpiResponse {
   period: PeriodKey;
   results: TeamKpiResultRow[];
+  reason?: "ACCOUNT_NOT_LINKED";
 }
 
 // kpi.service.ts's drill-down queries never include `salesperson` (already scoped by
@@ -413,6 +735,7 @@ export interface CoachingInsightGetResponse {
   salesperson: EntitySummary;
   period: PeriodKey;
   insight: CoachingInsight | null;
+  canGenerate: boolean;
 }
 
 /** POST /coaching-insights/:salespersonId/generate */

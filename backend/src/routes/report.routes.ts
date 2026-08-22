@@ -9,6 +9,7 @@ import {
   getTeamOverviewReport,
 } from "../controllers/report.controller";
 import { periodQuerySchema, salespersonIdParamsSchema } from "../validators/kpi.validators";
+import { exportTerritoryOverview, getTerritoryOverview } from "../controllers/territoryOverview.controller";
 
 const router = Router();
 
@@ -32,6 +33,8 @@ router.get(
 );
 
 router.get("/team-overview", validate(periodQuerySchema, "query"), asyncHandler(getTeamOverviewReport));
+router.get("/territory-overview", validate(periodQuerySchema, "query"), asyncHandler(getTerritoryOverview));
+router.get("/territory-overview/export", validate(periodQuerySchema, "query"), asyncHandler(exportTerritoryOverview));
 
 router.get(
   "/team-overview/export",

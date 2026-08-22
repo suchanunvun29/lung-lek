@@ -82,9 +82,9 @@ export interface TeamOverviewData {
 // plan.md's "เรียงตามผู้ที่ควรได้รับการช่วยเหลือก่อน". Salespeople with no computable composite
 // can't be meaningfully ranked on this axis, so they're appended after the ranked group —
 // consistent with the Leaderboard's rank:null handling for the same case (design.md Module F).
-export async function getTeamOverviewReport(period: PeriodKey): Promise<TeamOverviewData> {
+export async function getTeamOverviewReport(period: PeriodKey, visibleSalespersonIds?: string[]): Promise<TeamOverviewData> {
   const salespeople = await prisma.salesperson.findMany({
-    where: { isActive: true },
+    where: { isActive: true, ...(visibleSalespersonIds ? { id: { in: visibleSalespersonIds } } : {}) },
     orderBy: { displayName: "asc" },
   });
 

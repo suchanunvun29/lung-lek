@@ -1,5 +1,5 @@
 import ExcelJS, { Row, Worksheet } from "exceljs";
-import { ImportIssueLevel, ImportStatus, Prisma } from "@prisma/client";
+import { ArchiveReason, ImportIssueLevel, ImportMode, ImportStatus, Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import {
   assertSharesSumTo100,
@@ -8,6 +8,7 @@ import {
   resolveHospitalViaAlias,
   resolveSalesmanCredits,
 } from "./creditResolution.service";
+import { buildProductIndex, resolveProductViaAlias } from "./productResolution.service";
 
 const MAX_HEADER_SEARCH_ROWS = 10;
 const TOTAL_MISMATCH_TOLERANCE = 0.05;
@@ -105,6 +106,39 @@ interface ImportSalesFileParams {
   fileName: string;
   fileSizeBytes: number;
   uploadedById: string;
+  mode?: "APPEND" | "REPLACE_PERIOD";
+  targetPeriods?: Period[];
+  confirm?: boolean;
+}
+
+interface Period {
+  year: number;
+  month: number;
+}
+
+interface DeleteSalesPeriodsParams {
+  uploadedById: string;
+  targetPeriods: Period[];
+  confirm?: boolean;
+}
+
+export class ImportInProgressError extends Error {}
+
+class DryRunComplete extends Error {
+  constructor(readonly preview: DryRunPreview) {
+    super("Dry run complete");
+  }
+}
+
+interface DryRunPreview {
+  targetPeriods: Period[];
+  existingRows: number;
+  existingTotal: string;
+  insertedRows: number;
+  updatedRows: number;
+  removedRows: number;
+  removalSamples: { invoiceNo: string; hospitalName: string; total: string }[];
+  willDeletePeriodWithoutReplacement: boolean;
 }
 
 function normalizeHeader(value: string): string {
@@ -348,31 +382,14 @@ async function resolveProductType(tx: TxClient, cache: Map<string, string>, name
   return productType.id;
 }
 
-async function resolveProduct(
-  tx: TxClient,
-  cache: Map<string, string>,
-  name: string,
-  productTypeId: string
-): Promise<string> {
-  const cacheKey = `${productTypeId}|${name.toLowerCase()}`;
-  const cached = cache.get(cacheKey);
-  if (cached) return cached;
-
-  let product = await tx.product.findFirst({
-    where: { productTypeId, name: { equals: name, mode: "insensitive" } },
-  });
-  if (!product) {
-    product = await tx.product.create({ data: { name, productTypeId } });
-  }
-  cache.set(cacheKey, product.id);
-  return product.id;
-}
-
 function periodKey(year: number, month: number): string {
   return `${year}-${month}`;
 }
 
-async function markInsightsStaleForTouchedPeriods(periodsTouched: Set<string>): Promise<void> {
+async function markInsightsStaleForTouchedPeriods(
+  periodsTouched: Set<string>,
+  client: Pick<Prisma.TransactionClient, "coachingInsight"> = prisma
+): Promise<void> {
   if (periodsTouched.size === 0) return;
 
   const monthPeriods = [...periodsTouched].map((key) => {
@@ -388,17 +405,17 @@ async function markInsightsStaleForTouchedPeriods(periodsTouched: Set<string>): 
 
   const updates = [
     ...monthPeriods.map(({ year, month }) =>
-      prisma.coachingInsight.updateMany({ where: { periodType: "MONTH", year, periodNumber: month }, data: { isStale: true } })
+      client.coachingInsight.updateMany({ where: { periodType: "MONTH", year, periodNumber: month }, data: { isStale: true } })
     ),
     ...[...quarterKeys].map((key) => {
       const [year, quarter] = key.split("-").map(Number);
-      return prisma.coachingInsight.updateMany({
+      return client.coachingInsight.updateMany({
         where: { periodType: "QUARTER", year, periodNumber: quarter },
         data: { isStale: true },
       });
     }),
     ...[...years].map((year) =>
-      prisma.coachingInsight.updateMany({ where: { periodType: "YEAR", year, periodNumber: 0 }, data: { isStale: true } })
+      client.coachingInsight.updateMany({ where: { periodType: "YEAR", year, periodNumber: 0 }, data: { isStale: true } })
     ),
   ];
 
@@ -412,7 +429,10 @@ function determineStatus(totalRows: number, errorRows: number, insertedRows: num
   return "PARTIAL";
 }
 
-export async function importSalesFile({ fileBuffer, fileName, fileSizeBytes, uploadedById }: ImportSalesFileParams) {
+async function importSalesFileLegacy({ fileBuffer, fileName, fileSizeBytes, uploadedById }: ImportSalesFileParams) {
+  const inProgress = await prisma.importBatch.findFirst({ where: { status: "PROCESSING" }, select: { id: true } });
+  if (inProgress) throw new ImportInProgressError();
+
   const batch = await prisma.importBatch.create({
     data: { fileName, fileSizeBytes, uploadedById, status: "PROCESSING" },
   });
@@ -502,7 +522,7 @@ export async function importSalesFile({ fileBuffer, fileName, fileSizeBytes, upl
         const hospitalIndex = await buildHospitalIndex(tx);
         const salespersonIndex = await buildSalespersonIndex(tx);
         const productTypeCache = new Map<string, string>();
-        const productCache = new Map<string, string>();
+        const productIndex = await buildProductIndex(tx);
         const periodsTouchedSet = new Set<string>();
 
         const rowKeys = parsedRows.map((row) => row.rowKey);
@@ -539,7 +559,7 @@ export async function importSalesFile({ fileBuffer, fileName, fileSizeBytes, upl
             row.rowNumber
           );
           const productTypeId = await resolveProductType(tx, productTypeCache, row.productTypeName);
-          const productId = await resolveProduct(tx, productCache, row.productName, productTypeId);
+          const product = await resolveProductViaAlias(tx, productIndex, row.productName, productTypeId);
 
           const primaryCredit = credits.find((c) => c.isPrimary) ?? credits[0];
 
@@ -551,8 +571,8 @@ export async function importSalesFile({ fileBuffer, fileName, fileSizeBytes, upl
             month: row.month,
             hospitalId,
             salespersonId: primaryCredit.salespersonId,
-            productId,
-            productTypeId,
+            productId: product.id,
+            productTypeId: product.productTypeId,
             lot: row.lot,
             expiryDate: row.expiryDate,
             province: row.province,
@@ -649,5 +669,384 @@ export async function importSalesFile({ fileBuffer, fileName, fileSizeBytes, upl
       },
     });
     return prisma.importBatch.findUniqueOrThrow({ where: { id: batch.id }, include: { issues: true } });
+  }
+}
+
+function uniquePeriods(periods: Period[]): Period[] {
+  return [...new Map(periods.map((period) => [periodKey(period.year, period.month), period])).values()];
+}
+
+function periodWhere(periods: Period[]) {
+  return { OR: periods.map((period) => ({ year: period.year, month: period.month })) };
+}
+
+function asJson(value: unknown): Prisma.InputJsonValue {
+  return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
+}
+
+async function parseSalesWorkbook(fileBuffer: Buffer) {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(fileBuffer as unknown as ArrayBuffer);
+
+  const sheetNames = workbook.worksheets.map((worksheet) => worksheet.name);
+  const firstSheet = workbook.worksheets[0];
+  if (!firstSheet) throw new Error("ไฟล์ไม่มี sheet ใด ๆ");
+
+  const issues: IssueInput[] = workbook.worksheets.slice(1).map((sheet) => ({
+    level: "WARNING",
+    code: "SHEET_IGNORED",
+    sheetName: sheet.name,
+    message: `ข้าม sheet "${sheet.name}" — นำเข้าเฉพาะ sheet แรกของไฟล์เท่านั้น`,
+  }));
+  const header = findHeaderRow(firstSheet);
+  if (!header) throw new Error("HEADER_NOT_FOUND");
+
+  const parsedRows: ParsedRow[] = [];
+  let totalRows = 0;
+  let errorRows = 0;
+  const occurrenceCounts = new Map<string, number>();
+  for (let rowNumber = header.rowNumber + 1; rowNumber <= firstSheet.rowCount; rowNumber++) {
+    const row = firstSheet.getRow(rowNumber);
+    if (isRowEmpty(row, header.columnMap)) continue;
+    totalRows++;
+    const result = parseDataRow(row, rowNumber, header.columnMap, occurrenceCounts);
+    issues.push(...result.issues.map((issue) => ({ ...issue, sheetName: firstSheet.name, rowNumber })));
+    if (!result.data) {
+      errorRows++;
+      continue;
+    }
+    parsedRows.push(result.data);
+  }
+  return { firstSheetName: firstSheet.name, issues, parsedRows, sheetNames, totalRows, errorRows };
+}
+
+function periodOutOfScope(parsedRows: ParsedRow[], targetPeriods: Period[]): boolean {
+  const selected = new Set(targetPeriods.map((period) => periodKey(period.year, period.month)));
+  return parsedRows.some((row) => !selected.has(periodKey(row.year, row.month)));
+}
+
+async function ensureNoImportInProgress(tx: TxClient) {
+  const existing = await tx.importBatch.findFirst({ where: { status: "PROCESSING" }, select: { id: true } });
+  if (existing) throw new ImportInProgressError();
+}
+
+async function lockImports(tx: TxClient) {
+  const [{ locked }] = await tx.$queryRaw<{ locked: boolean }[]>`
+    SELECT pg_try_advisory_xact_lock(${IMPORT_ADVISORY_LOCK_KEY}) AS locked
+  `;
+  if (!locked) throw new ImportInProgressError();
+  await ensureNoImportInProgress(tx);
+}
+
+type ArchivedSalesLine = Prisma.SalesLineGetPayload<{ include: { credits: true } }>;
+
+async function archiveAndDeleteSalesLines(
+  tx: TxClient,
+  salesLines: ArchivedSalesLine[],
+  batchId: string,
+  reason: ArchiveReason
+) {
+  if (salesLines.length === 0) return [];
+  await tx.salesLineArchive.createMany({
+    data: salesLines.map((salesLine) => ({
+      salesLineId: salesLine.id,
+      rowKey: salesLine.rowKey,
+      year: salesLine.year,
+      month: salesLine.month,
+      total: salesLine.total,
+      reason,
+      removedByBatchId: batchId,
+      payload: asJson({ salesLine: { ...salesLine, credits: undefined }, credits: salesLine.credits }),
+    })),
+  });
+  await tx.salesLine.deleteMany({ where: { id: { in: salesLines.map((salesLine) => salesLine.id) } } });
+  return salesLines;
+}
+
+async function collectRemovalPreview(tx: TxClient, periods: Period[], rowKeys: string[]) {
+  return tx.salesLine.findMany({
+    where: { AND: [periodWhere(periods), { NOT: { rowKey: { in: rowKeys } } }] },
+    include: { hospital: { select: { displayName: true } }, credits: true },
+    orderBy: { invoiceNo: "asc" },
+  });
+}
+
+function previewFromSalesLines(
+  periods: Period[],
+  existingLines: { total: Prisma.Decimal }[],
+  removalLines: { invoiceNo: string; total: Prisma.Decimal; hospital: { displayName: string } }[],
+  insertedRows: number,
+  updatedRows: number,
+  hasReplacementRows: boolean
+): DryRunPreview {
+  const existingTotal = existingLines.reduce((sum, line) => sum.plus(line.total), new Prisma.Decimal(0));
+  return {
+    targetPeriods: periods,
+    existingRows: existingLines.length,
+    existingTotal: existingTotal.toFixed(2),
+    insertedRows,
+    updatedRows,
+    removedRows: removalLines.length,
+    removalSamples: removalLines.slice(0, 20).map((line) => ({
+      invoiceNo: line.invoiceNo,
+      hospitalName: line.hospital.displayName,
+      total: line.total.toFixed(2),
+    })),
+    willDeletePeriodWithoutReplacement: !hasReplacementRows,
+  };
+}
+
+async function runReplaceImport(
+  tx: TxClient,
+  input: {
+    fileName: string;
+    fileSizeBytes: number;
+    uploadedById: string;
+    targetPeriods: Period[];
+    confirm: boolean;
+    parsed: Awaited<ReturnType<typeof parseSalesWorkbook>>;
+  }
+) {
+  const { fileName, fileSizeBytes, uploadedById, targetPeriods, confirm, parsed } = input;
+  if (periodOutOfScope(parsed.parsedRows, targetPeriods)) throw new Error("PERIOD_OUT_OF_SCOPE");
+
+  await lockImports(tx);
+  const existingLines = await tx.salesLine.findMany({
+    where: periodWhere(targetPeriods),
+    select: { total: true },
+  });
+  const batch = await tx.importBatch.create({
+    data: {
+      fileName,
+      fileSizeBytes,
+      uploadedById,
+      status: "PROCESSING",
+      mode: "REPLACE_PERIOD",
+      targetPeriods: asJson(targetPeriods),
+      confirmedById: confirm ? uploadedById : null,
+    },
+  });
+
+  const hospitalIndex = await buildHospitalIndex(tx);
+  const salespersonIndex = await buildSalespersonIndex(tx);
+  const productTypeCache = new Map<string, string>();
+  const productIndex = await buildProductIndex(tx);
+  const successfulRowKeys: string[] = [];
+  const periodsTouched = new Set<string>();
+  let insertedRows = 0;
+  let updatedRows = 0;
+  let errorRows = parsed.errorRows;
+  const rowKeys = parsed.parsedRows.map((row) => row.rowKey);
+  const existingRows = rowKeys.length
+    ? await tx.salesLine.findMany({ where: { rowKey: { in: rowKeys } }, select: { id: true, rowKey: true } })
+    : [];
+  const existingByRowKey = new Map(existingRows.map((row) => [row.rowKey, row.id]));
+
+  for (const row of parsed.parsedRows) {
+    const credits = await resolveSalesmanCredits(tx, salespersonIndex, row.salesmanRaw, parsed.issues, parsed.firstSheetName, row.rowNumber);
+    if (!credits) {
+      errorRows++;
+      continue;
+    }
+    assertSharesSumTo100(credits);
+    const hospitalId = await resolveHospitalViaAlias(
+      tx,
+      hospitalIndex,
+      row.hospitalName,
+      row.province,
+      parsed.issues,
+      parsed.firstSheetName,
+      row.rowNumber
+    );
+    const productTypeId = await resolveProductType(tx, productTypeCache, row.productTypeName);
+    const product = await resolveProductViaAlias(tx, productIndex, row.productName, productTypeId);
+    const primaryCredit = credits.find((credit) => credit.isPrimary) ?? credits[0];
+    const salesLineData = {
+      invoiceNo: row.invoiceNo,
+      poNo: row.poNo,
+      invoiceDate: row.invoiceDate,
+      year: row.year,
+      month: row.month,
+      hospitalId,
+      salespersonId: primaryCredit.salespersonId,
+      productId: product.id,
+      productTypeId: product.productTypeId,
+      lot: row.lot,
+      expiryDate: row.expiryDate,
+      province: row.province,
+      qty: row.qty,
+      unitPrice: row.unitPrice,
+      amount: row.amount,
+      vat: row.vat,
+      total: row.total,
+      sourceSheetName: parsed.firstSheetName,
+      sourceRowNumber: row.rowNumber,
+      importBatchId: batch.id,
+    };
+    const existingId = existingByRowKey.get(row.rowKey);
+    let salesLineId: string;
+    if (existingId) {
+      await tx.salesLine.update({ where: { id: existingId }, data: salesLineData });
+      await tx.salesLineCredit.deleteMany({ where: { salesLineId: existingId } });
+      salesLineId = existingId;
+      updatedRows++;
+    } else {
+      const created = await tx.salesLine.create({ data: { ...salesLineData, rowKey: row.rowKey } });
+      salesLineId = created.id;
+      insertedRows++;
+    }
+    await tx.salesLineCredit.createMany({
+      data: credits.map((credit) => ({
+        salesLineId,
+        salespersonId: credit.salespersonId,
+        sharePercent: credit.sharePercent,
+        isPrimary: credit.isPrimary,
+      })),
+    });
+    successfulRowKeys.push(row.rowKey);
+    periodsTouched.add(periodKey(row.year, row.month));
+  }
+
+  const removalLines = await collectRemovalPreview(tx, targetPeriods, successfulRowKeys);
+  const preview = previewFromSalesLines(targetPeriods, existingLines, removalLines, insertedRows, updatedRows, successfulRowKeys.length > 0);
+  if (!confirm) throw new DryRunComplete(preview);
+
+  await archiveAndDeleteSalesLines(tx, removalLines, batch.id, "SUPERSEDED_BY_REIMPORT");
+  await tx.importIssue.createMany({ data: parsed.issues.map((issue) => ({ ...issue, importBatchId: batch.id })) });
+  const status = determineStatus(parsed.totalRows, errorRows, insertedRows, updatedRows);
+  await tx.importBatch.update({
+    where: { id: batch.id },
+    data: {
+      status,
+      finishedAt: new Date(),
+      sheetsFound: parsed.sheetNames,
+      sheetsImported: [parsed.firstSheetName],
+      totalRows: parsed.totalRows,
+      insertedRows,
+      updatedRows,
+      skippedRows: 0,
+      errorRows,
+      periodsTouched: asJson(targetPeriods),
+      removedRows: removalLines.length,
+    },
+  });
+  await markInsightsStaleForTouchedPeriods(new Set(targetPeriods.map((period) => periodKey(period.year, period.month))), tx);
+  return tx.importBatch.findUniqueOrThrow({ where: { id: batch.id }, include: { issues: true } });
+}
+
+async function persistFailedBatch(input: {
+  fileName: string;
+  fileSizeBytes: number;
+  uploadedById: string;
+  mode: ImportMode;
+  targetPeriods?: Period[];
+  errorMessage: string;
+}) {
+  return prisma.importBatch.create({
+    data: {
+      fileName: input.fileName,
+      fileSizeBytes: input.fileSizeBytes,
+      uploadedById: input.uploadedById,
+      status: "FAILED",
+      finishedAt: new Date(),
+      mode: input.mode,
+      targetPeriods: input.targetPeriods ? asJson(input.targetPeriods) : undefined,
+      errorMessage: input.errorMessage,
+    },
+    include: { issues: true },
+  });
+}
+
+export async function importSalesFile(input: ImportSalesFileParams) {
+  const mode: ImportMode = input.mode ?? "APPEND";
+  if (mode === "APPEND") {
+    const batch = await importSalesFileLegacy(input);
+    return { dryRun: false, importBatch: batch };
+  }
+  const targetPeriods = uniquePeriods(input.targetPeriods ?? []);
+  const isDryRun = !input.confirm;
+  try {
+    const parsed = await parseSalesWorkbook(input.fileBuffer);
+    const batch = await prisma.$transaction(
+      (tx) => runReplaceImport(tx, { ...input, targetPeriods, confirm: Boolean(input.confirm), parsed }),
+      { timeout: IMPORT_TRANSACTION_TIMEOUT_MS, maxWait: IMPORT_TRANSACTION_MAX_WAIT_MS }
+    );
+    return { dryRun: false, importBatch: batch };
+  } catch (error) {
+    if (error instanceof DryRunComplete) return { dryRun: true, preview: error.preview };
+    if (error instanceof ImportInProgressError) throw error;
+    if (isDryRun) throw error;
+    const failed = await persistFailedBatch({
+      fileName: input.fileName,
+      fileSizeBytes: input.fileSizeBytes,
+      uploadedById: input.uploadedById,
+      mode,
+      targetPeriods,
+      errorMessage: error instanceof Error ? error.message : String(error),
+    });
+    return { dryRun: false, importBatch: failed };
+  }
+}
+
+async function runPeriodDelete(tx: TxClient, input: Required<DeleteSalesPeriodsParams>) {
+  await lockImports(tx);
+  const existingLines = await tx.salesLine.findMany({
+    where: periodWhere(input.targetPeriods),
+    include: { hospital: { select: { displayName: true } }, credits: true },
+    orderBy: { invoiceNo: "asc" },
+  });
+  const preview = previewFromSalesLines(input.targetPeriods, existingLines, existingLines, 0, 0, false);
+  if (!input.confirm) throw new DryRunComplete(preview);
+
+  const batch = await tx.importBatch.create({
+    data: {
+      fileName: "(ลบข้อมูลตามงวด)",
+      fileSizeBytes: 0,
+      uploadedById: input.uploadedById,
+      status: "PROCESSING",
+      mode: "PERIOD_DELETE",
+      targetPeriods: asJson(input.targetPeriods),
+      confirmedById: input.uploadedById,
+    },
+  });
+  await archiveAndDeleteSalesLines(tx, existingLines, batch.id, "MANUAL_PERIOD_DELETE");
+  await markInsightsStaleForTouchedPeriods(
+    new Set(input.targetPeriods.map((period) => periodKey(period.year, period.month))),
+    tx
+  );
+  await tx.importBatch.update({
+    where: { id: batch.id },
+    data: {
+      status: "SUCCESS",
+      finishedAt: new Date(),
+      totalRows: 0,
+      removedRows: existingLines.length,
+      periodsTouched: asJson(input.targetPeriods),
+    },
+  });
+  return tx.importBatch.findUniqueOrThrow({ where: { id: batch.id }, include: { issues: true } });
+}
+
+export async function deleteSalesPeriods(input: DeleteSalesPeriodsParams) {
+  const targetPeriods = uniquePeriods(input.targetPeriods);
+  try {
+    const batch = await prisma.$transaction(
+      (tx) => runPeriodDelete(tx, { uploadedById: input.uploadedById, targetPeriods, confirm: Boolean(input.confirm) }),
+      { timeout: IMPORT_TRANSACTION_TIMEOUT_MS, maxWait: IMPORT_TRANSACTION_MAX_WAIT_MS }
+    );
+    return { dryRun: false, importBatch: batch };
+  } catch (error) {
+    if (error instanceof DryRunComplete) return { dryRun: true, preview: error.preview };
+    if (error instanceof ImportInProgressError) throw error;
+    if (!input.confirm) throw error;
+    const failed = await persistFailedBatch({
+      fileName: "(ลบข้อมูลตามงวด)",
+      fileSizeBytes: 0,
+      uploadedById: input.uploadedById,
+      mode: "PERIOD_DELETE",
+      targetPeriods,
+      errorMessage: error instanceof Error ? error.message : String(error),
+    });
+    return { dryRun: false, importBatch: failed };
   }
 }

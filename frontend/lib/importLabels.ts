@@ -51,8 +51,8 @@ export function formatThaiMonth(month: number): string {
   return THAI_MONTH_NAMES[month - 1] ?? String(month);
 }
 
-export function formatMoney(value: string): string {
+export function formatMoney(value: string | number): string {
   const numeric = Number(value);
-  if (Number.isNaN(numeric)) return value;
+  if (Number.isNaN(numeric)) return String(value);
   return numeric.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }

@@ -2,11 +2,13 @@ import { KpiMetric } from "@prisma/client";
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
 import * as kpiService from "../services/kpi.service";
+import { canViewSalesperson, resolveViewerScope, visibleSalespersonIds } from "../services/viewerScope.service";
 import { DrillDownParams, DrillDownQuery, PeriodQuery, SCORED_METRIC_SET, SalespersonIdParams } from "../validators/kpi.validators";
 
 export async function getSalespersonKpi(req: Request, res: Response) {
   const { salespersonId } = req.params as unknown as SalespersonIdParams;
   const period = req.query as unknown as PeriodQuery;
+  if (!(await canViewSalesperson(req.user!, salespersonId))) return res.status(403).json({ error: "Forbidden" });
 
   const salesperson = await prisma.salesperson.findUnique({ where: { id: salespersonId } });
   if (!salesperson) {
@@ -30,8 +32,10 @@ export async function getSalespersonKpi(req: Request, res: Response) {
 export async function getTeamKpi(req: Request, res: Response) {
   const period = req.query as unknown as PeriodQuery;
 
+  const scope = await resolveViewerScope(req.user!); const ids = await visibleSalespersonIds(scope);
+  if (!scope.canSeeEveryone && scope.selfSalespersonId === null) return res.json({ period, results: [], reason: "ACCOUNT_NOT_LINKED" });
   const salespeople = await prisma.salesperson.findMany({
-    where: { isActive: true },
+    where: { isActive: true, ...(ids === null ? {} : { id: { in: ids } }) },
     orderBy: { displayName: "asc" },
   });
 
@@ -48,6 +52,7 @@ export async function getTeamKpi(req: Request, res: Response) {
 export async function getDrillDown(req: Request, res: Response) {
   const { salespersonId, metric } = req.params as unknown as DrillDownParams;
   const { hospitalId, ...period } = req.query as unknown as DrillDownQuery;
+  if (!(await canViewSalesperson(req.user!, salespersonId))) return res.status(403).json({ error: "Forbidden" });
 
   const salesperson = await prisma.salesperson.findUnique({ where: { id: salespersonId } });
   if (!salesperson) {

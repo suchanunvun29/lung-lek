@@ -17,6 +17,8 @@ import {
   targetUpsertParamsSchema,
   targetsQuerySchema,
 } from "../validators/target.validators";
+import { derivedTarget, upsertGroupTarget, upsertTerritoryTarget } from "../controllers/territory.controller";
+import { derivedTargetParamsSchema, groupTargetParamsSchema, targetBodySchema, territoryTargetParamsSchema } from "../validators/territory.validators";
 
 const router = Router();
 
@@ -25,6 +27,9 @@ const router = Router();
 router.use(authenticate, requirePasswordChanged);
 
 router.get("/", validate(targetsQuerySchema, "query"), asyncHandler(listTargets));
+router.get("/derived/:salespersonId/:year/:month", validate(derivedTargetParamsSchema, "params"), asyncHandler(derivedTarget));
+router.put("/group/:territoryGroupId/:year/:month", requireRole("MANAGER"), validate(groupTargetParamsSchema, "params"), validate(targetBodySchema, "body"), asyncHandler(upsertGroupTarget));
+router.put("/territory/:territoryId/:year/:month", requireRole("MANAGER"), validate(territoryTargetParamsSchema, "params"), validate(targetBodySchema, "body"), asyncHandler(upsertTerritoryTarget));
 
 router.put(
   "/:salespersonId/:year/:month",

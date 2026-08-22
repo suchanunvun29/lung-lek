@@ -28,8 +28,19 @@ export default function NavBar() {
     { href: "/import-batches", label: "ประวัติการนำเข้า" },
     { href: "/sales-lines", label: "ข้อมูลการขาย" },
     { href: "/master-data", label: "Master Data" },
+    ...(user!.role === "MANAGER"
+      ? [
+          { href: "/name-reviews", label: "ยืนยันชื่อซ้ำ" },
+          { href: "/products", label: "ทะเบียนสินค้า" },
+          { href: "/hospital-registry", label: "ทะเบียนโรงพยาบาล" },
+        ]
+      : []),
     { href: "/targets", label: "ตั้งเป้า" },
+    { href: "/territories", label: "จัดการเขต" },
     { href: "/kpi", label: "ผลการประเมิน" },
+    { href: "/territory-kpi", label: "KPI รายเขต" },
+    { href: "/my-territory", label: "พื้นที่รับผิดชอบ" },
+    { href: "/territory-products", label: "อันดับสินค้า" },
     { href: "/leaderboard", label: "Leaderboard" },
     { href: "/reports/individual", label: "รายงานรายบุคคล" },
     { href: "/reports/team-overview", label: "ภาพรวมทีม" },
