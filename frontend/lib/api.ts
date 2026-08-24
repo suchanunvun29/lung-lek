@@ -10,12 +10,14 @@ import {
   IndividualReportData,
   KpiDrillDownResponse,
   LeaderboardCriteria,
-  LeaderboardResponse,
+  TerritoryLeaderboardResponse,
+  LeaderboardPeopleOrSummary,
   PeriodKey,
   Salesperson,
   SalespersonKpiResponse,
   SalesLine,
   HospitalNameReview,
+  SalesmanNameReview,
   HospitalRegistry,
   HospitalRegistryLink,
   ProductMasterItem,
@@ -159,12 +161,14 @@ export function uploadImportFile(
 ) {
   const formData = new FormData();
   formData.append("file", file);
+  let path = "/import";
   if (input) {
     formData.append("mode", input.mode);
     formData.append("targetPeriods", JSON.stringify(input.targetPeriods));
-    formData.append("confirm", String(input.confirm));
+    // The backend validates `confirm` from the query string (see import.routes.ts), not the body.
+    path += `?confirm=${input.confirm}`;
   }
-  return request<UploadImportResponse>("/import", { method: "POST", body: formData }, token);
+  return request<UploadImportResponse>(path, { method: "POST", body: formData }, token);
 }
 
 export interface PeriodDeleteInput {
@@ -176,8 +180,8 @@ export type PeriodDeleteResponse = PeriodDryRunResponse | PeriodImportConfirmedR
 
 export function deleteImportPeriods(token: string, input: PeriodDeleteInput) {
   return request<PeriodDeleteResponse>(
-    "/import/period-delete",
-    { method: "POST", body: JSON.stringify(input) },
+    `/import/period-delete?confirm=${input.confirm}`,
+    { method: "POST", body: JSON.stringify({ targetPeriods: input.targetPeriods }) },
     token
   );
 }
@@ -375,10 +379,14 @@ export function listSalespeople(token: string) {
   return request<{ salespeople: Salesperson[] }>("/salespeople", { method: "GET" }, token);
 }
 
-export function updateSalesperson(token: string, id: string, userId: string | null) {
+export function updateSalesperson(
+  token: string,
+  id: string,
+  input: { userId?: string | null; employmentEndedAt?: string | null }
+) {
   return request<{ salesperson: Salesperson }>(
     `/salespeople/${id}`,
-    { method: "PATCH", body: JSON.stringify({ userId }) },
+    { method: "PATCH", body: JSON.stringify(input) },
     token
   );
 }
@@ -401,6 +409,22 @@ export function decideHospitalNameReview(token: string, id: string, input: Hospi
 
 export function listSalesmanNameRules(token: string) {
   return request<{ salesmanNameRules: SalesmanNameRule[] }>("/salesman-name-rules", { method: "GET" }, token);
+}
+
+export function listSalesmanNameReviews(token: string) {
+  return request<{ salesmanNameReviews: SalesmanNameReview[] }>("/salesman-name-reviews", { method: "GET" }, token);
+}
+
+export type SalesmanNameReviewDecision =
+  | { decision: "MERGED"; mergedIntoId: string; note?: string }
+  | { decision: "KEPT_SEPARATE"; note?: string };
+
+export function decideSalesmanNameReview(token: string, id: string, input: SalesmanNameReviewDecision) {
+  return request<{ salesmanNameReview: SalesmanNameReview }>(
+    `/salesman-name-reviews/${id}`,
+    { method: "PATCH", body: JSON.stringify(input) },
+    token
+  );
 }
 
 export function updateSalesmanNameRule(
@@ -607,10 +631,22 @@ export function updateEvaluationSetting(token: string, input: EvaluationSettingU
   );
 }
 
-export function getLeaderboard(token: string, criteria: LeaderboardCriteria, period: PeriodKey) {
+export function getTerritoryLeaderboard(token: string, criteria: LeaderboardCriteria, period: PeriodKey) {
   const params = new URLSearchParams(periodQueryParams(period));
   params.set("criteria", criteria);
-  return request<LeaderboardResponse>(`/leaderboard?${params.toString()}`, { method: "GET" }, token);
+  return request<TerritoryLeaderboardResponse>(`/leaderboard/territories?${params.toString()}`, { method: "GET" }, token);
+}
+
+export function exportTerritoryLeaderboard(token: string, criteria: LeaderboardCriteria, period: PeriodKey) {
+  const params = new URLSearchParams(periodQueryParams(period));
+  params.set("criteria", criteria);
+  return downloadFile(`/leaderboard/territories/export?${params.toString()}`, token);
+}
+
+export function getTerritoryLeaderboardPeople(token: string, territoryId: string, criteria: LeaderboardCriteria, period: PeriodKey) {
+  const params = new URLSearchParams(periodQueryParams(period));
+  params.set("criteria", criteria);
+  return request<LeaderboardPeopleOrSummary>(`/leaderboard/territories/${territoryId}/people?${params.toString()}`, { method: "GET" }, token);
 }
 
 export function getCoachingInsight(token: string, salespersonId: string, period: PeriodKey) {
@@ -715,6 +751,7 @@ const KNOWN_ERROR_TRANSLATIONS: Record<string, string> = {
   "This user is already linked to another salesperson": "บัญชีนี้ผูกกับพนักงานขายรายอื่นอยู่แล้ว",
   "Upload error: File too large": "ไฟล์มีขนาดใหญ่เกินไป (สูงสุด 20MB)",
   "Target not found": "ไม่พบเป้าหมายนี้ในระบบ",
+  "Import already in progress": "มีการนำเข้าข้อมูลอื่นกำลังดำเนินการอยู่ กรุณารอสักครู่แล้วลองใหม่",
 };
 
 export function getErrorMessage(error: unknown, fallback: string): string {

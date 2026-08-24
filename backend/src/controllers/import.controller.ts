@@ -1,6 +1,11 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
-import { ImportInProgressError, importSalesFile, deleteSalesPeriods } from "../services/import.service";
+import {
+  ImportInProgressError,
+  PeriodOutOfScopeError,
+  deleteSalesPeriods,
+  importSalesFile,
+} from "../services/import.service";
 import { ImportConfirmQuery, ImportRequest, PeriodDeleteRequest, SalesLinesQuery } from "../validators/import.validators";
 
 export async function uploadImport(req: Request, res: Response) {
@@ -21,6 +26,12 @@ export async function uploadImport(req: Request, res: Response) {
   } catch (error) {
     if (error instanceof ImportInProgressError) {
       return res.status(409).json({ error: "Import already in progress", code: "IMPORT_IN_PROGRESS" });
+    }
+    if (error instanceof PeriodOutOfScopeError) {
+      return res.status(400).json({
+        error: "ไฟล์มีแถวของงวดอื่นนอกเหนือจากงวดที่เลือก — ยกเลิกทั้งไฟล์",
+        code: "PERIOD_OUT_OF_SCOPE",
+      });
     }
     throw error;
   }

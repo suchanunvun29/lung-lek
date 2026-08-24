@@ -1,0 +1,39 @@
+# Contract for the `backend-engineer` agent. Shape: orchestrator/schemas/agent-contract.schema.json
+agent:
+  name: backend-engineer
+  role: backend-engineer
+  description: Implements API and database code from design.md's contract and plan.md's tasks.
+input:
+  required: [plan, design, requirements, test-plan]
+  optional: [qa-report, backend-code]
+output:
+  required: [backend-code]
+constraints:
+  - no_git
+  - stay_inside_repo
+  - no_next_agent_invocation
+  # design.md's Data Model is implemented verbatim; a gap goes back to system-analyst.
+  - must_follow_design
+  - no_schema_guessing
+  # Only qa-engineer marks a plan.md task done.
+  - no_checkbox_writes
+  # typecheck/lint run before the handoff, not after — a red handoff costs two fresh-context runs.
+  - green_before_handoff
+  # Has no AskUserQuestion on purpose: a rule settled in chat with an engineer never reaches the docs.
+  - no_rule_decisions
+  - backend_before_frontend
+permissions:
+  capabilities: [read, write_code, test]
+  # Writes API and database code, and propagates a confirmed schema amendment. Every module document is denied: an engineer that edits a contract has changed the rule it was meant to implement.
+  read: [".claude/agents/backend-engineer.md", ".claude/shared/**", "policies/**", "CLAUDE.md", "_docs/module/*/design.md", "_docs/module/*/plan.md", "_docs/module/*/requirement.md", "_docs/module/*/review.md", "_docs/module/*/test-plan.md", "_docs/status-archive.md", "_docs/status.md", "app/**", "package.json", "prisma/**", "server/**", "src/**"]
+  write: ["server/**", "src/server/**", "src/lib/**", "app/api/**", "prisma/**", "package.json", "_docs/status.md", "_docs/status-archive.md"]
+  deny: ["_docs/module/**", ".claude/**", "contracts/**", "components/**"]
+tools: [Write, Edit, Read, Glob, Grep, Bash]
+states: [IMPLEMENTATION]
+capability:
+  # The stack this agent prompt actually implements today, not the target in
+  # project.yaml. Declaring an intended future here would match tasks nothing can build.
+  languages: ["typescript"]
+  frameworks: ["express", "prisma", "zod"]
+  database: ["postgresql"]
+  capabilities: [rest-api, database-access, auth, testing]

@@ -1,0 +1,32 @@
+# Contract for the `setup` agent. Shape: orchestrator/schemas/agent-contract.schema.json
+agent:
+  name: setup
+  role: setup
+  description: Scaffolds the project once, before any feature work — app skeleton, schema.prisma, .env, .gitignore.
+input:
+  required: []
+  # Runs on a blank project too; when a design already exists it is followed rather than re-invented.
+  optional: [design]
+output:
+  required: [scaffolding, schema.prisma, backend-code]
+constraints:
+  - no_git
+  - stay_inside_repo
+  - no_next_agent_invocation
+  - must_follow_design
+  - no_schema_guessing
+permissions:
+  capabilities: [read, write_code, write_docs]
+  # Scaffolds the codebase once. Broad by necessity, but never touches the pipeline's own definition.
+  read: [".claude/agents/backend-engineer.md", ".claude/agents/frontend-engineer.md", ".claude/shared/**", "policies/**", ".env", ".env.example", ".gitignore", "CLAUDE.md", "_docs/module/*/design.md", "_docs/status-archive.md", "_docs/status.md", "app/**", "next.config.*", "package-lock.json", "package.json", "prisma/**", "public/**", "server/**", "src/**", "tailwind.config.*", "tsconfig.json"]
+  # `_docs/status.md`: setup writes the initial `## Scaffold` line (create-once), per
+  # .claude/agents/setup.md — the rest of status.md stays generated via generate-status.js.
+  write: ["package.json", "package-lock.json", "tsconfig.json", ".env", ".env.example", ".gitignore", "next.config.*", "tailwind.config.*", "prisma/**", "app/**", "server/**", "src/**", "public/**", "_docs/status.md"]
+  deny: ["_docs/module/**", ".claude/**", "contracts/**", "workflows/**", "stacks/**", "orchestrator/**"]
+tools: [Bash, Write, Edit, Read, Glob, Grep, AskUserQuestion]
+states: [CREATED]
+capability:
+  languages: ["typescript"]
+  frameworks: ["nextjs", "express", "prisma"]
+  database: ["postgresql"]
+  capabilities: [scaffolding, schema-design]

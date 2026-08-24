@@ -36,6 +36,7 @@ model User {
   salesmanNameRules        SalesmanNameRule[]
   hospitalAliases          HospitalAlias[]
   hospitalNameReviews      HospitalNameReview[]
+  salesmanNameReviews      SalesmanNameReview[]
   registryLinkReviews      HospitalRegistryLink[]
   productAliases           ProductAlias[]
   territoryAssignmentsMade TerritoryAssignment[]
@@ -62,6 +63,9 @@ model Salesperson {
   territoryAssignments        TerritoryAssignment[]
   excludedFromTerritoryTotals Boolean                  @default(false)
   employmentEndedAt           DateTime?                @db.Date
+
+  nameReviewsCreated    SalesmanNameReview[] @relation("salesmanNameReviewCreated")
+  nameReviewsMergedInto SalesmanNameReview[] @relation("salesmanNameReviewMergedInto")
 }
 
 model Hospital {
@@ -700,5 +704,26 @@ model HospitalNameReview {
   createdAt      DateTime         @default(now())
 
   @@unique([normalizedKeyA, normalizedKeyB])
+  @@index([status])
+}
+
+// คิวยืนยันว่าชื่อพนักงานขายที่ import auto-create เป็นคนใหม่จริง หรือซ้ำกับคนที่มีอยู่
+// (เพิ่ม 2026-08-22 · OQ30 — นโยบายผู้ใช้: ถ้าชื่ออาจซ้ำให้ user เลือกเอง; import ไม่บล็อก)
+// KEPT_SEPARATE ในบริบทนี้แปลว่า "ยืนยันแล้วว่าเป็นคนใหม่ ไม่ซ้ำ"
+model SalesmanNameReview {
+  id                   String           @id @default(cuid())
+  personKey            String           @unique // personCore(sampleRaw) — กุญแจกันถามซ้ำ
+  sampleRaw            String
+  status               NameReviewStatus @default(PENDING)
+  createdSalespersonId String?          @unique
+  createdSalesperson   Salesperson?     @relation("salesmanNameReviewCreated", fields: [createdSalespersonId], references: [id], onDelete: SetNull)
+  mergedIntoId         String?
+  mergedInto           Salesperson?     @relation("salesmanNameReviewMergedInto", fields: [mergedIntoId], references: [id])
+  decidedById          String?
+  decidedBy            User?            @relation(fields: [decidedById], references: [id])
+  decidedAt            DateTime?
+  note                 String?
+  createdAt            DateTime         @default(now())
+
   @@index([status])
 }

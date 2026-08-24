@@ -1,5 +1,6 @@
 import { Prisma, TargetScope } from "@prisma/client";
 import { prisma } from "../lib/prisma";
+import { assertTargetScopeXor } from "./target.service";
 
 type TargetInput = { revenueTarget: number; newCustomerTarget: number; note?: string | null };
 type MembershipPeriod = { effectiveFrom: Date; effectiveTo: Date | null };
@@ -32,6 +33,7 @@ export async function ensureTerritoryCanHaveTarget(tx: Transaction, territoryId:
 
 export async function upsertScopedTarget(scope: TargetScope, ownerId: string, year: number, month: number, input: TargetInput, changedById: string) {
   const owner = scope === "TERRITORY" ? { territoryId: ownerId } : scope === "TERRITORY_GROUP" ? { territoryGroupId: ownerId } : { salespersonId: ownerId };
+  assertTargetScopeXor(scope, owner);
   const unique = scope === "TERRITORY" ? { territoryId_year_month: { territoryId: ownerId, year, month } } : scope === "TERRITORY_GROUP" ? { territoryGroupId_year_month: { territoryGroupId: ownerId, year, month } } : { salespersonId_year_month: { salespersonId: ownerId, year, month } };
   return prisma.$transaction(async (tx) => {
     if (scope === "TERRITORY") await ensureTerritoryCanHaveTarget(tx, ownerId, year, month);

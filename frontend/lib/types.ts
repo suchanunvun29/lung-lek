@@ -279,8 +279,26 @@ export interface Salesperson {
   isActive: boolean;
   userId: string | null;
   user: LinkedUserSummary | null;
+  employmentEndedAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+// ---------- Module J (2026-08-22): salesman auto-create review queue ----------
+
+export interface SalesmanNameReview {
+  id: string;
+  personKey: string;
+  sampleRaw: string;
+  status: HospitalNameReviewStatus; // same enum: PENDING | MERGED | KEPT_SEPARATE ("คนใหม่จริง")
+  createdSalespersonId: string | null;
+  createdSalesperson: SalespersonSummary | null;
+  mergedIntoId: string | null;
+  mergedInto: SalespersonSummary | null;
+  decidedById: string | null;
+  decidedAt: string | null;
+  note: string | null;
+  createdAt: string;
 }
 
 // ---------- Module M: Territories ----------
@@ -362,9 +380,13 @@ export interface TerritoryKpiFullRow {
   ownerNames: string[];
   revenue: number;
   target: number | null;
+  /** "ไม่ได้ตั้งเป้าแยก (อยู่ในเป้ารวมของกลุ่ม X)" for a TerritoryGroup member, else null. */
+  targetLabel: string | null;
   achievementPercent: number | null;
   compositeScore: number | null;
   computedMetricLabel: string;
+  /** Set when compositeScore is null — shown in place of the score (no computable criterion). */
+  message: string | null;
   metrics: MetricResult[];
   visibility: "TERRITORY_FULL";
   rank: number;
@@ -382,10 +404,21 @@ export interface TerritoryKpiRankOnlyRow {
 
 export type TerritoryKpiRow = TerritoryKpiFullRow | TerritoryKpiRankOnlyRow;
 
+export interface TerritoryPersonalBucketEntry {
+  salespersonId: string;
+  displayName: string;
+  revenue: number;
+  personalTarget: number;
+  achievementPercent: number | null;
+}
+
 export interface TerritoryKpiBuckets {
   companyTotal: number;
+  territorySum: number;
   personalBucket: number;
   unassignedBucket: number;
+  personalBucketEntries: TerritoryPersonalBucketEntry[];
+  unassignedHospitalCount: number;
 }
 
 export interface TerritoryKpiTeamResponse {
@@ -442,13 +475,13 @@ export interface MyTerritoryViewResponse {
   mode: MyTerritoryViewMode;
   creditOnly: boolean;
   productTypeId: string | null;
-  soldHospitals: { hospital: Hospital; revenue: number }[];
-  soldBeforeButNotInPeriod: Hospital[];
+  soldHospitals: { hospital: { id: string; displayName: string }; revenue: number }[];
+  soldBeforeButNotInPeriod: { hospital: { id: string; displayName: string; province: string | null } }[];
 }
 
 export type ProductZeroSaleStatus = "SOLD_BEFORE_NOT_IN_PERIOD" | "NEVER_SOLD_IN_TERRITORY";
 export interface TerritoryProductRankingItem { productId: string; code: string; name: string; productType: { id: string; name: string }; revenue: number; quantity: number; zeroSaleStatus: ProductZeroSaleStatus | null; }
-export interface TerritoryProductRankingResponse { period: PeriodKey; territory: EntitySummary; items: TerritoryProductRankingItem[]; zeroSaleWarning: string; personalBucket?: Omit<TerritoryProductRankingItem, "zeroSaleStatus">[]; }
+export interface TerritoryProductRankingResponse { period: PeriodKey; territory: EntitySummary & { ownerNames: string[] }; items: TerritoryProductRankingItem[]; zeroSaleWarning: string; personalBucket?: Omit<TerritoryProductRankingItem, "zeroSaleStatus">[]; }
 
 // ---------- Module O: Product Master ----------
 
@@ -697,12 +730,9 @@ export interface EvaluationSetting {
   updatedAt: string;
 }
 
-// ---------- Module F: Dashboards & Leaderboard ----------
-// Types derived verbatim from the shape actually returned by
-// backend/src/controllers/leaderboard.controller.ts (Module F is read-only — no new Prisma
-// models, per design.md's "Dependencies: E / Models: อ่านอย่างเดียว" entry for Module F).
-
-export type LeaderboardCriteria = "COMPOSITE" | "PERCENT_TARGET" | "REVENUE" | "NEW_CUSTOMERS";
+// ---------- Module F: Dashboards ----------
+// The old person-ranked leaderboard (Phase 5) was replaced wholesale by Module F2's
+// territory-unit leaderboard — its types live in the Module F2 block below.
 
 // ---------- Module G: AI Coaching Insights ----------
 // Types derived verbatim from the `CoachingInsight` fields of design.md's Prisma schema and
@@ -743,19 +773,88 @@ export interface CoachingInsightGenerateResponse {
   insight: CoachingInsight;
 }
 
-export interface LeaderboardEntry {
-  salesperson: EntitySummary;
-  value: number | null;
-  computable: boolean;
-  reason: string | null;
+// ---------- Module F2: Leaderboard 2 tiers ----------
+// Types derived verbatim from the shapes actually returned by
+// backend/src/controllers/territoryLeaderboard.controller.ts. Every unit's fields depend on the
+// server-sent `visibility` level (Data Visibility Rules ข้อ 6) — restricted units carry exactly
+// the whitelist, so the page renders only what actually arrives.
+
+export type LeaderboardCriteria = "COMPOSITE" | "PERCENT_TARGET" | "REVENUE" | "NEW_CUSTOMERS";
+
+interface LeaderboardUnitBase {
+  unitType: "TERRITORY" | "GROUP";
+  territoryId: string;
+  name: string;
+  ownerNames: string[];
   rank: number | null;
+  compositeScore: number | null;
+  computedMetricLabel: string;
 }
 
-export interface LeaderboardResponse {
+export interface LeaderboardFullUnit extends LeaderboardUnitBase {
+  visibility: "TERRITORY_FULL";
+  criterionReason: string | null;
+  members?: LeaderboardMemberRow[];
+  revenue?: number;
+  target?: number | null;
+  targetLabel?: string | null;
+  achievementPercent?: number | null;
+  metrics?: TerritoryKpiFullRow["metrics"];
+  message?: string | null;
+}
+
+export interface LeaderboardRankOnlyUnit extends LeaderboardUnitBase {
+  visibility: "TERRITORY_RANK_ONLY";
+  members?: LeaderboardMemberRow[];
+}
+
+export type TerritoryKpiFullRowMetrics = TerritoryKpiFullRow["metrics"];
+
+export type LeaderboardUnit = LeaderboardFullUnit | LeaderboardRankOnlyUnit;
+
+export type LeaderboardBuckets = TerritoryKpiBuckets;
+
+export interface TerritoryLeaderboardResponse {
   criteria: LeaderboardCriteria;
   period: PeriodKey;
-  results: LeaderboardEntry[];
+  ranked: LeaderboardUnit[];
+  unranked: LeaderboardUnit[];
+  buckets?: LeaderboardBuckets;
 }
+
+export interface LeaderboardMemberRow {
+  visibility: "TERRITORY_FULL" | "TERRITORY_RANK_ONLY";
+  territoryId: string;
+  name: string;
+  ownerNames: string[];
+  rank?: number;
+  compositeScore: number | null;
+  computedMetricLabel: string;
+  revenue?: number;
+  target?: number | null;
+  targetLabel?: string | null;
+  achievementPercent?: number | null;
+}
+
+/** GET /leaderboard/territories/:territoryId/people — tier-2 drill-down (MANAGER/supervisor). */
+export interface LeaderboardPeopleResponse {
+  mode: "FULL";
+  results: { salesperson: EntitySummary; composite: CompositeScoreResult }[];
+}
+
+/** SELF_SUMMARY variant for plain salespeople (Data Visibility Rules ข้อ 7). */
+export interface LeaderboardSelfSummaryResponse {
+  mode: "SELF_SUMMARY";
+  criteria: LeaderboardCriteria;
+  rank: number | null;
+  totalRanked: number;
+  ownValue: number | null;
+  ownComputable: boolean;
+  reason: string | null;
+  teamAverage: number | null;
+}
+
+export type LeaderboardPeopleOrSummary = LeaderboardPeopleResponse | LeaderboardSelfSummaryResponse;
 
 // ---------- Module H: Coaching Reports & Export ----------
 // Types derived verbatim from the shapes actually returned by

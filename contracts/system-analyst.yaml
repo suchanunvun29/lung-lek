@@ -1,0 +1,31 @@
+# Contract for the `system-analyst` agent. Shape: orchestrator/schemas/agent-contract.schema.json
+agent:
+  name: system-analyst
+  role: system-analyst
+  description: Judges feasibility and designs the data model in design.md — the contract every later stage implements.
+input:
+  required: [requirements]
+  optional: [qa-report]
+output:
+  required: [design]
+constraints:
+  - no_git
+  - stay_inside_repo
+  - no_next_agent_invocation
+  - amend_not_regenerate
+  - dates_from_user
+  # A schema nobody confirmed is a guess that everything downstream treats as settled.
+  - human_confirmation_required
+permissions:
+  capabilities: [read, write_docs]
+  # Owns design.md. prisma/** is denied on purpose: the schema is written by setup and backend-engineer, and design.md is the contract it must match.
+  read: [".claude/agents/backend-engineer.md", ".claude/agents/frontend-engineer.md", ".claude/shared/**", "policies/**", "CLAUDE.md", "_docs/module/*/design-archive.md", "_docs/module/*/design.md", "_docs/module/*/requirement.md", "_docs/module/*/review.md", "_docs/status-archive.md", "_docs/status.md", "prisma/**"]
+  write: ["_docs/module/*/design.md", "_docs/module/*/design-archive.md", "_docs/status.md", "_docs/status-archive.md"]
+  deny: ["_docs/module/*/requirement.md", "_docs/module/*/plan.md", "prisma/**"]
+tools: [Read, Glob, Grep, AskUserQuestion, Write, Edit]
+states: [DESIGN]
+capability:
+  languages: []
+  frameworks: []
+  database: ["postgresql"]
+  capabilities: [schema-design, feasibility-analysis]

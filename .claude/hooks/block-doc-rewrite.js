@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /*
- * PreToolUse guard for `.claude/shared/conventions.md` §4 — "Amend, don't regenerate".
+ * PreToolUse guard for `policies/documentation.md` §4 — "Amend, don't regenerate".
  *
  * That rule is a prompt instruction: once a module doc exists, every agent is supposed to
  * amend it section-by-section with `Edit`, never blow it away with a full `Write`. Like the
  * git and outside-repo rules, it only holds as long as every agent remembers it — so this
- * hook enforces the mechanical half of it: a `Write` call whose target is one of the six
+ * hook enforces the mechanical half of it: a `Write` call whose target is one of the seven
  * per-module docs, and which already exists on disk, is blocked before it runs. `Edit` is
  * unaffected — that's the whole point, it's the only allowed way to change an existing doc.
  *
@@ -17,6 +17,13 @@
  *     under a module's `review` subfolder) — this only watches the six live docs conventions.md
  *     §1 names.
  *   - `Edit`/`MultiEdit` on these docs — amending is the allowed path, not the blocked one.
+ *     A `MultiEdit` can still gut a doc, but it goes through the same visible diff an
+ *     `Edit` does, and blocking it wholesale would break every legitimate amend.
+ *   - `NotebookEdit` — it only targets `.ipynb`, which the module-doc rule below never
+ *     matches.
+ *   - Shell redirection (`cat > doc`) — firewalling every path a shell command might
+ *     touch is out of scope by design (same line `block-outside-repo.js` draws); the
+ *     per-agent write contracts and review are the backstops there, not this hook.
  *
  * This hook cannot and does not know *which agent* is calling it — PreToolUse input carries
  * no subagent identity, only tool_name/tool_input. So it can't special-case "except
@@ -43,7 +50,12 @@ process.stdin.on('end', () => {
   } catch {
     process.exit(0);
   }
-  const reason = check(input || {});
+  let reason;
+  try {
+    reason = check(input || {});
+  } catch {
+    process.exit(0); // never trap an agent because this guard itself broke — same contract as the other guards
+  }
   if (reason) {
     console.error(reason);
     process.exit(2);
@@ -51,11 +63,12 @@ process.stdin.on('end', () => {
   process.exit(0);
 });
 
-/** The six per-module docs conventions.md §1 names, plus their fixed filenames. */
+/** The seven per-module docs conventions.md names, plus their fixed filenames. */
 const GUARDED_NAMES = new Set([
   'requirement.md',
   'design.md',
   'plan.md',
+  'test-plan.md',
   'review.md',
   'security.md',
   'deploy.md',
@@ -92,7 +105,7 @@ function deny(rawPath, filename) {
   return [
     `Blocked: \`Write\` to \`${rawPath}\`, which already exists.`,
     '',
-    '`.claude/shared/conventions.md` §4 — "Amend, don\'t regenerate": once a module doc exists,',
+    '`policies/documentation.md` §4 — "Amend, don\'t regenerate": once a module doc exists,',
     `it's amended with \`Edit\`, section by section, never replaced with \`Write\`. A full rewrite`,
     'of an existing `' + filename + '` silently destroys history, the `## Change Log`, and any',
     'other agent\'s prior work in it.',

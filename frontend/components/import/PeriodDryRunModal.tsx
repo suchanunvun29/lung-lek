@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Modal from "@/components/Modal";
 import { formatMoney, formatThaiMonth } from "@/lib/importLabels";
 import { PeriodDryRunPreview } from "@/lib/types";
@@ -8,6 +9,7 @@ interface PeriodDryRunModalProps {
   action: "REPLACE_PERIOD" | "PERIOD_DELETE";
   preview: PeriodDryRunPreview;
   isConfirming: boolean;
+  error?: string | null;
   onClose: () => void;
   onConfirm: () => void;
 }
@@ -25,10 +27,14 @@ export default function PeriodDryRunModal({
   action,
   preview,
   isConfirming,
+  error,
   onClose,
   onConfirm,
 }: PeriodDryRunModalProps) {
   const isDelete = action === "PERIOD_DELETE";
+  const [finalStepArmed, setFinalStepArmed] = useState(false);
+  const requiresDoubleConfirm = preview.willDeletePeriodWithoutReplacement;
+  const atFinalStep = !requiresDoubleConfirm || finalStepArmed;
 
   return (
     <Modal title={isDelete ? "ยืนยันการลบข้อมูลตามงวด" : "ยืนยันการแทนที่ข้อมูลตามงวด"} onClose={onClose} widthClassName="max-w-3xl">
@@ -52,17 +58,20 @@ export default function PeriodDryRunModal({
           <div className="rounded-md border border-zinc-200 p-3">
             <p className="text-xs font-medium text-zinc-500">ข้อมูลเดิมในงวด</p>
             <p className="mt-1 text-xl font-semibold text-zinc-900">{preview.existingRows.toLocaleString("th-TH")} แถว</p>
-            <p className="text-sm text-zinc-600">ยอดรวม {formatMoney(String(preview.existingTotal))} บาท</p>
+            <p className="text-sm text-zinc-600">ยอดรวม {formatMoney(preview.existingTotal)} บาท</p>
           </div>
           <CountCard label="แถวที่จะลบออก" value={preview.removedRows} tone="text-red-600" />
           {!isDelete && <CountCard label="แถวที่จะนำเข้าใหม่" value={preview.insertedRows} tone="text-emerald-700" />}
           {!isDelete && <CountCard label="แถวที่จะอัปเดต" value={preview.updatedRows} tone="text-sky-700" />}
         </div>
 
-        {preview.willDeletePeriodWithoutReplacement && (
-          <p className="rounded-md border border-red-300 bg-red-50 p-3 text-sm font-medium text-red-800">
+        {requiresDoubleConfirm && (
+          <div className="rounded-md border border-red-300 bg-red-50 p-3 text-sm font-medium text-red-800">
             การยืนยันจะลบข้อมูลของงวดนี้ทั้งงวดโดยไม่มีข้อมูลใหม่มาแทน
-          </p>
+            {!atFinalStep && (
+              <p className="mt-2 text-sm font-normal text-red-700">ต้องกดยืนยันซ้ำอีกชั้น — กดปุ่มด้านล่างเพื่อไปขั้นยืนยันสุดท้าย</p>
+            )}
+          </div>
         )}
 
         <div>
@@ -84,7 +93,7 @@ export default function PeriodDryRunModal({
                     <tr key={`${sample.invoiceNo}-${sample.hospitalName}-${index}`}>
                       <td className="px-3 py-2 text-zinc-700">{sample.invoiceNo}</td>
                       <td className="px-3 py-2 text-zinc-700">{sample.hospitalName}</td>
-                      <td className="px-3 py-2 text-right text-zinc-700">{formatMoney(String(sample.total))}</td>
+                      <td className="px-3 py-2 text-right text-zinc-700">{formatMoney(sample.total)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -92,6 +101,8 @@ export default function PeriodDryRunModal({
             </div>
           )}
         </div>
+
+        {error && <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
         <div className="flex flex-wrap justify-end gap-3 border-t border-zinc-200 pt-4">
           <button
@@ -102,14 +113,25 @@ export default function PeriodDryRunModal({
           >
             ยกเลิก
           </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={isConfirming}
-            className="rounded-md bg-red-700 px-4 py-2 text-sm font-medium text-white hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isConfirming ? "กำลังยืนยัน..." : isDelete ? "ยืนยันลบข้อมูลตามงวด" : "ยืนยันแทนที่ข้อมูลตามงวด"}
-          </button>
+          {!atFinalStep && (
+            <button
+              type="button"
+              onClick={() => setFinalStepArmed(true)}
+              className="rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
+            >
+              ไปขั้นยืนยันสุดท้าย
+            </button>
+          )}
+          {atFinalStep && (
+            <button
+              type="button"
+              onClick={onConfirm}
+              disabled={isConfirming}
+              className="rounded-md bg-red-700 px-4 py-2 text-sm font-medium text-white hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isConfirming ? "กำลังยืนยัน..." : isDelete ? "ยืนยันลบข้อมูลตามงวด" : "ยืนยันแทนที่ข้อมูลตามงวด"}
+            </button>
+          )}
         </div>
       </div>
     </Modal>

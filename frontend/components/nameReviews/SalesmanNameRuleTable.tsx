@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { SalesmanNameRule } from "@/lib/types";
 
 const SHARE_PERCENT_TOTAL = 100;
@@ -13,11 +13,13 @@ interface SalesmanNameRuleTableProps {
 
 export default function SalesmanNameRuleTable({ rules, onSave }: SalesmanNameRuleTableProps) {
   const [drafts, setDrafts] = useState<Record<string, string[]>>({});
+  const [draftsSource, setDraftsSource] = useState(rules);
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  useEffect(() => {
+  if (rules !== draftsSource) {
+    setDraftsSource(rules);
     setDrafts(Object.fromEntries(rules.map((rule) => [rule.id, rule.members.map((member) => member.sharePercent)])));
-  }, [rules]);
+  }
 
   function updateDraft(ruleId: string, index: number, value: string) {
     setDrafts((previous) => ({ ...previous, [ruleId]: previous[ruleId].map((share, currentIndex) => currentIndex === index ? value : share) }));

@@ -1,0 +1,34 @@
+# Contract for the `business-analyst` agent. Shape: orchestrator/schemas/agent-contract.schema.json
+agent:
+  name: business-analyst
+  role: business-analyst
+  description: Interviews the user and produces or amends requirement.md. Never writes code, never picks a stack.
+input:
+  # Nothing is required: the first interview on a blank project starts from a conversation, not a document.
+  required: []
+  optional: [qa-report, design]
+output:
+  required: [requirements]
+constraints:
+  - no_git
+  - stay_inside_repo
+  - no_next_agent_invocation
+  - amend_not_regenerate
+  - dates_from_user
+  # No web access by design — an external fact with no source row is written down as an assumption.
+  - unsourced_facts_marked_assumption
+  # Its whole job is asking a person questions it cannot answer itself; there is no autonomous version.
+  - human_confirmation_required
+permissions:
+  capabilities: [read, write_docs]
+  # Owns requirement.md. The denies are the neighbouring documents it must route to, not edit.
+  read: [".claude/shared/**", "policies/**", "CLAUDE.md", "_docs/module/*/design.md", "_docs/module/*/requirement.md", "_docs/module/*/review.md", "_docs/status-archive.md", "_docs/status.md"]
+  write: ["_docs/module/*/requirement.md", "_docs/status.md", "_docs/status-archive.md"]
+  deny: ["_docs/module/*/design.md", "_docs/module/*/plan.md", "_docs/module/*/review.md"]
+tools: [AskUserQuestion, Write, Edit, Read, Glob, Grep]
+states: [REQUIREMENT]
+capability:
+  languages: []
+  frameworks: []
+  database: []
+  capabilities: [requirements-interview]

@@ -1,0 +1,26 @@
+# Adds or alters a field/table/relation. The costliest mistake available in this pipeline,
+# so it never skips system-analyst and never skips a security pass.
+workflow: schema-change
+description: Data model change - routes through system-analyst, schema confirmation always needs a person.
+trigger:
+  kind: signal
+  signal: touchesSchema
+  # Below `feature` (priority 1): a brand-new feature/module that also needs new
+  # tables must run the full requirements interview first — this pipeline is for
+  # schema work on something that already exists.
+  priority: 2
+level: LARGE_CRITICAL
+requires_human_approval: true
+steps:
+  - agent: system-analyst
+  - agent: test-planner
+  - agent: backend-engineer
+    when: touchesBackend
+  - agent: uxui-designer
+    when: touchesFrontend
+  - agent: frontend-engineer
+    when: touchesFrontend
+  - agent: qa-engineer
+  - agent: security
+    when: always_sensitive
+    note: a schema change gets a security pass whether or not the caller flagged one

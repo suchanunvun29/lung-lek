@@ -1,37 +1,41 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { getErrorMessage, getLeaderboard } from "@/lib/api";
-import { LEADERBOARD_CRITERIA_LABEL_TH, LEADERBOARD_CRITERIA_ORDER, formatLeaderboardValue } from "@/lib/kpiLabels";
-import { LeaderboardCriteria, LeaderboardEntry, PeriodKey } from "@/lib/types";
-import { useAuthStore } from "@/store/useAuthStore";
+import LeaderboardPeopleModal from "@/components/leaderboard/LeaderboardPeopleModal";
+import LeaderboardUnitRow from "@/components/leaderboard/LeaderboardUnitRow";
 import PeriodSelector from "@/components/kpi/PeriodSelector";
+import { exportTerritoryLeaderboard, getErrorMessage, getTerritoryLeaderboard } from "@/lib/api";
+import { LEADERBOARD_CRITERIA_LABEL_TH, LEADERBOARD_CRITERIA_ORDER } from "@/lib/kpiLabels";
+import { LeaderboardCriteria, LeaderboardUnit, PeriodKey, TerritoryLeaderboardResponse } from "@/lib/types";
+import { useAuthStore } from "@/store/useAuthStore";
 
 function defaultPeriod(): PeriodKey {
   const now = new Date();
   return { periodType: "MONTH", year: now.getFullYear(), periodNumber: now.getMonth() + 1 };
 }
 
-const RANK_MEDAL: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" };
-
+/** Module F2 — the leaderboard ranks "target units" (territories / territory groups), replacing
+ *  Phase 5's person-ranked leaderboard entirely (Territory KPI Rules ข้อ 12). Rendering follows
+ *  the server's visibility level per unit; no role checks live here. */
 export default function LeaderboardPage() {
   const token = useAuthStore((state) => state.token);
 
   const [criteria, setCriteria] = useState<LeaderboardCriteria>("COMPOSITE");
   const [period, setPeriod] = useState<PeriodKey>(defaultPeriod());
-  const [results, setResults] = useState<LeaderboardEntry[]>([]);
+  const [data, setData] = useState<TerritoryLeaderboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [drillDownUnit, setDrillDownUnit] = useState<LeaderboardUnit | null>(null);
 
   const load = useCallback(async () => {
     if (!token) return;
     setLoading(true);
     try {
-      const data = await getLeaderboard(token, criteria, period);
-      setResults(data.results);
+      const response = await getTerritoryLeaderboard(token, criteria, period);
+      setData(response);
       setLoadError(null);
-    } catch (err) {
-      setLoadError(getErrorMessage(err, "โหลด Leaderboard ไม่สำเร็จ"));
+    } catch (error) {
+      setLoadError(getErrorMessage(error, "โหลด Leaderboard ไม่สำเร็จ"));
     } finally {
       setLoading(false);
     }
@@ -42,22 +46,38 @@ export default function LeaderboardPage() {
     void load();
   }, [load]);
 
-  return (
-    <div className="mx-auto max-w-3xl p-4 sm:p-6">
-      <h1 className="text-2xl font-semibold text-zinc-900">Leaderboard</h1>
-      <p className="mt-1 text-sm text-zinc-600">จัดอันดับพนักงานขายทั้งทีม แสดงชื่อจริง</p>
+  async function exportBoard() {
+    if (!token) return;
+    try {
+      await exportTerritoryLeaderboard(token, criteria, period);
+    } catch (error) {
+      setLoadError(getErrorMessage(error, "ส่งออกไฟล์ไม่สำเร็จ"));
+    }
+  }
 
-      <div className="mt-4 flex flex-wrap gap-1">
-        {LEADERBOARD_CRITERIA_ORDER.map((c) => (
+  return (
+    <div className="mx-auto max-w-5xl p-4 sm:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-zinc-900">Leaderboard ระดับเขต</h1>
+          <p className="mt-1 text-sm text-zinc-600">จัดอันดับหน่วยเป้า (เขต/กลุ่มเขต) — เลือกเกณฑ์และช่วงเวลาได้</p>
+        </div>
+        <button type="button" onClick={() => void exportBoard()} className="rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100">
+          Export Excel
+        </button>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-1" role="group" aria-label="เกณฑ์จัดอันดับ">
+        {LEADERBOARD_CRITERIA_ORDER.map((option) => (
           <button
-            key={c}
+            key={option}
             type="button"
-            onClick={() => setCriteria(c)}
+            onClick={() => setCriteria(option)}
             className={`rounded px-3 py-1.5 text-sm font-medium ${
-              c === criteria ? "bg-zinc-900 text-white" : "border border-zinc-300 text-zinc-700 hover:bg-zinc-100"
+              option === criteria ? "bg-zinc-900 text-white" : "border border-zinc-300 text-zinc-700 hover:bg-zinc-100"
             }`}
           >
-            {LEADERBOARD_CRITERIA_LABEL_TH[c]}
+            {LEADERBOARD_CRITERIA_LABEL_TH[option]}
           </button>
         ))}
       </div>
@@ -69,30 +89,56 @@ export default function LeaderboardPage() {
       {loadError && <p className="mt-4 text-sm text-red-600">{loadError}</p>}
       {loading && <p className="mt-6 text-zinc-400">กำลังโหลด...</p>}
 
-      {!loading && !loadError && (
-        <ul className="mt-6 space-y-2">
-          {results.length === 0 && <li className="text-zinc-400">ไม่มีข้อมูล</li>}
-          {results.map((entry) => (
-            <li
-              key={entry.salesperson.id}
-              className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-white px-4 py-3"
-            >
-              <div className="flex min-w-0 items-center gap-3">
-                <span className="w-8 shrink-0 text-center text-lg font-semibold text-zinc-500">
-                  {entry.rank !== null ? RANK_MEDAL[entry.rank] ?? entry.rank : "-"}
-                </span>
-                <span className="truncate font-medium text-zinc-900">{entry.salesperson.displayName}</span>
-              </div>
-              <div className="shrink-0 text-right">
-                {entry.computable && entry.value !== null ? (
-                  <span className="font-semibold text-zinc-900">{formatLeaderboardValue(criteria, entry.value)}</span>
-                ) : (
-                  <span className="text-xs text-amber-700">{entry.reason ?? "คำนวณไม่ได้"}</span>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
+      {data && !loading && (
+        <div className="mt-6 space-y-6">
+          <section>
+            <h2 className="mb-2 text-base font-semibold text-zinc-900">อันดับ</h2>
+            <ul className="space-y-2">
+              {data.ranked.length === 0 && <li className="rounded-lg border border-dashed border-zinc-300 p-4 text-sm text-zinc-400">ยังไม่มีหน่วยเป้าที่คำนวณเกณฑ์นี้ได้</li>}
+              {data.ranked.map((unit) => (
+                <LeaderboardUnitRow key={`${unit.unitType}-${unit.territoryId}`} unit={unit} onDrillDown={setDrillDownUnit} />
+              ))}
+            </ul>
+          </section>
+
+          {data.unranked.length > 0 && (
+            <section>
+              <h2 className="mb-2 text-base font-semibold text-zinc-900">คำนวณเกณฑ์ที่เลือกไม่ได้</h2>
+              <ul className="space-y-2">
+                {data.unranked.map((unit) => (
+                  <li key={`${unit.unitType}-${unit.territoryId}`} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm">
+                    <div>
+                      <p className="font-medium text-amber-900">{unit.name}</p>
+                      <p className="text-xs text-amber-700">{unit.ownerNames.join(", ")}</p>
+                    </div>
+                    <span className="text-xs font-medium text-amber-800">{unit.visibility === "TERRITORY_FULL" ? unit.criterionReason ?? "คำนวณไม่ได้" : "ไม่มีสิทธิ์เห็นตัวเลขของหน่วยนี้"}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {/* Buckets render only when the server sends them (MANAGER-only per Data Visibility Rules ข้อ 6). */}
+          {data.buckets && (
+            <section className="rounded-lg border border-zinc-200 bg-white p-4">
+              <h2 className="text-base font-semibold text-zinc-900">ยอดนอกการจัดอันดับเขต</h2>
+              <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+                <div>
+                  <dt className="text-zinc-500">ยอดส่วนบุคคล</dt>
+                  <dd className="mt-1 font-semibold text-zinc-900">{data.buckets.personalBucket.toLocaleString(undefined, { maximumFractionDigits: 2 })}</dd>
+                </div>
+                <div>
+                  <dt className="text-zinc-500">ยอดที่ยังไม่กำหนดเขต ({data.buckets.unassignedHospitalCount} โรงพยาบาล)</dt>
+                  <dd className="mt-1 font-semibold text-zinc-900">{data.buckets.unassignedBucket.toLocaleString(undefined, { maximumFractionDigits: 2 })}</dd>
+                </div>
+              </dl>
+            </section>
+          )}
+        </div>
+      )}
+
+      {drillDownUnit && token && (
+        <LeaderboardPeopleModal token={token} criteria={criteria} period={period} unit={drillDownUnit} onClose={() => setDrillDownUnit(null)} />
       )}
     </div>
   );

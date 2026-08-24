@@ -31,6 +31,7 @@ export default function ImportPage() {
   const [deletePeriods, setDeletePeriods] = useState<PeriodTouched[]>([]);
   const [dryRun, setDryRun] = useState<DryRunState | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
   const [isCheckingDelete, setIsCheckingDelete] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
 
@@ -41,6 +42,7 @@ export default function ImportPage() {
   async function handleUpload(file: File) {
     if (!token) return;
     setResult(null);
+    setConfirmError(null);
     if (mode === "APPEND") {
       try {
         const data = await uploadImportFile(token, file);
@@ -69,6 +71,7 @@ export default function ImportPage() {
     setIsCheckingDelete(true);
     setDeleteError(null);
     setResult(null);
+    setConfirmError(null);
     try {
       const data = await deleteImportPeriods(token, { targetPeriods: deletePeriods, confirm: false });
       if (!data.dryRun) throw new Error("ผลลัพธ์การตรวจสอบไม่ถูกต้อง");
@@ -83,6 +86,7 @@ export default function ImportPage() {
   async function confirmDryRun() {
     if (!token || !dryRun) return;
     setIsConfirming(true);
+    setConfirmError(null);
     try {
       if (dryRun.action === "REPLACE_PERIOD") {
         if (!dryRun.file) throw new Error("ไม่พบไฟล์สำหรับยืนยันการแทนที่ข้อมูล");
@@ -96,9 +100,7 @@ export default function ImportPage() {
       }
       setDryRun(null);
     } catch (err) {
-      const message = getErrorMessage(err, "ยืนยันการดำเนินการไม่สำเร็จ");
-      if (dryRun.action === "PERIOD_DELETE") setDeleteError(message);
-      else throw new Error(message);
+      setConfirmError(getErrorMessage(err, "ยืนยันการดำเนินการไม่สำเร็จ"));
     } finally {
       setIsConfirming(false);
     }
@@ -142,7 +144,7 @@ export default function ImportPage() {
       </section>
 
       {result && <div className="mt-8 space-y-6"><h2 className="text-lg font-semibold text-zinc-900">ผลการนำเข้า</h2><ImportBatchSummary batch={result} />{result.issues && <ImportIssueTable issues={result.issues} />}</div>}
-      {dryRun && <PeriodDryRunModal action={dryRun.action} preview={dryRun.preview} isConfirming={isConfirming} onClose={() => setDryRun(null)} onConfirm={() => void confirmDryRun()} />}
+      {dryRun && <PeriodDryRunModal action={dryRun.action} preview={dryRun.preview} isConfirming={isConfirming} error={confirmError} onClose={() => setDryRun(null)} onConfirm={() => void confirmDryRun()} />}
     </div>
   );
 }

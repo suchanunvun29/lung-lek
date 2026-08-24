@@ -41,6 +41,16 @@ export function lastMonthOfPeriod(period: PeriodKey): YearMonth {
   return months[months.length - 1];
 }
 
+export function firstDayOfPeriod(period: PeriodKey): Date {
+  const first = monthsInPeriod(period)[0];
+  return new Date(Date.UTC(first.year, first.month - 1, 1));
+}
+
+export function lastDayOfPeriod(period: PeriodKey): Date {
+  const last = lastMonthOfPeriod(period);
+  return new Date(Date.UTC(last.year, last.month, 0));
+}
+
 export function trailingMonths(endYear: number, endMonth: number, count: number): YearMonth[] {
   const result: YearMonth[] = [];
   let year = endYear;

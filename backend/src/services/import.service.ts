@@ -124,6 +124,12 @@ interface DeleteSalesPeriodsParams {
 
 export class ImportInProgressError extends Error {}
 
+export class PeriodOutOfScopeError extends Error {
+  constructor() {
+    super("PERIOD_OUT_OF_SCOPE");
+  }
+}
+
 class DryRunComplete extends Error {
   constructor(readonly preview: DryRunPreview) {
     super("Dry run complete");
@@ -523,6 +529,9 @@ async function importSalesFileLegacy({ fileBuffer, fileName, fileSizeBytes, uplo
         const salespersonIndex = await buildSalespersonIndex(tx);
         const productTypeCache = new Map<string, string>();
         const productIndex = await buildProductIndex(tx);
+        const productTypeNames = new Map(
+          (await tx.productType.findMany({ select: { id: true, name: true } })).map((type) => [type.id, type.name] as const)
+        );
         const periodsTouchedSet = new Set<string>();
 
         const rowKeys = parsedRows.map((row) => row.rowKey);
@@ -560,6 +569,15 @@ async function importSalesFileLegacy({ fileBuffer, fileName, fileSizeBytes, uplo
           );
           const productTypeId = await resolveProductType(tx, productTypeCache, row.productTypeName);
           const product = await resolveProductViaAlias(tx, productIndex, row.productName, productTypeId);
+          if (product.productTypeId !== productTypeId) {
+            issues.push({
+              level: "WARNING",
+              code: "PRODUCT_TYPE_ALIAS_MISMATCH",
+              sheetName: firstSheet.name,
+              rowNumber: row.rowNumber,
+              message: `สินค้า "${row.productName}" ถูกจับคู่กับทะเบียนที่ Product type = ${productTypeNames.get(product.productTypeId) ?? product.productTypeId} แต่ไฟล์ระบุ "${row.productTypeName}" — ระบบใช้ type ตามทะเบียน กรุณาตรวจคอลัมน์ Product type ในไฟล์`,
+            });
+          }
 
           const primaryCredit = credits.find((c) => c.isPrimary) ?? credits[0];
 
@@ -808,7 +826,7 @@ async function runReplaceImport(
   }
 ) {
   const { fileName, fileSizeBytes, uploadedById, targetPeriods, confirm, parsed } = input;
-  if (periodOutOfScope(parsed.parsedRows, targetPeriods)) throw new Error("PERIOD_OUT_OF_SCOPE");
+  if (periodOutOfScope(parsed.parsedRows, targetPeriods)) throw new PeriodOutOfScopeError();
 
   await lockImports(tx);
   const existingLines = await tx.salesLine.findMany({
@@ -831,6 +849,9 @@ async function runReplaceImport(
   const salespersonIndex = await buildSalespersonIndex(tx);
   const productTypeCache = new Map<string, string>();
   const productIndex = await buildProductIndex(tx);
+  const productTypeNames = new Map(
+    (await tx.productType.findMany({ select: { id: true, name: true } })).map((type) => [type.id, type.name] as const)
+  );
   const successfulRowKeys: string[] = [];
   const periodsTouched = new Set<string>();
   let insertedRows = 0;
@@ -860,6 +881,15 @@ async function runReplaceImport(
     );
     const productTypeId = await resolveProductType(tx, productTypeCache, row.productTypeName);
     const product = await resolveProductViaAlias(tx, productIndex, row.productName, productTypeId);
+    if (product.productTypeId !== productTypeId) {
+      parsed.issues.push({
+        level: "WARNING",
+        code: "PRODUCT_TYPE_ALIAS_MISMATCH",
+        sheetName: parsed.firstSheetName,
+        rowNumber: row.rowNumber,
+        message: `สินค้า "${row.productName}" ถูกจับคู่กับทะเบียนที่ Product type = ${productTypeNames.get(product.productTypeId) ?? product.productTypeId} แต่ไฟล์ระบุ "${row.productTypeName}" — ระบบใช้ type ตามทะเบียน กรุณาตรวจคอลัมน์ Product type ในไฟล์`,
+      });
+    }
     const primaryCredit = credits.find((credit) => credit.isPrimary) ?? credits[0];
     const salesLineData = {
       invoiceNo: row.invoiceNo,

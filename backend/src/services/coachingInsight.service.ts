@@ -56,24 +56,14 @@ export async function buildKpiSummaryPayload(salespersonId: string, period: Peri
   const settings = await kpiService.getEvaluationSettings();
   const prevPeriod = previousPeriod(period);
 
-  const [composite, supplementary, activeSalespeople, previousComposite, previousRevenue] = await Promise.all([
+  const [composite, supplementary, previousComposite, previousRevenue] = await Promise.all([
     kpiService.computeCompositeScore(salespersonId, period),
     kpiService.computeSupplementaryKpis(salespersonId, period, settings),
-    prisma.salesperson.findMany({ where: { isActive: true }, select: { id: true } }),
     kpiService.computeCompositeScore(salespersonId, prevPeriod),
     kpiService.computeRevenueVsTarget(salespersonId, prevPeriod),
   ]);
 
-  const teamComposites = await Promise.all(
-    activeSalespeople.map((sp) => kpiService.computeCompositeScore(sp.id, period))
-  );
-  const computableTeamScores = teamComposites
-    .map((c) => c.composite)
-    .filter((score): score is number => score !== null);
-  const teamAverageComposite =
-    computableTeamScores.length > 0
-      ? Math.round((computableTeamScores.reduce((a, b) => a + b, 0) / computableTeamScores.length) * 100) / 100
-      : null;
+  const teamAverageComposite = kpiService.teamAverageComposite(await kpiService.computeActiveSalespersonComposites(period));
 
   const revenueMetric = composite.metrics.find((m) => m.metric === "REVENUE_VS_TARGET")!;
   const newCustomersMetric = composite.metrics.find((m) => m.metric === "NEW_CUSTOMERS")!;

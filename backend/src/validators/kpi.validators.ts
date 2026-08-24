@@ -42,7 +42,7 @@ export const salespersonIdParamsSchema = z.object({
   salespersonId: z.string().min(1),
 });
 
-const SCORED_METRICS = ["REVENUE_VS_TARGET", "NEW_CUSTOMERS", "PRODUCT_GROUP", "RETENTION", "CONSISTENCY"] as const;
+export const SCORED_METRICS = ["REVENUE_VS_TARGET", "NEW_CUSTOMERS", "PRODUCT_GROUP", "RETENTION", "CONSISTENCY"] as const;
 const SUPPLEMENTARY_METRICS = [
   "ACTIVE_CUSTOMERS",
   "CHURNED_CUSTOMERS",

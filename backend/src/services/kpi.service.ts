@@ -699,3 +699,60 @@ export async function getSupplementaryDrillDown(
   });
   return { metric, salesLines };
 }
+
+// ---------- Team-level composites (single source) ----------
+//
+// The AI-coaching team average and Module F2's SELF_SUMMARY both need every active
+// salesperson's composite for a period. This is that one path — Phase 4's own
+// computeCompositeScore per person; nobody else re-queries and re-averages.
+
+export interface SalespersonCompositeEntry {
+  salespersonId: string;
+  result: CompositeScoreResult;
+}
+
+export async function computeActiveSalespersonComposites(period: PeriodKey): Promise<SalespersonCompositeEntry[]> {
+  const salespeople = await prisma.salesperson.findMany({ where: { isActive: true }, select: { id: true }, orderBy: { displayName: "asc" } });
+  return Promise.all(salespeople.map(async (sp) => ({ salespersonId: sp.id, result: await computeCompositeScore(sp.id, period) })));
+}
+
+export function teamAverageComposite(entries: SalespersonCompositeEntry[]): number | null {
+  const scores = entries.map((entry) => entry.result.composite).filter((score): score is number => score !== null);
+  if (!scores.length) return null;
+  return Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 100) / 100;
+}
+
+// ---------- Shared "who sold where" definitions (single source) ----------
+//
+// "Has sales in the period" / "has ever had sales" are contract definitions (KPI & Scoring Rules
+// churn/active basis; Module P's already-sold vs sold-before buckets reuse them verbatim). They
+// always read through SalesLineCredit so excluded personnel never count as territory sales.
+
+/** Hospitals whose territory-scoped, non-excluded credited sales fall inside `months`. */
+export async function hospitalIdsWithCreditedSales(baseWhere: Prisma.SalesLineWhereInput, months?: YearMonth[]): Promise<Set<string>> {
+  const rows = await prisma.salesLineCredit.findMany({
+    where: { salesperson: { excludedFromTerritoryTotals: false }, salesLine: { ...baseWhere, ...(months ? { OR: monthsWhereOr(months) } : {}) } },
+    select: { salesLine: { select: { hospitalId: true } } },
+  });
+  return new Set(rows.map((row) => row.salesLine.hospitalId));
+}
+
+/** Hospitals one specific person has credited sales in (their own shares only). */
+export async function hospitalIdsWithSalesBySalesperson(salespersonId: string, baseWhere: Prisma.SalesLineWhereInput, months?: YearMonth[]): Promise<Set<string>> {
+  const rows = await prisma.salesLineCredit.findMany({
+    where: { salespersonId, salesLine: { ...baseWhere, ...(months ? { OR: monthsWhereOr(months) } : {}) } },
+    select: { salesLine: { select: { hospitalId: true } } },
+  });
+  return new Set(rows.map((row) => row.salesLine.hospitalId));
+}
+
+/** Share-weighted credited revenue grouped per hospital — revenue(T)'s ข้อ-2 math at hospital grain. */
+export async function creditedRevenueByHospital(baseWhere: Prisma.SalesLineWhereInput, months?: YearMonth[]): Promise<Map<string, number>> {
+  const rows = await prisma.salesLineCredit.findMany({
+    where: { salesperson: { excludedFromTerritoryTotals: false }, salesLine: { ...baseWhere, ...(months ? { OR: monthsWhereOr(months) } : {}) } },
+    select: { sharePercent: true, salesLine: { select: { hospitalId: true, total: true } } },
+  });
+  const totals = new Map<string, number>();
+  for (const row of rows) totals.set(row.salesLine.hospitalId, (totals.get(row.salesLine.hospitalId) ?? 0) + Number(row.salesLine.total) * Number(row.sharePercent) / 100);
+  return totals;
+}

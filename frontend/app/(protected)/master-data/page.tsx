@@ -71,11 +71,22 @@ export default function MasterDataPage() {
     if (!token) return;
     setActionError(null);
     try {
-      const data = await updateSalesperson(token, salesperson.id, userId);
+      const data = await updateSalesperson(token, salesperson.id, { userId });
       setSalespeople((prev) => prev.map((sp) => (sp.id === salesperson.id ? data.salesperson : sp)));
       void loadAll();
     } catch (err) {
       setActionError(getErrorMessage(err, "ผูกบัญชีผู้ใช้ไม่สำเร็จ"));
+    }
+  }
+
+  async function handleEmploymentDate(salesperson: Salesperson, employmentEndedAt: string | null) {
+    if (!token) return;
+    setActionError(null);
+    try {
+      const data = await updateSalesperson(token, salesperson.id, { employmentEndedAt });
+      setSalespeople((prev) => prev.map((sp) => (sp.id === salesperson.id ? data.salesperson : sp)));
+    } catch (err) {
+      setActionError(getErrorMessage(err, "บันทึกวันที่พ้นสภาพไม่สำเร็จ"));
     }
   }
 
@@ -119,6 +130,7 @@ export default function MasterDataPage() {
             linkableUsers={users}
             canEdit={canEdit}
             onLink={handleSalespersonLink}
+            onEmploymentDate={handleEmploymentDate}
           />
         )}
 

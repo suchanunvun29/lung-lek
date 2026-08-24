@@ -47,8 +47,19 @@ async function main() {
   const archives = await prisma.salesLineArchive.findMany({ where: { removedByBatchId }, orderBy: { removedAt: "asc" } });
   if (archives.length === 0) throw new Error("No archived sales lines found for the supplied batch id");
 
+  let restored = 0;
+  let alreadyPresent = 0;
+
   await prisma.$transaction(async (tx) => {
     for (const archive of archives) {
+      const existing = await tx.salesLine.findFirst({
+        where: { OR: [{ id: archive.salesLineId }, { rowKey: archive.rowKey }] },
+        select: { id: true },
+      });
+      if (existing) {
+        alreadyPresent++;
+        continue;
+      }
       const { salesLine, credits } = parsePayload(archive.payload);
       await tx.salesLine.create({
         data: {
@@ -85,9 +96,10 @@ async function main() {
           isPrimary: credit.isPrimary,
         })),
       });
+      restored++;
     }
   });
-  console.log(`Restored ${archives.length} archived SalesLine row(s).`);
+  console.log(`Restored ${restored} archived SalesLine row(s)${alreadyPresent > 0 ? ` — skipped ${alreadyPresent} already present` : ""}.`);
 }
 
 main()

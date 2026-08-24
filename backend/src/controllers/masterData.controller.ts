@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
+import { resolveViewerScope, visibleSalespersonIds } from "../services/viewerScope.service";
 import { UpdateHospitalInput, UpdateSalespersonInput } from "../validators/masterData.validators";
 
 export async function listHospitals(_req: Request, res: Response) {
@@ -28,8 +29,13 @@ export async function listProductTypes(_req: Request, res: Response) {
   res.json({ productTypes });
 }
 
-export async function listSalespeople(_req: Request, res: Response) {
+export async function listSalespeople(req: Request, res: Response) {
+  // Data Visibility Rules ข้อ 4 — list-of-people endpoints filter in the query layer
+  // via the single viewerScope resolver (Module Q); MANAGER sees everyone.
+  const scope = await resolveViewerScope(req.user!);
+  const ids = await visibleSalespersonIds(scope);
   const salespeople = await prisma.salesperson.findMany({
+    where: ids === null ? {} : { id: { in: ids } },
     orderBy: { displayName: "asc" },
     include: { user: { select: { id: true, email: true, displayName: true } } },
   });
@@ -38,27 +44,34 @@ export async function listSalespeople(_req: Request, res: Response) {
 
 export async function updateSalesperson(req: Request, res: Response) {
   const { id } = req.params;
-  const { userId } = req.body as UpdateSalespersonInput;
+  const { userId, employmentEndedAt } = req.body as UpdateSalespersonInput;
 
   const salesperson = await prisma.salesperson.findUnique({ where: { id } });
   if (!salesperson) {
     return res.status(404).json({ error: "Salesperson not found" });
   }
 
-  if (userId !== null) {
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
+  const data: { userId?: string | null; employmentEndedAt?: Date | null } = {};
+  if (userId !== undefined) {
+    if (userId !== null) {
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      const linkedSalesperson = await prisma.salesperson.findUnique({ where: { userId } });
+      if (linkedSalesperson && linkedSalesperson.id !== id) {
+        return res.status(409).json({ error: "This user is already linked to another salesperson" });
+      }
     }
-    const linkedSalesperson = await prisma.salesperson.findUnique({ where: { userId } });
-    if (linkedSalesperson && linkedSalesperson.id !== id) {
-      return res.status(409).json({ error: "This user is already linked to another salesperson" });
-    }
+    data.userId = userId;
+  }
+  if (employmentEndedAt !== undefined) {
+    data.employmentEndedAt = employmentEndedAt === null ? null : new Date(employmentEndedAt);
   }
 
   const updated = await prisma.salesperson.update({
     where: { id },
-    data: { userId },
+    data,
     include: { user: { select: { id: true, email: true, displayName: true } } },
   });
   res.json({ salesperson: updated });

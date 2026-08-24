@@ -1,7 +1,27 @@
-import { Prisma, Target, TargetProductGroup } from "@prisma/client";
+import { Prisma, Target, TargetProductGroup, TargetScope } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 
 type TargetWithProductGroups = Target & { productGroupTargets: TargetProductGroup[] };
+
+// Phase 12 XOR-3-way guard: every Target row must carry EXACTLY ONE of
+// { salespersonId | territoryId | territoryGroupId } and it must match its own `scope`.
+// Enforced on every code path that writes a Target — belt and braces over the schema's
+// nullable FKs, which cannot express the cross-column rule.
+export class TargetScopeXorError extends Error {
+  status = 400;
+  constructor(message = "เป้าต้องอ้างอิงพนักงานขาย หรือเขต หรือกลุ่มเขต อย่างใดอย่างหนึ่งเท่านั้นและต้องตรงกับ scope") {
+    super(message);
+  }
+}
+
+export function assertTargetScopeXor(
+  scope: TargetScope,
+  ids: { salespersonId?: string | null; territoryId?: string | null; territoryGroupId?: string | null }
+): void {
+  const filled = [ids.salespersonId, ids.territoryId, ids.territoryGroupId].filter((id) => Boolean(id));
+  const expectedKey = { SALESPERSON: "salespersonId", TERRITORY: "territoryId", TERRITORY_GROUP: "territoryGroupId" } as const satisfies Record<TargetScope, string>;
+  if (filled.length !== 1 || !ids[expectedKey[scope]]) throw new TargetScopeXorError();
+}
 
 // TargetRevision.before/after are JSON snapshots — Prisma's Decimal class isn't a plain JSON
 // value, so every Decimal field must be converted before it can be written to a Json column.
@@ -39,6 +59,7 @@ export async function upsertMonthlyTarget({
   note,
   changedById,
 }: UpsertMonthlyTargetParams) {
+  assertTargetScopeXor("SALESPERSON", { salespersonId });
   return prisma.$transaction(async (tx) => {
     const existing = await tx.target.findUnique({
       where: { salespersonId_year_month: { salespersonId, year, month } },
@@ -95,6 +116,9 @@ export async function setProductGroupTargets(
   productGroups: ProductGroupInput[],
   changedById: string
 ): Promise<TargetWithProductGroups | null> {
+  // Scope-agnostic by design: keyed purely by targetId, so it serves SALESPERSON targets
+  // (Phase 3) and TERRITORY/TERRITORY_GROUP targets (Phase 12) without any branching —
+  // verified 2026-08-22 against plan.md's Phase 12 "product-groups note" task.
   return prisma.$transaction(async (tx) => {
     const existing = await tx.target.findUnique({
       where: { id: targetId },
@@ -169,6 +193,7 @@ export async function copyTargets({ fromYear, fromMonth, toYear, toMonth, overwr
       }
 
       if (!destination) {
+        assertTargetScopeXor("SALESPERSON", { salespersonId });
         const newTarget = await tx.target.create({
           data: {
             salespersonId,

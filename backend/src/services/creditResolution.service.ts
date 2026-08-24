@@ -42,7 +42,10 @@ export async function buildSalespersonIndex(tx: TxClient): Promise<SalespersonIn
   return { byPersonCore };
 }
 
-/** Resolves (and auto-creates if genuinely unseen) a single salesperson name via personCore matching. */
+/** Resolves (and auto-creates if genuinely unseen) a single salesperson name via personCore matching.
+ * Every auto-create also opens a `SalesmanNameReview` row so a manager can confirm "genuinely new"
+ * or merge the spelling into an existing person — per OQ30's user policy (2026-08-22): import never
+ * blocks, but unseen spellings must not silently stand as new people. */
 async function resolveOrCreateSalesperson(
   tx: TxClient,
   index: SalespersonIndex,
@@ -55,14 +58,27 @@ async function resolveOrCreateSalesperson(
   const existingId = index.byPersonCore.get(key);
   if (existingId) return existingId;
 
+  const review = await tx.salesmanNameReview.findUnique({ where: { personKey: key } });
+  if (review?.status === "MERGED" && review.mergedIntoId) {
+    // A previous decision merged this exact spelling into an existing person — resolve there
+    // directly and never re-ask.
+    index.byPersonCore.set(key, review.mergedIntoId);
+    return review.mergedIntoId;
+  }
+
   const created = await tx.salesperson.create({ data: { nameInFile: rawName, displayName: rawName } });
   index.byPersonCore.set(key, created.id);
+  if (!review) {
+    await tx.salesmanNameReview.create({
+      data: { personKey: key, sampleRaw: rawName, createdSalespersonId: created.id },
+    });
+  }
   issues.push({
     level: "WARNING",
     code: "UNKNOWN_SALESMAN",
     sheetName,
     rowNumber,
-    message: `สร้างพนักงานขายใหม่: ${rawName}`,
+    message: `สร้างพนักงานขายใหม่: ${rawName} — รอผู้จัดการยืนยันในคิว "ยืนยันชื่อซ้ำ"`,
   });
   return created.id;
 }
