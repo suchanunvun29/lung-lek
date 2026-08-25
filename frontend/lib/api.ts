@@ -308,8 +308,27 @@ export function listTerritoryAssignments(token: string, filters: { territoryId?:
   return request<{ territoryAssignments: TerritoryAssignment[] }>(`/territory-assignments${query ? `?${query}` : ""}`, { method: "GET" }, token);
 }
 
-export function saveTerritoryAssignment(token: string, input: { territoryId: string; salespersonId: string; isSupervisor: boolean; effectiveFrom: string; effectiveTo?: string | null; note?: string | null }) {
-  return request<{ territoryAssignment: TerritoryAssignment }>("/territory-assignments", { method: "PUT", body: JSON.stringify(input) }, token);
+export interface TerritoryAssignmentAssignInput {
+  territoryId: string;
+  salespersonId: string;
+  effectiveFrom: string;
+  isSupervisor: boolean;
+  note?: string | null;
+}
+
+/** Withdraw closes the open row only — this path must NOT send effectiveFrom (fixed contract). */
+export interface TerritoryAssignmentWithdrawInput {
+  territoryId: string;
+  salespersonId: string;
+  effectiveTo: string;
+}
+
+export function saveTerritoryAssignment(token: string, input: TerritoryAssignmentAssignInput) {
+  return request<{ assignment: TerritoryAssignment }>("/territory-assignments", { method: "PUT", body: JSON.stringify(input) }, token);
+}
+
+export function withdrawTerritoryAssignment(token: string, input: TerritoryAssignmentWithdrawInput) {
+  return request<{ assignment: TerritoryAssignment }>("/territory-assignments", { method: "PUT", body: JSON.stringify(input) }, token);
 }
 
 export function moveHospitalToTerritory(token: string, hospitalId: string, territoryId: string | null, note?: string) {
@@ -321,7 +340,7 @@ export function bulkMoveHospitalsByProvince(token: string, province: string, ter
 }
 
 export function listUnassignedTerritoryHospitals(token: string) {
-  return request<{ hospitals: UnassignedTerritoryHospital[]; unassignedBucket: string }>("/hospitals/unassigned-territory", { method: "GET" }, token);
+  return request<{ unassignedBucket: number; hospitalCount: number; hospitals: UnassignedTerritoryHospital[] }>("/hospitals/unassigned-territory", { method: "GET" }, token);
 }
 
 export function getDerivedTarget(token: string, salespersonId: string, year: number, month: number) {
@@ -359,8 +378,10 @@ export function updateTerritoryGroupMember(
   return request<{ member: TerritoryGroupMember }>(`/territory-groups/${groupId}/members/${memberId}`, { method: "PATCH", body: JSON.stringify(input) }, token);
 }
 
+// The backend serves territory-scope upserts at PUT /targets/territory/:territoryId/:year/:month
+// (target.routes.ts); the bare /targets/:id path is the SALESPERSON-scope upsert.
 export function upsertTerritoryTarget(token: string, territoryId: string, year: number, month: number, input: UpsertTargetInput) {
-  return request<{ target: Target }>(`/targets/${territoryId}/${year}/${month}`, { method: "PUT", body: JSON.stringify(input) }, token);
+  return request<{ target: Target }>(`/targets/territory/${territoryId}/${year}/${month}`, { method: "PUT", body: JSON.stringify(input) }, token);
 }
 
 export function upsertTerritoryGroupTarget(token: string, groupId: string, year: number, month: number, input: UpsertTargetInput) {

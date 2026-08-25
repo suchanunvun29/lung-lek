@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { getErrorMessage, getSalespersonKpi, getTeamKpi, listSalespeople } from "@/lib/api";
+import { getDerivedTarget, getErrorMessage, getSalespersonKpi, getTeamKpi, listSalespeople } from "@/lib/api";
 import { computeTeamAverageScores } from "@/lib/kpiLabels";
-import { DrillDownMetric, PeriodKey, Salesperson, SalespersonKpiResponse } from "@/lib/types";
+import { DrillDownMetric, DerivedTarget, PeriodKey, Salesperson, SalespersonKpiResponse } from "@/lib/types";
 import { useAuthStore } from "@/store/useAuthStore";
 import PeriodSelector from "@/components/kpi/PeriodSelector";
 import ScoreCard from "@/components/kpi/ScoreCard";
@@ -14,6 +14,7 @@ import RevenueTargetProgress from "@/components/dashboard/RevenueTargetProgress"
 import MonthlyTrendChart from "@/components/dashboard/MonthlyTrendChart";
 import BreakdownPieChart from "@/components/dashboard/BreakdownPieChart";
 import CoachingInsightPanel from "@/components/coaching/CoachingInsightPanel";
+import DerivedTargetCard from "@/components/territories/DerivedTargetCard";
 
 function defaultPeriod(): PeriodKey {
   const now = new Date();
@@ -33,6 +34,8 @@ export default function DashboardPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [drillDownMetric, setDrillDownMetric] = useState<DrillDownMetric | null>(null);
   const [accountNotLinked, setAccountNotLinked] = useState(false);
+  const [derivedTarget, setDerivedTarget] = useState<DerivedTarget | null>(null);
+  const [derivedError, setDerivedError] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -80,6 +83,26 @@ export default function DashboardPage() {
     void loadDashboard();
   }, [loadDashboard]);
 
+  // GET /targets/derived is monthly-only (/:year/:month), so the card renders for MONTH
+  // periods only — a quarter/year selection has no single month to derive from. The fetch
+  // is independent of loadDashboard: a failed derive must never break the rest of the page.
+  const loadDerivedTarget = useCallback(async () => {
+    if (!token || !salespersonId || period.periodType !== "MONTH") return;
+    setDerivedTarget(null);
+    setDerivedError(false);
+    try {
+      const data = await getDerivedTarget(token, salespersonId, period.year, period.periodNumber);
+      setDerivedTarget(data.derivedTarget);
+    } catch {
+      setDerivedError(true);
+    }
+  }, [token, salespersonId, period]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadDerivedTarget();
+  }, [loadDerivedTarget]);
+
   const revenueMetric = kpi?.composite.metrics.find((m) => m.metric === "REVENUE_VS_TARGET");
 
   return (
@@ -101,6 +124,13 @@ export default function DashboardPage() {
       {!loading && !accountNotLinked && kpi && revenueMetric && (
         <div className="mt-6 space-y-4">
           <RevenueTargetProgress metric={revenueMetric} />
+
+          {period.periodType === "MONTH" &&
+            (derivedTarget ? (
+              <DerivedTargetCard target={derivedTarget} />
+            ) : derivedError ? (
+              <p className="text-sm text-zinc-500">ไม่สามารถโหลดเป้ารายคนที่คำนวณแล้วได้</p>
+            ) : null)}
 
           <MonthlyTrendChart data={kpi.supplementary.monthlyRevenueTrend} />
 

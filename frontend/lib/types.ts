@@ -331,7 +331,8 @@ export interface TerritoryAssignment {
   effectiveFrom: string;
   effectiveTo: string | null;
   note: string | null;
-  territory: EntitySummary;
+  /** Raw Territory include — its display field is `name`, not `displayName`. */
+  territory: { id: string; name: string };
   salesperson: SalespersonSummary;
 }
 
@@ -339,8 +340,9 @@ export interface UnassignedTerritoryHospital {
   id: string;
   displayName: string;
   province: string | null;
-  unassignedRevenue: string;
-  isAmbiguous: boolean;
+  /** Credit-weighted & exclusion-aware amount for this hospital; `ambiguous` = 2nd-ranked contributor ≥30% of 1st. */
+  unassignedBucket: number;
+  ambiguous: boolean;
 }
 
 export interface TerritoryGroup {
@@ -356,18 +358,27 @@ export interface TerritoryGroupMember {
   territoryId: string;
   effectiveFrom: string;
   effectiveTo: string | null;
-  territory: EntitySummary;
+  /** Raw Territory include — its display field is `name`, not `displayName`. */
+  territory: { id: string; name: string };
 }
 
+export type DerivedTargetSource = "MANUAL" | "TERRITORY" | "TERRITORY_GROUP";
+
+/** One contribution line of GET /targets/derived — a TERRITORY or TERRITORY_GROUP target split by active owners.
+ *  `unassigned: true` marks a unit with no active owner: it must surface as its own block, never silently dropped. */
+export interface DerivedTargetContribution {
+  territoryId?: string;
+  territoryGroupId?: string;
+  revenueTarget: number;
+  unassigned?: boolean;
+}
+
+/** Response of GET /targets/derived/:salespersonId/:year/:month (see territory.service.getDerivedTarget). */
 export interface DerivedTarget {
-  salespersonId: string;
-  year: number;
-  month: number;
-  revenueTarget: string;
+  revenueTarget: number;
   newCustomerTarget: number;
-  source: "PERSONAL" | "TERRITORY" | "TERRITORY_GROUP";
-  components: { name: string; revenueTarget: string; activeOwnerCount: number }[];
-  unownedTerritories: { id: string; name: string; revenueTarget: string }[];
+  source: DerivedTargetSource;
+  items: DerivedTargetContribution[];
 }
 
 // ---------- Module N: Territory KPI ----------
@@ -481,7 +492,9 @@ export interface MyTerritoryViewResponse {
 
 export type ProductZeroSaleStatus = "SOLD_BEFORE_NOT_IN_PERIOD" | "NEVER_SOLD_IN_TERRITORY";
 export interface TerritoryProductRankingItem { productId: string; code: string; name: string; productType: { id: string; name: string }; revenue: number; quantity: number; zeroSaleStatus: ProductZeroSaleStatus | null; }
-export interface TerritoryProductRankingResponse { period: PeriodKey; territory: EntitySummary & { ownerNames: string[] }; items: TerritoryProductRankingItem[]; zeroSaleWarning: string; personalBucket?: Omit<TerritoryProductRankingItem, "zeroSaleStatus">[]; }
+/** GET /territory-products/ranking sends the raw Territory model (`name`), not an EntitySummary (`displayName`). */
+export interface TerritoryProductRankingTerritory { id: string; name: string; ownerNames: string[]; }
+export interface TerritoryProductRankingResponse { period: PeriodKey; territory: TerritoryProductRankingTerritory; items: TerritoryProductRankingItem[]; zeroSaleWarning: string; personalBucket?: Omit<TerritoryProductRankingItem, "zeroSaleStatus">[]; }
 
 // ---------- Module O: Product Master ----------
 

@@ -11,12 +11,11 @@
 
 import dotenv from "dotenv";
 import { PrismaClient } from "@prisma/client";
+import { creditedRevenueByHospital, hasAmbiguousRunnerUp, rankContributors } from "../src/services/hospitalCreditRanking.util";
 
 dotenv.config();
 
 const prisma = new PrismaClient();
-
-const AMBIGUITY_THRESHOLD = 0.3;
 
 function isActiveToday(from: Date, to: Date | null): boolean {
   const now = new Date();
@@ -37,17 +36,8 @@ async function main(): Promise<void> {
     }),
   ]);
 
-  // revenue per (hospital, person)
-  const revenueByHospitalPerson = new Map<string, Map<string, number>>();
-  for (const credit of credits) {
-    const hospitalId = credit.salesLine.hospitalId;
-    let byPerson = revenueByHospitalPerson.get(hospitalId);
-    if (!byPerson) {
-      byPerson = new Map();
-      revenueByHospitalPerson.set(hospitalId, byPerson);
-    }
-    byPerson.set(credit.salespersonId, (byPerson.get(credit.salespersonId) ?? 0) + Number(credit.salesLine.total) * Number(credit.sharePercent) / 100);
-  }
+  // credited revenue per (hospital, person), exclusion already filtered in the query above
+  const revenueByHospitalPerson = creditedRevenueByHospital(credits);
 
   // active territory ids per person
   const activeTerritoriesByPerson = new Map<string, Set<string>>();
@@ -79,14 +69,13 @@ async function main(): Promise<void> {
       noRevenue += 1;
       continue;
     }
-    const ranked = [...byPerson.entries()].sort((a, b) => b[1] - a[1]);
-    const [topId, topRevenue] = ranked[0];
-    if (ranked.length > 1 && ranked[1][1] >= topRevenue * AMBIGUITY_THRESHOLD) {
+    const ranked = rankContributors(byPerson);
+    if (hasAmbiguousRunnerUp(ranked)) {
       ambiguousRunnerUp += 1;
-      flags.push({ hospital: hospital.nameInFile, reason: `อันดับ 2 ทำได้ ${((ranked[1][1] / topRevenue) * 100).toFixed(1)}% ของอันดับ 1` });
+      flags.push({ hospital: hospital.nameInFile, reason: `อันดับ 2 ทำได้ ${((ranked[1].revenue / ranked[0].revenue) * 100).toFixed(1)}% ของอันดับ 1` });
       continue;
     }
-    const territories = [...(activeTerritoriesByPerson.get(topId) ?? [])];
+    const territories = [...(activeTerritoriesByPerson.get(ranked[0].salespersonId) ?? [])];
     if (territories.length !== 1) {
       ambiguousMulti += 1;
       flags.push({ hospital: hospital.nameInFile, reason: territories.length === 0 ? "ผู้ขายอันดับ 1 ไม่มีเขต ACTIVE" : "ผู้ขายอันดับ 1 ดูแลหลายเขต" });

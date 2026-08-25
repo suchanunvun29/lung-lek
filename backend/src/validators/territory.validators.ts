@@ -9,7 +9,12 @@ export const territoryIdSchema = z.object({ id: z.string().min(1) });
 export const territoryCreateSchema = z.object({ name: z.string().trim().min(1), code: nullableText, regionId: nullableText, sortOrder: z.number().int().optional(), isActive: z.boolean().optional(), note: nullableText });
 export const territoryUpdateSchema = territoryCreateSchema.partial().refine((value) => Object.keys(value).length > 0, "ต้องระบุข้อมูลที่ต้องการแก้ไข");
 export const assignmentQuerySchema = z.object({ territoryId: z.string().min(1).optional(), salespersonId: z.string().min(1).optional(), status: z.enum(["ACTIVE", "INACTIVE"]).optional() });
-export const assignmentBodySchema = z.object({ territoryId: z.string().min(1), salespersonId: z.string().min(1), isSupervisor: z.boolean().optional(), effectiveFrom: date, effectiveTo: date.nullable().optional(), note: nullableText });
+export const assignmentBodySchema = z.object({ territoryId: z.string().min(1), salespersonId: z.string().min(1), effectiveFrom: date.optional(), effectiveTo: date.nullable().optional(), isSupervisor: z.boolean().optional(), note: nullableText }).superRefine((value, context) => {
+  const hasEffectiveFrom = value.effectiveFrom !== undefined;
+  const hasEffectiveTo = value.effectiveTo !== undefined && value.effectiveTo !== null;
+  if (hasEffectiveFrom && hasEffectiveTo) context.addIssue({ code: z.ZodIssueCode.custom, path: ["effectiveTo"], message: "ห้ามส่ง effectiveFrom และ effectiveTo พร้อมกัน" });
+  if (!hasEffectiveFrom && !hasEffectiveTo) context.addIssue({ code: z.ZodIssueCode.custom, path: ["effectiveFrom"], message: "ต้องระบุ effectiveFrom หรือ effectiveTo" });
+});
 export const hospitalTerritorySchema = z.object({ territoryId: z.string().min(1).nullable(), note: nullableText });
 export const bulkProvinceSchema = z.object({ province: z.string().trim().min(1), territoryId: z.string().min(1), note: nullableText });
 export const derivedTargetParamsSchema = z.object({ salespersonId: z.string().min(1), year: z.coerce.number().int(), month: z.coerce.number().int().min(1).max(12) });

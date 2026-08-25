@@ -11,10 +11,10 @@ import {
 } from "../validators/target.validators";
 
 export async function listTargets(req: Request, res: Response) {
-  const { year } = req.query as unknown as TargetsQuery;
+  const { year, scope } = req.query as unknown as TargetsQuery;
 
   const targets = await prisma.target.findMany({
-    where: { year, scope: "SALESPERSON" },
+    where: { year, scope },
     include: {
       salesperson: { select: { id: true, displayName: true } },
       productGroupTargets: { include: { productType: { select: { id: true, name: true } } } },

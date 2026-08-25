@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const targetsQuerySchema = z.object({
   year: z.coerce.number().int(),
+  scope: z.enum(["SALESPERSON", "TERRITORY", "TERRITORY_GROUP"]).default("SALESPERSON"),
 });
 
 export const targetUpsertParamsSchema = z.object({

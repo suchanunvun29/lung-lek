@@ -1,6 +1,7 @@
 import { Prisma, TargetScope } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { assertTargetScopeXor } from "./target.service";
+import { creditedRevenueByHospital, hasAmbiguousRunnerUp, rankContributors } from "./hospitalCreditRanking.util";
 
 type TargetInput = { revenueTarget: number; newCustomerTarget: number; note?: string | null };
 type MembershipPeriod = { effectiveFrom: Date; effectiveTo: Date | null };
@@ -13,6 +14,8 @@ const membershipOverlaps = (period: MembershipPeriod) => ({
 });
 const activeMembership = (year: number, month: number) => ({ ...activeAssignments(year, month) });
 const conflict = (message: string) => Object.assign(new Error(message), { status: 409 });
+const badRequest = (message: string) => Object.assign(new Error(message), { status: 400 });
+const dayBefore = (value: Date) => { const previous = new Date(value); previous.setUTCDate(previous.getUTCDate() - 1); return previous; };
 const formatPeriod = (period: MembershipPeriod) => `${period.effectiveFrom.toISOString().slice(0, 10)} ถึง ${period.effectiveTo?.toISOString().slice(0, 10) ?? "ไม่มีกำหนด"}`;
 
 function mapMembershipConstraintError(error: unknown, territoryId: string, period: MembershipPeriod): never {
@@ -100,6 +103,47 @@ export async function updateGroupMember(groupId: string, memberId: string, updat
   }
 }
 
+export async function withdrawAssignment(input: { territoryId: string; salespersonId: string; effectiveTo: Date }) {
+  return prisma.$transaction(async (tx) => {
+    const openRows = await tx.territoryAssignment.findMany({ where: { territoryId: input.territoryId, salespersonId: input.salespersonId, effectiveTo: null }, orderBy: { effectiveFrom: "desc" } });
+    if (!openRows.length) return null;
+    const earliestOpenFrom = openRows[openRows.length - 1].effectiveFrom;
+    if (input.effectiveTo < earliestOpenFrom) throw badRequest("effectiveTo ต้องไม่ก่อน effectiveFrom");
+    await tx.territoryAssignment.updateMany({ where: { territoryId: input.territoryId, salespersonId: input.salespersonId, effectiveTo: null }, data: { effectiveTo: input.effectiveTo } });
+    return openRows[0];
+  });
+}
+
+type AssignTerritoryInput = { territoryId: string; salespersonId: string; effectiveFrom: Date; isSupervisor?: boolean; note?: string | null };
+
+export async function assignTerritory(input: AssignTerritoryInput, assignedById: string) {
+  try {
+    return await prisma.$transaction(async (tx) => {
+      // Territory KPI Rules ข้อ 6.2: effectiveFrom ≤ effectiveFrom ของแถวเปิดอยู่เร็วสุด ทำให้ dayBefore ปิดแถวเดิมก่อนวันเริ่มของมันเอง (ช่วงกลับหัว) — ปฏิเสธก่อนเขียน
+      const earliestOpen = await tx.territoryAssignment.findFirst({ where: { territoryId: input.territoryId, salespersonId: input.salespersonId, effectiveTo: null }, orderBy: { effectiveFrom: "asc" }, select: { effectiveFrom: true } });
+      if (earliestOpen && input.effectiveFrom <= earliestOpen.effectiveFrom) throw badRequest(`effectiveFrom ต้องไม่เร็วกว่าหรือเท่ากับ effectiveFrom ของแถวที่ยังเปิดอยู่ (${input.effectiveFrom.toISOString().slice(0, 10)} ≤ ${earliestOpen.effectiveFrom.toISOString().slice(0, 10)})`);
+      // plan ~240 (มอบ/ถอน — ไม่มีตารางประวัติแยก): เปิดแถวใหม่ = ปิดแถวเปิดอยู่ด้วยวันก่อน effectiveFrom ของแถวใหม่เสมอ
+      await tx.territoryAssignment.updateMany({ where: { territoryId: input.territoryId, salespersonId: input.salespersonId, effectiveTo: null }, data: { effectiveTo: dayBefore(input.effectiveFrom) } });
+      return tx.territoryAssignment.create({
+        data: {
+          territoryId: input.territoryId,
+          salespersonId: input.salespersonId,
+          effectiveFrom: input.effectiveFrom,
+          effectiveTo: null,
+          isSupervisor: input.isSupervisor ?? false,
+          note: input.note ?? null,
+          assignedById,
+        },
+      });
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && (error.code === "P2002" || error.code === "P2004")) {
+      throw conflict(`พนักงานขายนี้มีรายการมอบหมายเขตที่มีผลตั้งแต่วันที่ ${input.effectiveFrom.toISOString().slice(0, 10)} อยู่แล้ว`);
+    }
+    throw error;
+  }
+}
+
 export async function getDerivedTarget(salespersonId: string, year: number, month: number) {
   const personal = await prisma.target.findUnique({ where: { salespersonId_year_month: { salespersonId, year, month } } });
   if (personal?.scope === "SALESPERSON") return { revenueTarget: Number(personal.revenueTarget), newCustomerTarget: personal.newCustomerTarget, source: "MANUAL", items: [] };
@@ -123,7 +167,37 @@ export async function getDerivedTarget(salespersonId: string, year: number, mont
   const items: Array<Record<string, unknown>> = []; let revenueTarget = 0; let newCustomerTarget = 0;
   for (const target of targets) {
     if (target.scope === "TERRITORY" && target.territoryId) { const owners = ownersByTerritory.get(target.territoryId) ?? new Set(); if (!owners.size) { items.push({ territoryId: target.territoryId, unassigned: true, revenueTarget: Number(target.revenueTarget) }); continue; } revenueTarget += Number(target.revenueTarget) / owners.size; newCustomerTarget += target.newCustomerTarget / owners.size; items.push({ territoryId: target.territoryId, revenueTarget: Number(target.revenueTarget) / owners.size }); }
-    if (target.scope === "TERRITORY_GROUP" && target.territoryGroupId) { const members = await prisma.territoryGroupMember.findMany({ where: { groupId: target.territoryGroupId, ...activeMembership(year, month) }, select: { territoryId: true } }); const owners = new Set(members.flatMap((member) => [...(ownersByTerritory.get(member.territoryId) ?? [])])); if (!owners.size) { items.push({ territoryGroupId: target.territoryGroupId, unassigned: true, revenueTarget: Number(target.revenueTarget) }); continue; } revenueTarget += Number(target.revenueTarget) / owners.size; newCustomerTarget += target.newCustomerTarget / owners.size; items.push({ territoryGroupId: target.territoryGroupId, revenueTarget: Number(target.revenueTarget) / owners.size }); }
+    if (target.scope === "TERRITORY_GROUP" && target.territoryGroupId) {
+      // activeOwnerCount(G) spans every period-active member territory of G, deduped by person —
+      // never just the caller's own territories (Territory KPI Rules ข้อ 6 extension).
+      const members = await prisma.territoryGroupMember.findMany({ where: { groupId: target.territoryGroupId, ...activeMembership(year, month) }, select: { territoryId: true } });
+      const ownerRows = await prisma.territoryAssignment.findMany({ where: { ...activeAssignments(year, month), territoryId: { in: members.map((member) => member.territoryId) } }, select: { salespersonId: true } });
+      const owners = new Set(ownerRows.map((row) => row.salespersonId));
+      if (!owners.size) { items.push({ territoryGroupId: target.territoryGroupId, unassigned: true, revenueTarget: Number(target.revenueTarget) }); continue; }
+      revenueTarget += Number(target.revenueTarget) / owners.size; newCustomerTarget += target.newCustomerTarget / owners.size; items.push({ territoryGroupId: target.territoryGroupId, revenueTarget: Number(target.revenueTarget) / owners.size });
+    }
   }
   return { revenueTarget, newCustomerTarget, source: groupIds.length ? "TERRITORY_GROUP" : "TERRITORY", items };
+}
+
+export async function listUnassignedTerritoryHospitals() {
+  const hospitals = await prisma.hospital.findMany({ where: { territoryId: null }, orderBy: { displayName: "asc" } });
+  const credits = await prisma.salesLineCredit.findMany({
+    where: { salesperson: { excludedFromTerritoryTotals: false }, salesLine: { hospitalId: { in: hospitals.map((hospital) => hospital.id) } } },
+    select: { salespersonId: true, sharePercent: true, salesLine: { select: { hospitalId: true, total: true } } },
+  });
+  const revenueByHospitalPerson = creditedRevenueByHospital(credits);
+  const rows = hospitals.map((hospital) => {
+    const byPerson = revenueByHospitalPerson.get(hospital.id) ?? new Map<string, number>();
+    return {
+      ...hospital,
+      unassignedBucket: [...byPerson.values()].reduce((sum, revenue) => sum + revenue, 0),
+      ambiguous: hasAmbiguousRunnerUp(rankContributors(byPerson)),
+    };
+  });
+  return {
+    hospitals: rows,
+    unassignedBucket: rows.reduce((sum, row) => sum + row.unassignedBucket, 0),
+    hospitalCount: rows.length,
+  };
 }

@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "framework_version": "0.3.0",
+  "framework_version": "1.0.0-rc.1",
   "installed_at": "2026-08-24T15:54:34.626Z",
-  "updated_at": "2026-08-24T15:54:34.626Z",
+  "updated_at": "2026-08-25T14:34:06.309Z",
   "files": [
     {
       "path": ".claude/agents/backend-engineer.md",
@@ -51,8 +51,8 @@
     },
     {
       "path": ".claude/hooks/block-path-permissions.js",
-      "sha256": "ccb519571c22d16718bc0cb1c2ada267bcac42d0390fc7901cf5382b3518eae7",
-      "size_bytes": 12287
+      "sha256": "a4bba5280e6f6db4d67b1df7a0ea47626958a73b9ae7aaeb14dac49cb64e5ba2",
+      "size_bytes": 12290
     },
     {
       "path": ".claude/hooks/block-secret-leak.js",
@@ -201,8 +201,8 @@
     },
     {
       "path": "policies/documentation.md",
-      "sha256": "14116e032cad681c203ba82dd72f311b3d086222f4004fec8fda8ca7d9511d47",
-      "size_bytes": 26800
+      "sha256": "84a764fc2337aebfe623b5f4e710994072856eadc862e0529d23a764079334f4",
+      "size_bytes": 27723
     },
     {
       "path": "policies/git.md",
@@ -361,8 +361,8 @@
     },
     {
       "path": "CLAUDE.md",
-      "sha256": "2fc4e52db15a3efd06b36d5f57f85b8138f8267ba6fdf90b3a15174d34566c46",
-      "size_bytes": 41697
+      "sha256": "b4b8c4d0484747cf1e8e02d54c788df7991af3901e5fdb0e3805d7381564ec2d",
+      "size_bytes": 42109
     },
     {
       "path": ".claude/shared/knowledge-root.md",
