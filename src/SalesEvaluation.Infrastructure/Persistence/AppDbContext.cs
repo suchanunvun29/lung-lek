@@ -1,6 +1,9 @@
 namespace SalesEvaluation.Infrastructure.Persistence;
 
+using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
+using SalesEvaluation.Application.Common;
 using SalesEvaluation.Application.Common.Interfaces;
 using SalesEvaluation.Domain.Entities;
 using SalesEvaluation.Domain.Enums;
@@ -72,6 +75,37 @@ public class AppDbContext : DbContext, IAppDbContext
         modelBuilder.HasPostgresEnum<NameDecisionSource>("NameDecisionSource");
         modelBuilder.HasPostgresEnum<NameReviewStatus>("NameReviewStatus");
 
+        MapMonthKeyFunction(modelBuilder);
+
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
+    }
+
+    // PeriodUtils.MonthKey() collapses a (year, month) pair into one sortable int, and the KPI /
+    // leaderboard / report / target-suggestion queries filter on it server-side
+    // (monthKeys.Contains(MonthKey(sl.Year, sl.Month))). EF cannot translate a call to an ordinary
+    // static method, so every one of those queries used to throw "could not be translated" at
+    // runtime. Teaching EF the arithmetic here keeps the formula in a single place — the
+    // alternative was inlining `Year * 12 + Month - 1` at ~24 call sites, where the next query
+    // added would silently reintroduce the same failure.
+    private static void MapMonthKeyFunction(ModelBuilder modelBuilder)
+    {
+        var monthKey = typeof(PeriodUtils).GetMethod(
+            nameof(PeriodUtils.MonthKey),
+            new[] { typeof(int), typeof(int) })!;
+
+        modelBuilder.HasDbFunction(monthKey).HasTranslation(args =>
+        {
+            var year = args[0];
+            var month = args[1];
+            var mapping = year.TypeMapping ?? month.TypeMapping;
+
+            // year * 12 + month - 1
+            var scaledYear = new SqlBinaryExpression(
+                ExpressionType.Multiply, year, new SqlConstantExpression(12, mapping), typeof(int), mapping);
+            var plusMonth = new SqlBinaryExpression(
+                ExpressionType.Add, scaledYear, month, typeof(int), mapping);
+            return new SqlBinaryExpression(
+                ExpressionType.Subtract, plusMonth, new SqlConstantExpression(1, mapping), typeof(int), mapping);
+        });
     }
 }

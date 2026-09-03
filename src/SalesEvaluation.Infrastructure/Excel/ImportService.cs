@@ -4,6 +4,7 @@ using System.Text.Json;
 using ClosedXML.Excel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SalesEvaluation.Application.Common;
 using SalesEvaluation.Application.Common.Interfaces;
 using SalesEvaluation.Domain.Entities;
 using SalesEvaluation.Domain.Enums;
@@ -674,8 +675,9 @@ public class ImportService : IImportService
 
         await EnsureNoImportInProgressAsync(cancellationToken);
 
+        var previewPeriodKeys = PeriodMonthKeys(targetPeriods);
         var existingLinesForPreview = await _db.SalesLines
-            .Where(s => PeriodWhere(targetPeriods).Contains(PeriodKey(s.Year, s.Month)))
+            .Where(s => previewPeriodKeys.Contains(PeriodUtils.MonthKey(s.Year, s.Month)))
             .Select(s => s.Total)
             .ToListAsync(cancellationToken);
 
@@ -767,10 +769,11 @@ public class ImportService : IImportService
 
         await _db.SaveChangesAsync(cancellationToken);
 
-        var targetPeriodKeys = targetPeriods.Select(p => PeriodKey(p.Year, p.Month)).ToHashSet();
+        var targetPeriodKeys = PeriodMonthKeys(targetPeriods);
         var removalLines = await _db.SalesLines
             .Include(s => s.Hospital)
-            .Where(s => targetPeriodKeys.Contains(PeriodKey(s.Year, s.Month)) && !successfulRowKeys.Contains(s.RowKey))
+            .Include(s => s.Credits)
+            .Where(s => targetPeriodKeys.Contains(PeriodUtils.MonthKey(s.Year, s.Month)) && !successfulRowKeys.Contains(s.RowKey))
             .OrderBy(s => s.InvoiceNo)
             .ToListAsync(cancellationToken);
 
@@ -819,11 +822,11 @@ public class ImportService : IImportService
 
         await EnsureNoImportInProgressAsync(cancellationToken);
 
-        var targetPeriodKeys = targetPeriods.Select(p => PeriodKey(p.Year, p.Month)).ToHashSet();
+        var targetPeriodKeys = PeriodMonthKeys(targetPeriods);
         var existingLines = await _db.SalesLines
             .Include(s => s.Hospital)
             .Include(s => s.Credits)
-            .Where(s => targetPeriodKeys.Contains(PeriodKey(s.Year, s.Month)))
+            .Where(s => targetPeriodKeys.Contains(PeriodUtils.MonthKey(s.Year, s.Month)))
             .OrderBy(s => s.InvoiceNo)
             .ToListAsync(cancellationToken);
 
@@ -1196,11 +1199,55 @@ public class ImportService : IImportService
             Total = sl.Total,
             Reason = reason,
             RemovedByBatchId = batchId,
-            Payload = JsonSerializer.Serialize(new { salesLine = sl }),
+            Payload = JsonSerializer.Serialize(new { salesLine = SnapshotOf(sl) }),
         }));
         _db.SalesLines.RemoveRange(salesLines);
         await _db.SaveChangesAsync(cancellationToken);
     }
+
+    /// <summary>
+    /// Flat snapshot of a removed sales line for the archive payload. Serializing the entity
+    /// itself threw "A possible object cycle was detected" — the lines are loaded with
+    /// Include(s => s.Hospital), and EF's relationship fixup populates Hospital.SalesLines back
+    /// to this row, so System.Text.Json recursed until it hit its depth limit. That aborted the
+    /// whole period-delete, which was then recorded as a FAILED batch while the rows stayed put.
+    /// </summary>
+    private static object SnapshotOf(SalesLine sl) => new
+    {
+        sl.Id,
+        sl.InvoiceNo,
+        sl.PoNo,
+        sl.InvoiceDate,
+        sl.Year,
+        sl.Month,
+        sl.HospitalId,
+        HospitalName = sl.Hospital?.NameInFile,
+        sl.SalespersonId,
+        sl.ProductId,
+        sl.ProductTypeId,
+        sl.Lot,
+        sl.ExpiryDate,
+        sl.Province,
+        sl.Qty,
+        sl.UnitPrice,
+        sl.Amount,
+        sl.Vat,
+        sl.Total,
+        sl.RowKey,
+        sl.SourceSheetName,
+        sl.SourceRowNumber,
+        sl.ImportBatchId,
+        sl.CreatedAt,
+        sl.UpdatedAt,
+        Credits = sl.Credits.Select(c => new
+        {
+            c.Id,
+            c.SalespersonId,
+            c.SharePercent,
+            c.IsPrimary,
+            c.CreatedAt,
+        }).ToList(),
+    };
 
     // -----------------------------------------------------------------------
     //  Insight staleness
@@ -1248,10 +1295,16 @@ public class ImportService : IImportService
     //  Pure helpers
     // -----------------------------------------------------------------------
 
+    /// <summary>Label form, for periodsTouched and preview output — never inside an EF query.</summary>
     private static string PeriodKey(int year, int month) => $"{year}-{month}";
 
-    private static HashSet<string> PeriodWhere(List<Period> periods)
-        => periods.Select(p => PeriodKey(p.Year, p.Month)).ToHashSet();
+    /// <summary>
+    /// The same (year, month) identity as <see cref="PeriodKey"/>, but as the int key EF can
+    /// translate. Filtering a query on PeriodKey threw "could not be translated" — string
+    /// interpolation has no SQL equivalent, whereas PeriodUtils.MonthKey is mapped in AppDbContext.
+    /// </summary>
+    private static HashSet<int> PeriodMonthKeys(List<Period> periods)
+        => periods.Select(p => PeriodUtils.MonthKey(p.Year, p.Month)).ToHashSet();
 
     private static bool PeriodOutOfScope(List<ParsedRow> rows, List<Period> targetPeriods)
     {

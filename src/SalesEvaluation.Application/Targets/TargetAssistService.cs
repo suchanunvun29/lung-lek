@@ -104,23 +104,26 @@ public class TargetAssistService : ITargetAssistService
             })
             .ToListAsync(cancellationToken);
 
-        var regionsTask = _dbContext.Regions
+        // Awaited one at a time on purpose: a DbContext is not thread-safe, so kicking these six
+        // queries off together and joining on Task.WhenAll threw "A second operation was started
+        // on this context instance". They share one connection anyway, so nothing was gained.
+        var regions = await _dbContext.Regions
             .AsNoTracking()
             .OrderBy(r => r.SortOrder)
             .ToListAsync(cancellationToken);
-        var tierWeightTask = _dbContext.TierWeights
+        var tierWeightRows = await _dbContext.TierWeights
             .AsNoTracking()
             .ToListAsync(cancellationToken);
-        var registryMetricTask = _dbContext.HospitalPotentialMetrics
+        var registryMetricRows = await _dbContext.HospitalPotentialMetrics
             .AsNoTracking()
             .Where(m => m.Metric == settings.PotentialMetric && m.PeriodYear == null && m.PeriodMonth == null)
             .Select(m => new { m.HospitalRegistryId, m.Value })
             .ToListAsync(cancellationToken);
-        var registriesTask = _dbContext.HospitalRegistries
+        var registries = await _dbContext.HospitalRegistries
             .AsNoTracking()
             .Select(r => new { r.Id, r.Tier, r.PotentialAdjustment })
             .ToListAsync(cancellationToken);
-        var hospitalsTask = _dbContext.Hospitals
+        var hospitals = await _dbContext.Hospitals
             .AsNoTracking()
             .Where(h => h.TerritoryId != null)
             .Select(h => new
@@ -134,21 +137,16 @@ public class TargetAssistService : ITargetAssistService
                 LinkedRegistryId = h.RegistryLink != null ? h.RegistryLink.HospitalRegistryId : null
             })
             .ToListAsync(cancellationToken);
-        var targetsTask = _dbContext.Targets
+        var targets = await _dbContext.Targets
             .AsNoTracking()
             .Where(t => t.Scope == TargetScope.TERRITORY && t.Year == year && t.Month == month && t.TerritoryId != null)
             .Select(t => new { t.TerritoryId, t.RevenueTarget })
             .ToListAsync(cancellationToken);
 
-        await Task.WhenAll(regionsTask, tierWeightTask, registryMetricTask, registriesTask, hospitalsTask, targetsTask);
-        var regions = regionsTask.Result;
-        var weightByTier = tierWeightTask.Result.ToDictionary(row => row.Tier, row => (double)row.Weight);
-        var metricValueByRegistry = registryMetricTask.Result
+        var weightByTier = tierWeightRows.ToDictionary(row => row.Tier, row => (double)row.Weight);
+        var metricValueByRegistry = registryMetricRows
             .GroupBy(m => m.HospitalRegistryId)
             .ToDictionary(g => g.Key, g => (double)g.First().Value);
-        var registries = registriesTask.Result;
-        var hospitals = hospitalsTask.Result;
-        var targets = targetsTask.Result;
 
         // ข้อ 1 — potential(h) = metricValue × tierWeight × potentialAdjustment, only for hospitals
         // linked to a registry row that actually has the configured metric; everything else has no

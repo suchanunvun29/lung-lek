@@ -717,7 +717,10 @@ public partial class TerritoryKpiService
 
         var monthKeys = PeriodUtils.MonthKeys(PeriodUtils.MonthsInPeriod(period));
 
-        var productsTask = _dbContext.Products
+        // Awaited one at a time on purpose: a DbContext is not thread-safe, so starting these four
+        // queries together and joining on Task.WhenAll throws "A second operation was started on
+        // this context instance". They share one connection anyway, so nothing was gained.
+        var products = await _dbContext.Products
             .AsNoTracking()
             .Include(p => p.ProductType)
             .OrderBy(p => p.ProductType.Name)
@@ -726,7 +729,7 @@ public partial class TerritoryKpiService
 
         // revenue(T)'s Territory KPI Rules ข้อ 2 math at product grain — SalesLineCredit only,
         // excluded personnel never count toward the territory.
-        var currentTask = _dbContext.SalesLineCredits
+        var currentCredits = await _dbContext.SalesLineCredits
             .AsNoTracking()
             .Where(c => !c.Salesperson.ExcludedFromTerritoryTotals &&
                         c.SalesLine.Hospital != null && c.SalesLine.Hospital.TerritoryId == territoryId &&
@@ -734,23 +737,19 @@ public partial class TerritoryKpiService
             .Select(c => new { c.SalesLine.ProductId, c.SalesLine.Qty, c.SalesLine.Total, c.SharePercent })
             .ToListAsync(cancellationToken);
 
-        var historicTask = _dbContext.SalesLineCredits
+        var historical = (await _dbContext.SalesLineCredits
             .AsNoTracking()
             .Where(c => !c.Salesperson.ExcludedFromTerritoryTotals &&
                         c.SalesLine.Hospital != null && c.SalesLine.Hospital.TerritoryId == territoryId)
             .Select(c => c.SalesLine.ProductId)
-            .ToListAsync(cancellationToken);
+            .ToListAsync(cancellationToken)).ToHashSet();
 
-        var personalTask = _dbContext.SalesLineCredits
+        var personalCredits = await _dbContext.SalesLineCredits
             .AsNoTracking()
             .Where(c => c.Salesperson.ExcludedFromTerritoryTotals &&
                         monthKeys.Contains(PeriodUtils.MonthKey(c.SalesLine.Year, c.SalesLine.Month)))
             .Select(c => new { c.SalesLine.ProductId, c.SalesLine.Qty, c.SalesLine.Total, c.SharePercent })
             .ToListAsync(cancellationToken);
-
-        await Task.WhenAll(productsTask, currentTask, historicTask, personalTask);
-        var products = productsTask.Result;
-        var historical = historicTask.Result.ToHashSet();
 
         static Dictionary<int, (double Revenue, double Quantity)> Reduce(IEnumerable<(int ProductId, decimal Qty, decimal Total, decimal Share)> rows)
         {
@@ -766,8 +765,8 @@ public partial class TerritoryKpiService
             return totals;
         }
 
-        var currentRows = currentTask.Result.Select(r => (r.ProductId, r.Qty, r.Total, r.SharePercent)).ToList();
-        var personalRows = personalTask.Result.Select(r => (r.ProductId, r.Qty, r.Total, r.SharePercent)).ToList();
+        var currentRows = currentCredits.Select(r => (r.ProductId, r.Qty, r.Total, r.SharePercent)).ToList();
+        var personalRows = personalCredits.Select(r => (r.ProductId, r.Qty, r.Total, r.SharePercent)).ToList();
         var totals = Reduce(currentRows);
         var personalTotals = Reduce(personalRows);
 
