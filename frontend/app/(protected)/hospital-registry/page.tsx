@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import HospitalRegistryTable from "@/components/registry/HospitalRegistryTable";
 import UploadForm from "@/components/import/UploadForm";
-import { getErrorMessage, listHospitalRegistries, uploadHospitalRegistryFile } from "@/lib/api";
+import { getErrorMessage, listHospitalRegistries, updatePotentialAdjustment, uploadHospitalRegistryFile } from "@/lib/api";
 import { IMPORT_STATUS_BADGE_CLASS, IMPORT_STATUS_LABEL_TH } from "@/lib/importLabels";
 import { HospitalRegistry, ImportBatch } from "@/lib/types";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -55,6 +55,8 @@ export default function HospitalRegistryPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [uploadResult, setUploadResult] = useState<RegistryImportResult | null>(null);
+  const [savingAdjustmentId, setSavingAdjustmentId] = useState<string | null>(null);
+  const [adjustmentError, setAdjustmentError] = useState<string | null>(null);
 
   const loadRegistries = useCallback(async () => {
     if (!token || user?.role !== "MANAGER") return;
@@ -93,6 +95,24 @@ export default function HospitalRegistryPage() {
     }
   }
 
+  async function handleSaveAdjustment(registryId: string, potentialAdjustment: number): Promise<boolean> {
+    if (!token) return false;
+    setSavingAdjustmentId(registryId);
+    setAdjustmentError(null);
+    try {
+      const data = await updatePotentialAdjustment(token, registryId, potentialAdjustment);
+      setRegistries((prev) =>
+        prev.map((registry) => (registry.id === registryId ? { ...registry, potentialAdjustment: data.hospitalRegistry.potentialAdjustment } : registry))
+      );
+      return true;
+    } catch (error) {
+      setAdjustmentError(getErrorMessage(error, "บันทึกค่าปรับศักยภาพไม่สำเร็จ"));
+      return false;
+    } finally {
+      setSavingAdjustmentId(null);
+    }
+  }
+
   return (
     <div className="mx-auto max-w-6xl p-4 sm:p-6">
       <h1 className="text-2xl font-semibold text-zinc-900">ทะเบียนโรงพยาบาล</h1>
@@ -117,7 +137,15 @@ export default function HospitalRegistryPage() {
         </div>
         {loading && <p className="mt-4 text-zinc-400">กำลังโหลด...</p>}
         {loadError && <p className="mt-4 text-sm text-red-600">{loadError}</p>}
-        {!loading && !loadError && <div className="mt-4"><HospitalRegistryTable registries={registries} /></div>}
+        {adjustmentError && <p className="mt-4 text-sm text-red-600">{adjustmentError}</p>}
+        {!loading && !loadError && (
+          <div className="mt-4">
+            <HospitalRegistryTable registries={registries} savingId={savingAdjustmentId} onSaveAdjustment={handleSaveAdjustment} />
+            <p className="mt-2 text-xs text-zinc-500">
+              ศักยภาพรายโรงพยาบาล = ค่าตัวชี้วัด × น้ำหนักระดับ × ค่าปรับรายแห่ง — ตั้ง 0 เพื่อตัดโรงพยาบาลนั้นออกจากศักยภาพทั้งหมด
+            </p>
+          </div>
+        )}
       </section>
     </div>
   );

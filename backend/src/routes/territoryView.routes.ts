@@ -1,2 +1,21 @@
-import { Router } from "express"; import { authenticate, requirePasswordChanged } from "../middleware/authenticate"; import { validate } from "../middleware/validate"; import { asyncHandler } from "../utils/asyncHandler"; import * as c from "../controllers/territoryView.controller"; import { territoryViewParamsSchema, territoryViewQuerySchema } from "../validators/territoryView.validators";
-const router = Router(); router.use(authenticate, requirePasswordChanged); router.get("/:salespersonId/export", validate(territoryViewParamsSchema, "params"), validate(territoryViewQuerySchema, "query"), asyncHandler(c.exportMyTerritoryView)); router.get("/:salespersonId", validate(territoryViewParamsSchema, "params"), validate(territoryViewQuerySchema, "query"), asyncHandler(c.getMyTerritoryView)); export default router;
+import { Router } from "express";
+import { authenticate, requirePasswordChanged } from "../middleware/authenticate";
+import { validate } from "../middleware/validate";
+import { asyncHandler } from "../utils/asyncHandler";
+import * as c from "../controllers/territoryView.controller";
+import {
+  neverSoldQuerySchema,
+  territoryViewParamsSchema,
+  territoryViewQuerySchema,
+} from "../validators/territoryView.validators";
+
+const router = Router();
+router.use(authenticate, requirePasswordChanged);
+
+router.get("/:salespersonId/export", validate(territoryViewParamsSchema, "params"), validate(territoryViewQuerySchema, "query"), asyncHandler(c.exportMyTerritoryView));
+router.get("/:salespersonId/never-sold/export", validate(territoryViewParamsSchema, "params"), validate(neverSoldQuerySchema, "query"), asyncHandler(c.exportNeverSoldHospitals));
+router.get("/:salespersonId/never-sold", validate(territoryViewParamsSchema, "params"), validate(neverSoldQuerySchema, "query"), asyncHandler(c.getNeverSoldHospitals));
+router.get("/:salespersonId", validate(territoryViewParamsSchema, "params"), validate(territoryViewQuerySchema, "query"), asyncHandler(c.getMyTerritoryView));
+
+export default router;
+

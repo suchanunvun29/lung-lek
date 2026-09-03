@@ -15,6 +15,7 @@ const registryRouter = Router();
 registryRouter.use(authenticate, requirePasswordChanged, requireRole("MANAGER"));
 registryRouter.post("/registry-import", uploadExcelFile, asyncHandler(controller.uploadRegistry));
 registryRouter.get("/hospital-registries", validate(validators.hospitalRegistryQuerySchema, "query"), asyncHandler(controller.listHospitalRegistries));
+registryRouter.patch("/hospital-registry/:id/potential-adjustment", validate(validators.hospitalRegistryIdParamsSchema, "params"), validate(validators.updatePotentialAdjustmentSchema), asyncHandler(controller.updatePotentialAdjustment));
 registryRouter.get("/hospital-registry-links", validate(validators.registryLinkQuerySchema, "query"), asyncHandler(controller.listRegistryLinks));
 registryRouter.patch("/hospital-registry-links/:hospitalId", validate(validators.registryLinkHospitalParamsSchema, "params"), validate(validators.updateRegistryLinkSchema), asyncHandler(controller.updateRegistryLink));
 

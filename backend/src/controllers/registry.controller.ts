@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
-import { UpdateProvinceInput, UpdateRegistryLinkInput } from "../validators/registry.validators";
+import { UpdatePotentialAdjustmentInput, UpdateProvinceInput, UpdateRegistryLinkInput } from "../validators/registry.validators";
 import { importRegistry } from "../services/registryImport.service";
 
 export async function uploadRegistry(req: Request, res: Response) {
@@ -32,6 +32,20 @@ export async function updateProvince(req: Request, res: Response) {
     include: { region: true },
   });
   return res.json({ province: updated });
+}
+
+export async function updatePotentialAdjustment(req: Request, res: Response) {
+  const registry = await prisma.hospitalRegistry.findUnique({ where: { id: req.params.id } });
+  if (!registry) return res.status(404).json({ error: "Hospital registry not found" });
+
+  const { potentialAdjustment } = req.body as UpdatePotentialAdjustmentInput;
+  // requirement 10.5 — per-hospital exemption/reduction; 0 removes it from potential entirely.
+  const updated = await prisma.hospitalRegistry.update({
+    where: { id: registry.id },
+    data: { potentialAdjustment },
+    select: { id: true, displayName: true, tier: true, potentialAdjustment: true, updatedAt: true },
+  });
+  return res.json({ hospitalRegistry: updated });
 }
 
 export async function listRegistryLinks(req: Request, res: Response) {

@@ -36,6 +36,7 @@ export default function NavBar() {
         ]
       : []),
     { href: "/targets", label: "ตั้งเป้า" },
+    ...(user!.role === "MANAGER" ? [{ href: "/target-assist", label: "ตัวช่วยตั้งเป้า" }] : []),
     { href: "/territories", label: "จัดการเขต" },
     { href: "/kpi", label: "ผลการประเมิน" },
     { href: "/territory-kpi", label: "KPI รายเขต" },
@@ -46,6 +47,7 @@ export default function NavBar() {
     { href: "/reports/team-overview", label: "ภาพรวมทีม" },
     { href: "/settings/scoring-weights", label: "น้ำหนักคะแนน" },
     { href: "/settings/evaluation", label: "ค่าคงที่การประเมิน" },
+    ...(user!.role === "MANAGER" ? [{ href: "/settings/tier-weights", label: "น้ำหนักระดับ รพ." }] : []),
     ...(user!.role === "MANAGER" ? [{ href: "/users", label: "จัดการผู้ใช้งาน" }] : []),
     { href: "/account", label: "บัญชีของฉัน" },
   ];

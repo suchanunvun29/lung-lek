@@ -40,5 +40,13 @@ export const updateRegistryLinkSchema = z
     }
   });
 
+export const hospitalRegistryIdParamsSchema = z.object({ id: z.string().min(1) });
+
+// requirement 10.5 — per-hospital exemption/reduction; 0 removes the hospital from potential entirely.
+export const updatePotentialAdjustmentSchema = z.object({
+  potentialAdjustment: z.number().min(0).max(999.999),
+});
+
 export type UpdateProvinceInput = z.infer<typeof updateProvinceSchema>;
 export type UpdateRegistryLinkInput = z.infer<typeof updateRegistryLinkSchema>;
+export type UpdatePotentialAdjustmentInput = z.infer<typeof updatePotentialAdjustmentSchema>;

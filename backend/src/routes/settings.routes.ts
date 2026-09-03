@@ -5,10 +5,16 @@ import { asyncHandler } from "../utils/asyncHandler";
 import {
   getEvaluationSetting,
   getScoringWeights,
+  getTierWeights,
   updateEvaluationSetting,
   updateScoringWeights,
+  updateTierWeights,
 } from "../controllers/settings.controller";
-import { evaluationSettingUpdateSchema, scoringWeightsUpdateSchema } from "../validators/settings.validators";
+import {
+  evaluationSettingUpdateSchema,
+  scoringWeightsUpdateSchema,
+  tierWeightsUpdateSchema,
+} from "../validators/settings.validators";
 
 const router = Router();
 
@@ -28,6 +34,15 @@ router.patch(
   requireRole("MANAGER"),
   validate(evaluationSettingUpdateSchema, "body"),
   asyncHandler(updateEvaluationSetting)
+);
+
+// Module L — tier weights are MANAGER-only on both ends (plan.md Phase 10)
+router.get("/tier-weights", requireRole("MANAGER"), asyncHandler(getTierWeights));
+router.patch(
+  "/tier-weights",
+  requireRole("MANAGER"),
+  validate(tierWeightsUpdateSchema, "body"),
+  asyncHandler(updateTierWeights)
 );
 
 export default router;

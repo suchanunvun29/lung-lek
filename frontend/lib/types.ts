@@ -490,7 +490,35 @@ export interface MyTerritoryViewResponse {
   soldBeforeButNotInPeriod: { hospital: { id: string; displayName: string; province: string | null } }[];
 }
 
+// ---------- Module P2: Never-sold government hospitals ----------
+
+export interface NeverSoldHospitalItem {
+  id: string;
+  displayName: string;
+  province: string;
+  provinceMappingId: string | null;
+  tier: string | null;
+  category: string;
+  metricKey: string;
+  metricValue: number;
+  territory: EntitySummary | null;
+}
+
+export interface NeverSoldHospitalsResponse {
+  period: PeriodKey;
+  salesperson: EntitySummary;
+  territories: EntitySummary[];
+  mode: MyTerritoryViewMode;
+  potentialMetric: string;
+  topN: number;
+  provinceMappingId: string | null;
+  productTypeId: string | null;
+  totalNeverSold: number;
+  neverSoldHospitals: NeverSoldHospitalItem[];
+}
+
 export type ProductZeroSaleStatus = "SOLD_BEFORE_NOT_IN_PERIOD" | "NEVER_SOLD_IN_TERRITORY";
+
 export interface TerritoryProductRankingItem { productId: string; code: string; name: string; productType: { id: string; name: string }; revenue: number; quantity: number; zeroSaleStatus: ProductZeroSaleStatus | null; }
 /** GET /territory-products/ranking sends the raw Territory model (`name`), not an EntitySummary (`displayName`). */
 export interface TerritoryProductRankingTerritory { id: string; name: string; ownerNames: string[]; }
@@ -739,6 +767,13 @@ export interface EvaluationSetting {
   minMonthsForConsistency: number;
   aiEnabled: boolean;
   aiAnonymize: boolean;
+  /** Module L — Decimals serialize to JSON as strings (same convention as the header note above). */
+  potentialMetric: PotentialMetricKey;
+  minRegionCoverage: string;
+  targetSuggestionAlpha: string;
+  targetLookbackMonths: number;
+  targetOutlierThreshold: string;
+  targetGrowthRate: string;
   updatedById: string | null;
   updatedAt: string;
 }
@@ -894,4 +929,106 @@ export interface TeamOverviewEntry {
 export interface TeamOverviewData {
   period: PeriodKey;
   results: TeamOverviewEntry[];
+}
+
+// ---------- Module L: Area potential & target assist ----------
+// Types derived verbatim from the shapes actually returned by
+// backend/src/services/targetSuggestion.service.ts (buildTargetSuggestionPreview) and
+// backend/src/services/tierWeight.service.ts (getEffectiveTierWeights). All numbers in the
+// preview payload pass through Number() on the backend, so they are real JSON numbers here.
+
+export type SuggestionMode = "SUGGEST" | "REBALANCE";
+
+/** GET/PATCH /settings/tier-weights — `weight` is a Prisma Decimal → string, `updatedAt` is null for tiers still at the default 1.000. */
+export interface TierWeightRow {
+  tier: string;
+  weight: string;
+  isCustom: boolean;
+  updatedAt: string | null;
+}
+
+export interface TargetSuggestionSettings {
+  potentialMetric: PotentialMetricKey;
+  minRegionCoverage: number;
+  targetSuggestionAlpha: number;
+  targetLookbackMonths: number;
+  targetOutlierThreshold: number;
+  /** The value this preview used — the setting's value or a per-round override. */
+  targetGrowthRate: number;
+}
+
+export interface SuggestionWindow {
+  start: { year: number; month: number } | null;
+  end: { year: number; month: number } | null;
+  /** Months inside the window that actually hold data — the divisor (design Risks ข้อ 18). */
+  monthsUsed: number;
+}
+
+/** One territory row inside a region block of GET /target-suggestions. */
+export interface TerritorySuggestionRow {
+  territoryId: string;
+  territoryName: string;
+  potential: number;
+  potentialShare: number;
+  /** null = the unit has no sales at all → coverage cap 0. */
+  territoryCoverage: number | null;
+  historyBeforeCut: number;
+  historyAfterCut: number;
+  historyBased: number;
+  potentialBased: number;
+  w: number;
+  suggested: number;
+  /** Display-only baht per potential unit — never a percent (Territory & Potential Rules ข้อ 4). */
+  penetrationIndex: number | null;
+}
+
+export interface RegionSuggestionGroup {
+  regionId: string;
+  regionName: string;
+  coveragePass: boolean;
+  /** null = the region has no sales at all. */
+  regionCoverage: number | null;
+  r: number;
+  suggestedSum: number;
+  differenceFromR: number;
+  territories: TerritorySuggestionRow[];
+}
+
+export interface UnmappedBaseEntry {
+  territoryId: string;
+  territoryName: string;
+  unmappedBase: number;
+  unmappedHospitalCount: number;
+}
+
+/** Σ suggested over every region + unmappedBase — the number "รับข้อเสนอ" writes into Target. */
+export interface TerritorySuggestedTotal {
+  territoryId: string;
+  territoryName: string;
+  suggestedTotal: number;
+}
+
+export interface CutDealEntry {
+  territoryId: string;
+  territoryName: string;
+  invoiceNo: string;
+  dealValue: number;
+  ratio: number;
+}
+
+/** Payload of GET /target-suggestions/:year/:month and POST /target-suggestions/reinstate-deal. */
+export interface TargetSuggestionPreview {
+  year: number;
+  month: number;
+  mode: SuggestionMode;
+  settings: TargetSuggestionSettings;
+  window: SuggestionWindow;
+  regions: RegionSuggestionGroup[];
+  unmapped: UnmappedBaseEntry[];
+  totals: TerritorySuggestedTotal[];
+  cutDeals: CutDealEntry[];
+}
+
+export interface ReinstateDealResponse extends TargetSuggestionPreview {
+  reinstatedInvoiceNos: string[];
 }

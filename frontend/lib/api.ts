@@ -20,6 +20,7 @@ import {
   SalesmanNameReview,
   HospitalRegistry,
   HospitalRegistryLink,
+  PotentialMetricKey,
   ProductMasterItem,
   ProvinceMapping,
   Region,
@@ -28,6 +29,7 @@ import {
   ScoringWeight,
   ScoringWeightRevision,
   ScoredKpiMetric,
+  SuggestionMode,
   Target,
   TargetRevision,
   Territory,
@@ -37,11 +39,16 @@ import {
   UnassignedTerritoryHospital,
   DerivedTarget,
   TargetScope,
+  TargetSuggestionPreview,
+  ReinstateDealResponse,
+  TierWeightRow,
   TerritoryKpiDrillDownResponse,
   TerritoryOverviewResponse,
   MyTerritoryViewResponse,
+  NeverSoldHospitalsResponse,
   TerritoryProductRankingResponse,
   TerritoryKpiTeamResponse,
+
   TeamKpiResponse,
   TeamOverviewData,
   UserRole,
@@ -593,7 +600,27 @@ export function getMyTerritoryView(
   return request<MyTerritoryViewResponse>(`/my-territory-view/${salespersonId}?${params.toString()}`, { method: "GET" }, token);
 }
 
+export function getNeverSoldHospitals(
+  token: string,
+  salespersonId: string,
+  period: PeriodKey,
+  filters: {
+    topN?: number;
+    provinceMappingId?: string;
+    potentialMetric?: string;
+    productTypeId?: string;
+  } = {}
+) {
+  const params = new URLSearchParams(periodQueryParams(period));
+  if (filters.topN) params.set("topN", String(filters.topN));
+  if (filters.provinceMappingId) params.set("provinceMappingId", filters.provinceMappingId);
+  if (filters.potentialMetric) params.set("potentialMetric", filters.potentialMetric);
+  if (filters.productTypeId) params.set("productTypeId", filters.productTypeId);
+  return request<NeverSoldHospitalsResponse>(`/my-territory-view/${salespersonId}/never-sold?${params.toString()}`, { method: "GET" }, token);
+}
+
 export function getTerritoryProductRanking(token: string, territoryId: string, period: PeriodKey) { return request<TerritoryProductRankingResponse>(`/territory-product-ranking/${territoryId}?${periodQueryParams(period)}`, { method: "GET" }, token); }
+
 
 export function getKpiDrillDown(
   token: string,
@@ -642,6 +669,13 @@ export interface EvaluationSettingUpdateInput {
   minMonthsForConsistency?: number;
   aiEnabled?: boolean;
   aiAnonymize?: boolean;
+  // Module L — Territory & Potential Rules (bounds mirror settings.validators.ts)
+  potentialMetric?: PotentialMetricKey;
+  minRegionCoverage?: number;
+  targetSuggestionAlpha?: number;
+  targetLookbackMonths?: number;
+  targetOutlierThreshold?: number;
+  targetGrowthRate?: number;
 }
 
 export function updateEvaluationSetting(token: string, input: EvaluationSettingUpdateInput) {
@@ -650,6 +684,55 @@ export function updateEvaluationSetting(token: string, input: EvaluationSettingU
     { method: "PATCH", body: JSON.stringify(input) },
     token
   );
+}
+
+// ---------- Module L ----------
+
+export function getTierWeights(token: string) {
+  return request<{ weights: TierWeightRow[] }>("/settings/tier-weights", { method: "GET" }, token);
+}
+
+export function updateTierWeights(token: string, weights: { tier: string; weight: number }[]) {
+  return request<{ weights: TierWeightRow[] }>(
+    "/settings/tier-weights",
+    { method: "PATCH", body: JSON.stringify({ weights }) },
+    token
+  );
+}
+
+/** Narrow shape on purpose — the backend's update select returns only these fields (registry.controller.ts). */
+export function updatePotentialAdjustment(token: string, id: string, potentialAdjustment: number) {
+  return request<{ hospitalRegistry: { id: string; displayName: string; tier: string | null; potentialAdjustment: string; updatedAt: string } }>(
+    `/hospital-registry/${id}/potential-adjustment`,
+    { method: "PATCH", body: JSON.stringify({ potentialAdjustment }) },
+    token
+  );
+}
+
+export function getTargetSuggestions(token: string, year: number, month: number, mode: SuggestionMode, targetGrowthRate?: number) {
+  const params = new URLSearchParams({ mode });
+  // Territory & Potential Rules ข้อ 5.1 — per-round override; omitting it lets the backend fall back to EvaluationSetting.
+  if (targetGrowthRate !== undefined) params.set("targetGrowthRate", String(targetGrowthRate));
+  return request<TargetSuggestionPreview>(
+    `/target-suggestions/${year}/${month}?${params.toString()}`,
+    { method: "GET" },
+    token
+  );
+}
+
+/** Rebuilding the preview replaces the whole reinstated set — send every invoice to keep, not just the change. */
+export interface ReinstateDealInput {
+  year: number;
+  month: number;
+  mode: SuggestionMode;
+  reinstateInvoiceNos: string[];
+  /** Same per-round override as getTargetSuggestions — undefined drops the key in JSON.stringify (mirrors reinstateDealBodySchema). */
+  targetGrowthRate?: number;
+}
+
+/** Affects this preview only — nothing is written until the manager accepts into Target. */
+export function reinstateDeal(token: string, input: ReinstateDealInput) {
+  return request<ReinstateDealResponse>("/target-suggestions/reinstate-deal", { method: "POST", body: JSON.stringify(input) }, token);
 }
 
 export function getTerritoryLeaderboard(token: string, criteria: LeaderboardCriteria, period: PeriodKey) {
@@ -752,6 +835,26 @@ export function exportMyTerritoryView(
   if (filters.creditOnly) params.set("creditOnly", "true");
   return downloadFile(`/my-territory-view/${salespersonId}/export?${params.toString()}`, token);
 }
+
+export function exportNeverSoldHospitals(
+  token: string,
+  salespersonId: string,
+  period: PeriodKey,
+  filters: {
+    topN?: number;
+    provinceMappingId?: string;
+    potentialMetric?: string;
+    productTypeId?: string;
+  } = {}
+) {
+  const params = new URLSearchParams(periodQueryParams(period));
+  if (filters.topN) params.set("topN", String(filters.topN));
+  if (filters.provinceMappingId) params.set("provinceMappingId", filters.provinceMappingId);
+  if (filters.potentialMetric) params.set("potentialMetric", filters.potentialMetric);
+  if (filters.productTypeId) params.set("productTypeId", filters.productTypeId);
+  return downloadFile(`/my-territory-view/${salespersonId}/never-sold/export?${params.toString()}`, token);
+}
+
 
 export function exportTerritoryProductRanking(token: string, territoryId: string, period: PeriodKey) { return downloadFile(`/territory-product-ranking/${territoryId}/export?${periodQueryParams(period)}`, token); }
 

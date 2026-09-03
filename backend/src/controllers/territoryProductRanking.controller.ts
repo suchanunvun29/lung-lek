@@ -41,9 +41,12 @@ export async function exportRanking(req: Request, res: Response) {
     ]);
   }
   // personalBucket exists in the payload only for MANAGER (same gate as the screen).
-  for (const item of result.personalBucket) {
-    sheet.addRow(["(personalBucket)", item.name, item.productType.name, result.territory.name, result.territory.ownerNames.join(", "), item.revenue, item.quantity, ""]);
+  if (req.user!.role === "MANAGER") {
+    for (const item of result.personalBucket) {
+      sheet.addRow(["(personalBucket)", item.name, item.productType.name, result.territory.name, result.territory.ownerNames.join(", "), item.revenue, item.quantity, ""]);
+    }
   }
+
   res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
   res.setHeader("Content-Disposition", `attachment; filename="territory-product-ranking-${req.params.territoryId}.xlsx"`);
   await workbook.xlsx.write(res);

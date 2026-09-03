@@ -1,20 +1,28 @@
-import { HospitalRegistry, PotentialMetricKey } from "@/lib/types";
+"use client";
+
+import { useState } from "react";
+import { HospitalRegistry } from "@/lib/types";
+import { POTENTIAL_METRIC_LABEL_TH } from "@/lib/targetLabels";
 
 interface HospitalRegistryTableProps {
   registries: HospitalRegistry[];
+  /** Present while its PATCH /hospital-registry/:id/potential-adjustment round-trips. */
+  savingId: string | null;
+  onSaveAdjustment: (registryId: string, potentialAdjustment: number) => Promise<boolean>;
 }
 
-const METRIC_LABEL_TH: Record<PotentialMetricKey, string> = {
-  BEDS: "จำนวนเตียง",
-  CMI: "CMI",
-  SUM_ADJ_RW: "SumAdjRW",
-  OCCUPANCY_RATE: "อัตราครองเตียง",
-  PATIENTS: "จำนวนผู้ป่วย",
-  VISITS: "จำนวนครั้งรับบริการ",
-};
+const ADJUSTMENT_MIN = 0;
+const ADJUSTMENT_MAX = 999.999;
 
-function metricValue(registry: HospitalRegistry, metric: PotentialMetricKey) {
-  return registry.metrics.find((item) => item.metric === metric)?.value ?? null;
+function formatDecimal(value: string): string {
+  const numeric = Number(value);
+  return Number.isFinite(numeric)
+    ? numeric.toLocaleString("th-TH", { minimumFractionDigits: 3, maximumFractionDigits: 3 })
+    : value;
+}
+
+function metricValue(registry: HospitalRegistry) {
+  return registry.metrics.find((item) => item.metric === "BEDS")?.value ?? null;
 }
 
 function formatMetric(value: string | null) {
@@ -23,7 +31,74 @@ function formatMetric(value: string | null) {
   return Number.isFinite(numberValue) ? numberValue.toLocaleString("th-TH", { maximumFractionDigits: 2 }) : value;
 }
 
-export default function HospitalRegistryTable({ registries }: HospitalRegistryTableProps) {
+/** requirement 10.5 — ค่าปรับ/ยกเว้นรายโรงพยาบาล; 0 ตัดโรงพยาบาลนั้นออกจากศักยภาพทั้งหมด. */
+function AdjustmentCell({ registry, saving, onSave }: { registry: HospitalRegistry; saving: boolean; onSave: (registryId: string, potentialAdjustment: number) => Promise<boolean> }) {
+  const [editing, setEditing] = useState(false);
+  const [raw, setRaw] = useState(String(Number(registry.potentialAdjustment)));
+  const value = Number(raw);
+  const valid = Number.isFinite(value) && value >= ADJUSTMENT_MIN && value <= ADJUSTMENT_MAX;
+
+  async function handleSave() {
+    if (!valid || saving) return;
+    const ok = await onSave(registry.id, value);
+    if (ok) setEditing(false);
+  }
+
+  if (!editing) {
+    return (
+      <div className="flex items-center gap-2">
+        <span className={registry.potentialAdjustment === "0" ? "font-medium text-amber-700" : "text-zinc-700"}>
+          {formatDecimal(registry.potentialAdjustment)}
+        </span>
+        <button
+          type="button"
+          onClick={() => {
+            setRaw(String(Number(registry.potentialAdjustment)));
+            setEditing(true);
+          }}
+          className="rounded border border-zinc-300 px-2 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+        >
+          แก้ไข
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center gap-1">
+        <input
+          type="number"
+          min={ADJUSTMENT_MIN}
+          max={ADJUSTMENT_MAX}
+          step={0.001}
+          aria-label={`ค่าปรับศักยภาพของ ${registry.displayName}`}
+          value={raw}
+          onChange={(e) => setRaw(e.target.value)}
+          className="w-24 rounded-md border border-zinc-300 px-2 py-1 text-right text-sm"
+        />
+        <button
+          type="button"
+          disabled={!valid || saving}
+          onClick={() => void handleSave()}
+          className="rounded bg-zinc-900 px-2 py-1 text-xs font-medium text-white hover:bg-zinc-800 disabled:opacity-50"
+        >
+          {saving ? "..." : "บันทึก"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setEditing(false)}
+          className="rounded border border-zinc-300 px-2 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+        >
+          ยกเลิก
+        </button>
+      </div>
+      {!valid && <span className="text-xs text-red-600">ต้องเป็น 0–{ADJUSTMENT_MAX}</span>}
+    </div>
+  );
+}
+
+export default function HospitalRegistryTable({ registries, savingId, onSaveAdjustment }: HospitalRegistryTableProps) {
   return (
     <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
       <table className="min-w-full divide-y divide-zinc-200 text-sm">
@@ -33,13 +108,14 @@ export default function HospitalRegistryTable({ registries }: HospitalRegistryTa
             <th className="px-4 py-3">โรงพยาบาล</th>
             <th className="px-4 py-3">จังหวัด / ภาค</th>
             <th className="px-4 py-3">เขตสุขภาพ / ระดับ</th>
-            <th className="px-4 py-3">{METRIC_LABEL_TH.BEDS}</th>
+            <th className="px-4 py-3">{POTENTIAL_METRIC_LABEL_TH.BEDS}</th>
+            <th className="px-4 py-3">ค่าปรับศักยภาพ</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-zinc-100">
           {registries.length === 0 && (
             <tr>
-              <td colSpan={5} className="px-4 py-6 text-center text-zinc-400">
+              <td colSpan={6} className="px-4 py-6 text-center text-zinc-400">
                 ยังไม่มีข้อมูลทะเบียนโรงพยาบาล
               </td>
             </tr>
@@ -59,7 +135,10 @@ export default function HospitalRegistryTable({ registries }: HospitalRegistryTa
                 <p>{registry.healthZone ?? "—"}</p>
                 {registry.tier && <p className="mt-1 text-xs text-zinc-500">{registry.tier}</p>}
               </td>
-              <td className="px-4 py-3 text-zinc-700">{formatMetric(metricValue(registry, "BEDS"))}</td>
+              <td className="px-4 py-3 text-zinc-700">{formatMetric(metricValue(registry))}</td>
+              <td className="px-4 py-3">
+                <AdjustmentCell registry={registry} saving={savingId === registry.id} onSave={onSaveAdjustment} />
+              </td>
             </tr>
           ))}
         </tbody>

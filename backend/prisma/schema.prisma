@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ---------- Auth & People ----------
@@ -576,9 +577,23 @@ model EvaluationSetting {
   minMonthsForConsistency Int      @default(6)
   aiEnabled               Boolean  @default(true)
   aiAnonymize             Boolean  @default(true)
+  potentialMetric         PotentialMetricKey @default(BEDS)
+  minRegionCoverage       Decimal  @default(0.50) @db.Decimal(5, 4) // ภาคที่ coverage ต่ำกว่านี้ ไม่นำศักยภาพไปใช้กับเป้า
+  targetSuggestionAlpha   Decimal  @default(1.000) @db.Decimal(6, 3) // 1.000 = ใช้ประวัติยอดขายล้วน
+  targetLookbackMonths    Int      @default(3)
+  targetOutlierThreshold  Decimal  @default(0.40) @db.Decimal(5, 4)
+  targetGrowthRate        Decimal  @default(1.000) @db.Decimal(6, 3)
   updatedById             String?
   updatedBy               User?    @relation(fields: [updatedById], references: [id])
   updatedAt               DateTime @updatedAt
+}
+
+// Module L — น้ำหนักตามระดับโรงพยาบาล ค่าเริ่มต้นทุกระดับ = 1.000 (เท่ากับ "ใช้จำนวนเตียงดิบ")
+model TierWeight {
+  id        String   @id @default(cuid())
+  tier      String   @unique
+  weight    Decimal  @default(1.000) @db.Decimal(6, 3)
+  updatedAt DateTime @updatedAt
 }
 
 // ---------- AI coaching ----------

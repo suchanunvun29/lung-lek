@@ -14,7 +14,8 @@
     "lint": "eslint . --ext .ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:seed": "prisma db seed"
+    "prisma:seed": "prisma db seed",
+    "guard:module-l": "ts-node scripts/guardModuleLScoring.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.20.0",

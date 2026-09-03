@@ -1,7 +1,12 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
 import * as settingsService from "../services/settings.service";
-import { EvaluationSettingUpdateBody, ScoringWeightsUpdateBody } from "../validators/settings.validators";
+import * as tierWeightService from "../services/tierWeight.service";
+import {
+  EvaluationSettingUpdateBody,
+  ScoringWeightsUpdateBody,
+  TierWeightsUpdateBody,
+} from "../validators/settings.validators";
 
 const REVISION_HISTORY_LIMIT = 50;
 
@@ -42,4 +47,15 @@ export async function updateEvaluationSetting(req: Request, res: Response) {
   });
 
   res.json({ setting });
+}
+
+export async function getTierWeights(_req: Request, res: Response) {
+  const weights = await tierWeightService.getEffectiveTierWeights();
+  res.json({ weights });
+}
+
+export async function updateTierWeights(req: Request, res: Response) {
+  const { weights } = req.body as TierWeightsUpdateBody;
+  const updated = await tierWeightService.upsertTierWeights(weights);
+  res.json({ weights: updated });
 }
