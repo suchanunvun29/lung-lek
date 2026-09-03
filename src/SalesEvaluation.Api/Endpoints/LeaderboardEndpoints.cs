@@ -255,7 +255,7 @@ public static class LeaderboardEndpoints
     // ---------- Tier 2 — people within one territory ----------
 
     private static async Task<IResult> HandleGetTerritoryPeople(
-        string territoryId,
+        int territoryId,
         HttpContext httpContext,
         ILeaderboardService leaderboardService,
         ICurrentUserService currentUserService,

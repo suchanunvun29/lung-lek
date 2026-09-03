@@ -60,7 +60,7 @@ public static class TerritoryKpiEndpoints
     }
 
     private static async Task<IResult> HandleGetTerritoryKpi(
-        string territoryId,
+        int territoryId,
         HttpContext httpContext,
         ITerritoryKpiService territoryKpiService,
         ITerritoryScopeResolver scopeResolver,
@@ -91,7 +91,7 @@ public static class TerritoryKpiEndpoints
     // Territory KPI Rules ข้อ 7 drill-down — product types sold and hospitals sold to with
     // amounts, through SalesLineCredit only. TERRITORY_FULL viewers only (Data Visibility Rules ข้อ 6).
     private static async Task<IResult> HandleTerritoryDrillDown(
-        string territoryId,
+        int territoryId,
         string metric,
         HttpContext httpContext,
         ITerritoryKpiService territoryKpiService,

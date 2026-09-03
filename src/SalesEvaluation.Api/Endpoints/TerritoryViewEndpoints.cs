@@ -27,7 +27,7 @@ public static class TerritoryViewEndpoints
     }
 
     private static async Task<IResult> HandleGetMyTerritoryView(
-        string salespersonId,
+        int salespersonId,
         HttpContext httpContext,
         ITerritoryViewService viewService,
         ITerritoryScopeResolver scopeResolver,
@@ -56,7 +56,7 @@ public static class TerritoryViewEndpoints
     }
 
     private static async Task<IResult> HandleGetNeverSoldHospitals(
-        string salespersonId,
+        int salespersonId,
         HttpContext httpContext,
         ITerritoryViewService viewService,
         ITerritoryScopeResolver scopeResolver,
@@ -85,7 +85,7 @@ public static class TerritoryViewEndpoints
     }
 
     private static async Task<IResult> HandleExportMyTerritoryView(
-        string salespersonId,
+        int salespersonId,
         HttpContext httpContext,
         ITerritoryViewService viewService,
         ITerritoryScopeResolver scopeResolver,
@@ -138,7 +138,7 @@ public static class TerritoryViewEndpoints
     }
 
     private static async Task<IResult> HandleExportNeverSoldHospitals(
-        string salespersonId,
+        int salespersonId,
         HttpContext httpContext,
         ITerritoryViewService viewService,
         ITerritoryScopeResolver scopeResolver,
@@ -200,7 +200,7 @@ public static class TerritoryViewEndpoints
     }
 
     private static async Task<IResult?> ForbidIfCannotViewAsync(
-        string salespersonId,
+        int salespersonId,
         ITerritoryScopeResolver scopeResolver,
         ICurrentUserService currentUserService,
         CancellationToken ct)
@@ -245,10 +245,13 @@ public static class TerritoryViewEndpoints
             return false;
         }
 
-        string? productTypeId = null;
+        int? productTypeId = null;
         if (q.TryGetValue("productTypeId", out var ptValue) && !string.IsNullOrEmpty(ptValue))
         {
-            productTypeId = ptValue.ToString();
+            if (int.TryParse(ptValue.ToString(), out var ptId))
+            {
+                productTypeId = ptId;
+            }
         }
 
         var creditOnly = q.TryGetValue("creditOnly", out var coValue) && coValue == "true";
@@ -284,10 +287,13 @@ public static class TerritoryViewEndpoints
             }
         }
 
-        string? provinceMappingId = null;
+        int? provinceMappingId = null;
         if (q.TryGetValue("provinceMappingId", out var pmValue) && !string.IsNullOrEmpty(pmValue))
         {
-            provinceMappingId = pmValue.ToString();
+            if (int.TryParse(pmValue.ToString(), out var pmId))
+            {
+                provinceMappingId = pmId;
+            }
         }
 
         var potentialMetric = PotentialMetricKey.BEDS;
@@ -301,10 +307,13 @@ public static class TerritoryViewEndpoints
             }
         }
 
-        string? productTypeId = null;
+        int? productTypeId = null;
         if (q.TryGetValue("productTypeId", out var ptValue) && !string.IsNullOrEmpty(ptValue))
         {
-            productTypeId = ptValue.ToString();
+            if (int.TryParse(ptValue.ToString(), out var ptId))
+            {
+                productTypeId = ptId;
+            }
         }
 
         query = new NeverSoldQuery

@@ -52,7 +52,8 @@ export default function DashboardPage() {
         setSalespersonId((prev) => {
           if (prev) return prev;
           const own = data.salespeople.find((sp) => sp.user?.id === currentUser?.id);
-          return (own ?? data.salespeople[0])?.id ?? "";
+          const id = (own ?? data.salespeople[0])?.id;
+          return id !== undefined ? String(id) : "";
         });
       })
       .catch(() => {
@@ -74,7 +75,7 @@ export default function DashboardPage() {
       }
       setAccountNotLinked(false);
       if (!salespersonId) return;
-      const kpiData = await getSalespersonKpi(token, salespersonId, period);
+      const kpiData = await getSalespersonKpi(token, Number(salespersonId), period);
       setKpi(kpiData);
       setTeamAverages(computeTeamAverageScores(teamData.results));
       setLoadError(null);
@@ -98,7 +99,7 @@ export default function DashboardPage() {
     setDerivedTarget(null);
     setDerivedError(false);
     try {
-      const data = await getDerivedTarget(token, salespersonId, period.year, period.periodNumber);
+      const data = await getDerivedTarget(token, Number(salespersonId), period.year, period.periodNumber);
       setDerivedTarget(data.derivedTarget);
     } catch {
       setDerivedError(true);

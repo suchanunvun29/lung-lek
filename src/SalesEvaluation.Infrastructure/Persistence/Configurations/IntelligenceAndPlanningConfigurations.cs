@@ -12,7 +12,6 @@ public class HospitalRegistryConfiguration : IEntityTypeConfiguration<HospitalRe
         builder.ToTable("HospitalRegistry");
 
         builder.HasKey(h => h.Id);
-        builder.Property(h => h.Id).ValueGeneratedNever();
 
         builder.HasIndex(h => h.SourceCode).IsUnique();
         builder.Property(h => h.NameInFile).IsRequired();
@@ -53,7 +52,6 @@ public class HospitalPotentialMetricConfiguration : IEntityTypeConfiguration<Hos
         builder.ToTable("HospitalPotentialMetric");
 
         builder.HasKey(m => m.Id);
-        builder.Property(m => m.Id).ValueGeneratedNever();
 
         builder.Property(m => m.HospitalRegistryId).IsRequired();
         builder.Property(m => m.Metric).IsRequired();
@@ -76,7 +74,6 @@ public class HospitalRegistryLinkConfiguration : IEntityTypeConfiguration<Hospit
         builder.ToTable("HospitalRegistryLink");
 
         builder.HasKey(l => l.Id);
-        builder.Property(l => l.Id).ValueGeneratedNever();
 
         builder.Property(l => l.HospitalId).IsRequired();
         builder.HasIndex(l => l.HospitalId).IsUnique();
@@ -112,7 +109,6 @@ public class TierWeightConfiguration : IEntityTypeConfiguration<TierWeight>
         builder.ToTable("TierWeight");
 
         builder.HasKey(t => t.Id);
-        builder.Property(t => t.Id).ValueGeneratedNever();
 
         builder.Property(t => t.Tier).IsRequired();
         builder.HasIndex(t => t.Tier).IsUnique();
@@ -129,7 +125,6 @@ public class TargetConfiguration : IEntityTypeConfiguration<Target>
         builder.ToTable("Target");
 
         builder.HasKey(t => t.Id);
-        builder.Property(t => t.Id).ValueGeneratedNever();
 
         builder.Property(t => t.Scope).HasDefaultValue(TargetScope.SALESPERSON);
         builder.Property(t => t.RevenueTarget).HasPrecision(14, 2).HasDefaultValue(0m);
@@ -166,7 +161,6 @@ public class TargetProductGroupConfiguration : IEntityTypeConfiguration<TargetPr
         builder.ToTable("TargetProductGroup");
 
         builder.HasKey(p => p.Id);
-        builder.Property(p => p.Id).ValueGeneratedNever();
 
         builder.Property(p => p.TargetId).IsRequired();
         builder.Property(p => p.ProductTypeId).IsRequired();
@@ -193,7 +187,6 @@ public class TargetRevisionConfiguration : IEntityTypeConfiguration<TargetRevisi
         builder.ToTable("TargetRevision");
 
         builder.HasKey(r => r.Id);
-        builder.Property(r => r.Id).ValueGeneratedNever();
 
         builder.Property(r => r.TargetId).IsRequired();
         builder.Property(r => r.ChangeType).IsRequired();
@@ -223,7 +216,6 @@ public class ScoringWeightConfiguration : IEntityTypeConfiguration<ScoringWeight
         builder.ToTable("ScoringWeight");
 
         builder.HasKey(w => w.Id);
-        builder.Property(w => w.Id).ValueGeneratedNever();
 
         builder.Property(w => w.Metric).IsRequired();
         builder.HasIndex(w => w.Metric).IsUnique();
@@ -240,7 +232,6 @@ public class ScoringWeightRevisionConfiguration : IEntityTypeConfiguration<Scori
         builder.ToTable("ScoringWeightRevision");
 
         builder.HasKey(r => r.Id);
-        builder.Property(r => r.Id).ValueGeneratedNever();
 
         builder.Property(r => r.Before).HasColumnType("jsonb").IsRequired();
         builder.Property(r => r.After).HasColumnType("jsonb").IsRequired();
@@ -261,7 +252,6 @@ public class EvaluationSettingConfiguration : IEntityTypeConfiguration<Evaluatio
         builder.ToTable("EvaluationSetting");
 
         builder.HasKey(e => e.Id);
-        builder.Property(e => e.Id).ValueGeneratedNever().HasDefaultValue("singleton");
 
         builder.Property(e => e.ChurnMonths).HasDefaultValue(6);
         builder.Property(e => e.MinMonthsForChurn).HasDefaultValue(6);
@@ -290,7 +280,6 @@ public class CoachingInsightConfiguration : IEntityTypeConfiguration<CoachingIns
         builder.ToTable("CoachingInsight");
 
         builder.HasKey(c => c.Id);
-        builder.Property(c => c.Id).ValueGeneratedNever();
 
         builder.Property(c => c.SalespersonId).IsRequired();
         builder.Property(c => c.PeriodType).IsRequired();

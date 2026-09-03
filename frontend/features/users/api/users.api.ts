@@ -24,10 +24,10 @@ export interface UpdateUserInput {
   displayName?: string;
   role?: UserRole;
   isActive?: boolean;
-  salespersonId?: string | null;
+  salespersonId?: number | null;
 }
 
-export function updateUser(token: string, id: string, input: UpdateUserInput) {
+export function updateUser(token: string, id: number, input: UpdateUserInput) {
   return request<{ user: AppUser }>(
     `/users/${id}`,
     { method: "PATCH", body: JSON.stringify(input) },
@@ -35,7 +35,7 @@ export function updateUser(token: string, id: string, input: UpdateUserInput) {
   );
 }
 
-export function resetUserPassword(token: string, id: string) {
+export function resetUserPassword(token: string, id: number) {
   return request<{ message: string; temporaryPassword: string }>(
     `/users/${id}/reset-password`,
     { method: "POST", body: JSON.stringify({}) },

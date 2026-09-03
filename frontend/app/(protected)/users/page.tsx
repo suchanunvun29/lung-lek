@@ -38,7 +38,7 @@ export default function UsersPage() {
   const [isCreateOpen, setCreateOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
   const [tempPassword, setTempPassword] = useState<TemporaryPasswordState | null>(null);
-  const [busyUserId, setBusyUserId] = useState<string | null>(null);
+  const [busyUserId, setBusyUserId] = useState<number | null>(null);
   const unlinkedSalespersonUsers = users.filter((user) => user.role === "SALESPERSON" && !user.isSalespersonLinked);
 
   const loadUsers = useCallback(async () => {
@@ -77,7 +77,7 @@ export default function UsersPage() {
     setCreateOpen(false);
   }
 
-  async function handleUpdate(id: string, input: UpdateUserInput) {
+  async function handleUpdate(id: number, input: UpdateUserInput) {
     if (!token) return;
     const data = await updateUser(token, id, input);
     setUsers((prev) => prev.map((u) => (u.id === id ? data.user : u)));

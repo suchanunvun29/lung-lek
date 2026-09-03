@@ -12,7 +12,6 @@ public class SalesLineConfiguration : IEntityTypeConfiguration<SalesLine>
         builder.ToTable("SalesLine");
 
         builder.HasKey(s => s.Id);
-        builder.Property(s => s.Id).ValueGeneratedNever();
 
         builder.Property(s => s.InvoiceNo).IsRequired();
         builder.Property(s => s.InvoiceDate).HasColumnType("date");
@@ -71,7 +70,6 @@ public class SalesLineCreditConfiguration : IEntityTypeConfiguration<SalesLineCr
         builder.ToTable("SalesLineCredit");
 
         builder.HasKey(c => c.Id);
-        builder.Property(c => c.Id).ValueGeneratedNever();
 
         builder.Property(c => c.SharePercent).HasPrecision(6, 3);
         builder.Property(c => c.IsPrimary).HasDefaultValue(false);
@@ -99,7 +97,6 @@ public class ImportBatchConfiguration : IEntityTypeConfiguration<ImportBatch>
         builder.ToTable("ImportBatch");
 
         builder.HasKey(b => b.Id);
-        builder.Property(b => b.Id).ValueGeneratedNever();
 
         builder.Property(b => b.FileName).IsRequired();
         builder.Property(b => b.StartedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
@@ -131,7 +128,6 @@ public class SalesLineArchiveConfiguration : IEntityTypeConfiguration<SalesLineA
         builder.ToTable("SalesLineArchive");
 
         builder.HasKey(a => a.Id);
-        builder.Property(a => a.Id).ValueGeneratedNever();
 
         builder.Property(a => a.SalesLineId).IsRequired();
         builder.Property(a => a.RowKey).IsRequired();
@@ -157,7 +153,6 @@ public class ImportIssueConfiguration : IEntityTypeConfiguration<ImportIssue>
         builder.ToTable("ImportIssue");
 
         builder.HasKey(i => i.Id);
-        builder.Property(i => i.Id).ValueGeneratedNever();
 
         builder.Property(i => i.Level).IsRequired();
         builder.Property(i => i.Code).IsRequired();

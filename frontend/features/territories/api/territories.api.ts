@@ -28,16 +28,16 @@ export function createTerritory(token: string, input: TerritoryInput) {
   return request<{ territory: Territory }>("/territories", { method: "POST", body: JSON.stringify(input) }, token);
 }
 
-export function updateTerritory(token: string, id: string, input: Partial<TerritoryInput>) {
+export function updateTerritory(token: string, id: number, input: Partial<TerritoryInput>) {
   return request<{ territory: Territory }>(`/territories/${id}`, { method: "PATCH", body: JSON.stringify(input) }, token);
 }
 
 export function listTerritoryAssignments(
   token: string,
-  filters: { territoryId?: string; salespersonId?: string; status?: "ACTIVE" | "INACTIVE" } = {}
+  filters: { territoryId?: number; salespersonId?: number; status?: "ACTIVE" | "INACTIVE" } = {}
 ) {
   const params = new URLSearchParams();
-  Object.entries(filters).forEach(([key, value]) => value && params.set(key, value));
+  Object.entries(filters).forEach(([key, value]) => value !== undefined && params.set(key, String(value)));
   const query = params.toString();
   return request<{ territoryAssignments: TerritoryAssignment[] }>(
     `/territory-assignments${query ? `?${query}` : ""}`,
@@ -47,8 +47,8 @@ export function listTerritoryAssignments(
 }
 
 export interface TerritoryAssignmentAssignInput {
-  territoryId: string;
-  salespersonId: string;
+  territoryId: number;
+  salespersonId: number;
   effectiveFrom: string;
   isSupervisor: boolean;
   note?: string | null;
@@ -56,8 +56,8 @@ export interface TerritoryAssignmentAssignInput {
 
 /** Withdraw closes the open row only — this path must NOT send effectiveFrom (fixed contract). */
 export interface TerritoryAssignmentWithdrawInput {
-  territoryId: string;
-  salespersonId: string;
+  territoryId: number;
+  salespersonId: number;
   effectiveTo: string;
 }
 
@@ -77,7 +77,7 @@ export function withdrawTerritoryAssignment(token: string, input: TerritoryAssig
   );
 }
 
-export function moveHospitalToTerritory(token: string, hospitalId: string, territoryId: string | null, note?: string) {
+export function moveHospitalToTerritory(token: string, hospitalId: number, territoryId: number | null, note?: string) {
   return request<{ hospital: Hospital }>(
     `/hospitals/${hospitalId}/territory`,
     { method: "PATCH", body: JSON.stringify({ territoryId, note }) },
@@ -85,7 +85,7 @@ export function moveHospitalToTerritory(token: string, hospitalId: string, terri
   );
 }
 
-export function bulkMoveHospitalsByProvince(token: string, province: string, territoryId: string | null, note?: string) {
+export function bulkMoveHospitalsByProvince(token: string, province: string, territoryId: number | null, note?: string) {
   return request<{ updatedCount: number }>(
     "/hospitals/territory/bulk-by-province",
     { method: "POST", body: JSON.stringify({ province, territoryId, note }) },
@@ -101,7 +101,7 @@ export function listUnassignedTerritoryHospitals(token: string) {
   );
 }
 
-export function getDerivedTarget(token: string, salespersonId: string, year: number, month: number) {
+export function getDerivedTarget(token: string, salespersonId: number, year: number, month: number) {
   return request<{ derivedTarget: DerivedTarget }>(
     `/targets/derived/${salespersonId}/${year}/${month}`,
     { method: "GET" },
@@ -117,17 +117,17 @@ export function createTerritoryGroup(token: string, input: { name: string; isAct
   return request<{ territoryGroup: TerritoryGroup }>("/territory-groups", { method: "POST", body: JSON.stringify(input) }, token);
 }
 
-export function updateTerritoryGroup(token: string, id: string, input: { name?: string; isActive?: boolean; note?: string | null }) {
+export function updateTerritoryGroup(token: string, id: number, input: { name?: string; isActive?: boolean; note?: string | null }) {
   return request<{ territoryGroup: TerritoryGroup }>(`/territory-groups/${id}`, { method: "PATCH", body: JSON.stringify(input) }, token);
 }
 
 export interface TerritoryGroupMemberInput {
-  territoryId: string;
+  territoryId: number;
   effectiveFrom: string;
   effectiveTo?: string | null;
 }
 
-export function addTerritoryGroupMember(token: string, groupId: string, input: TerritoryGroupMemberInput) {
+export function addTerritoryGroupMember(token: string, groupId: number, input: TerritoryGroupMemberInput) {
   return request<{ member: TerritoryGroupMember }>(
     `/territory-groups/${groupId}/members`,
     { method: "POST", body: JSON.stringify(input) },
@@ -137,8 +137,8 @@ export function addTerritoryGroupMember(token: string, groupId: string, input: T
 
 export function updateTerritoryGroupMember(
   token: string,
-  groupId: string,
-  memberId: string,
+  groupId: number,
+  memberId: number,
   input: Partial<Pick<TerritoryGroupMemberInput, "effectiveFrom" | "effectiveTo">>
 ) {
   return request<{ member: TerritoryGroupMember }>(

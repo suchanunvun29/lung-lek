@@ -39,7 +39,7 @@ public class HospitalRegistryService : IHospitalRegistryService
         };
     }
 
-    public async Task<ProvinceResponse> UpdateProvinceAsync(string id, UpdateProvinceRequest request, CancellationToken cancellationToken = default)
+    public async Task<ProvinceResponse> UpdateProvinceAsync(int id, UpdateProvinceRequest request, CancellationToken cancellationToken = default)
     {
         var province = await _dbContext.ProvinceMappings
             .Include(p => p.Region)
@@ -55,8 +55,8 @@ public class HospitalRegistryService : IHospitalRegistryService
             throw new ValidationException("Validation failed", "Provide canonicalName or regionId");
         }
 
-        if (request.HasRegionId && !string.IsNullOrEmpty(request.RegionId) &&
-            !await _dbContext.Regions.AnyAsync(r => r.Id == request.RegionId, cancellationToken))
+        if (request.HasRegionId && request.RegionId.HasValue &&
+            !await _dbContext.Regions.AnyAsync(r => r.Id == request.RegionId.Value, cancellationToken))
         {
             throw new NotFoundException("Region not found");
         }
@@ -70,9 +70,9 @@ public class HospitalRegistryService : IHospitalRegistryService
             province.CanonicalName = request.CanonicalName.Trim();
         }
 
-        if (request.HasRegionId && !string.IsNullOrEmpty(request.RegionId))
+        if (request.HasRegionId && request.RegionId.HasValue)
         {
-            province.RegionId = request.RegionId;
+            province.RegionId = request.RegionId.Value;
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -93,7 +93,7 @@ public class HospitalRegistryService : IHospitalRegistryService
             Id = province.Id,
             CanonicalName = province.CanonicalName,
             RegionId = province.RegionId,
-            Region = MapRegion(province.Region),
+            Region = province.Region == null ? null : MapRegion(province.Region),
             CreatedAt = province.CreatedAt
         };
     }
@@ -111,7 +111,7 @@ public class HospitalRegistryService : IHospitalRegistryService
 
     // ---- Hospital registries ----
 
-    public async Task<HospitalRegistriesResponse> ListHospitalRegistriesAsync(string? q, string? provinceMappingId, string? territoryId, int page, int pageSize, CancellationToken cancellationToken = default)
+    public async Task<HospitalRegistriesResponse> ListHospitalRegistriesAsync(string? q, int? provinceMappingId, int? territoryId, int page, int pageSize, CancellationToken cancellationToken = default)
     {
         var query = _dbContext.HospitalRegistries
             .AsNoTracking()
@@ -129,14 +129,14 @@ public class HospitalRegistryService : IHospitalRegistryService
                 (r.SourceCode != null && r.SourceCode.ToLower().Contains(needle)));
         }
 
-        if (!string.IsNullOrEmpty(provinceMappingId))
+        if (provinceMappingId.HasValue)
         {
-            query = query.Where(r => r.ProvinceMappingId == provinceMappingId);
+            query = query.Where(r => r.ProvinceMappingId == provinceMappingId.Value);
         }
 
-        if (!string.IsNullOrEmpty(territoryId))
+        if (territoryId.HasValue)
         {
-            query = query.Where(r => r.TerritoryId == territoryId);
+            query = query.Where(r => r.TerritoryId == territoryId.Value);
         }
 
         var total = await query.CountAsync(cancellationToken);
@@ -156,7 +156,7 @@ public class HospitalRegistryService : IHospitalRegistryService
         };
     }
 
-    public async Task<PotentialAdjustmentResponse> UpdatePotentialAdjustmentAsync(string id, decimal potentialAdjustment, CancellationToken cancellationToken = default)
+    public async Task<PotentialAdjustmentResponse> UpdatePotentialAdjustmentAsync(int id, decimal potentialAdjustment, CancellationToken cancellationToken = default)
     {
         var registry = await _dbContext.HospitalRegistries
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
@@ -283,20 +283,15 @@ public class HospitalRegistryService : IHospitalRegistryService
         };
     }
 
-    public async Task<HospitalRegistryLinkResponse> UpdateRegistryLinkAsync(string hospitalId, UpdateRegistryLinkRequest request, string reviewedById, CancellationToken cancellationToken = default)
+    public async Task<HospitalRegistryLinkResponse> UpdateRegistryLinkAsync(int hospitalId, UpdateRegistryLinkRequest request, int reviewedById, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrEmpty(hospitalId))
-        {
-            throw new ValidationException("Validation failed", "hospitalId is required");
-        }
-
         if (!Enum.TryParse<RegistryLinkStatus>(request.Status, ignoreCase: false, out var status) ||
             (status != RegistryLinkStatus.LINKED && status != RegistryLinkStatus.CONFIRMED_ABSENT))
         {
             throw new ValidationException("Validation failed", "status must be LINKED or CONFIRMED_ABSENT");
         }
 
-        if (status == RegistryLinkStatus.LINKED && string.IsNullOrEmpty(request.HospitalRegistryId))
+        if (status == RegistryLinkStatus.LINKED && !request.HospitalRegistryId.HasValue)
         {
             throw new ValidationException("Validation failed", "Required when status is LINKED");
         }
@@ -316,8 +311,8 @@ public class HospitalRegistryService : IHospitalRegistryService
             throw new NotFoundException("Hospital not found");
         }
 
-        if (status == RegistryLinkStatus.LINKED && request.HospitalRegistryId != null &&
-            !await _dbContext.HospitalRegistries.AnyAsync(r => r.Id == request.HospitalRegistryId, cancellationToken))
+        if (status == RegistryLinkStatus.LINKED && request.HospitalRegistryId.HasValue &&
+            !await _dbContext.HospitalRegistries.AnyAsync(r => r.Id == request.HospitalRegistryId.Value, cancellationToken))
         {
             throw new NotFoundException("Hospital registry not found");
         }
@@ -329,7 +324,6 @@ public class HospitalRegistryService : IHospitalRegistryService
         {
             link = new HospitalRegistryLink
             {
-                Id = Guid.NewGuid().ToString(),
                 HospitalId = hospitalId,
                 CreatedAt = DateTime.UtcNow
             };

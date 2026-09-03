@@ -54,7 +54,7 @@ public class TerritoryViewService : ITerritoryViewService
 
     // ---- Module P1: territory view ----
 
-    public async Task<MyTerritoryViewResponse?> GetTerritoryViewAsync(string salespersonId, TerritoryViewQuery query, CancellationToken cancellationToken = default)
+    public async Task<MyTerritoryViewResponse?> GetTerritoryViewAsync(int salespersonId, TerritoryViewQuery query, CancellationToken cancellationToken = default)
     {
         var salesperson = await _dbContext.Salespeople
             .AsNoTracking()
@@ -138,7 +138,7 @@ public class TerritoryViewService : ITerritoryViewService
 
     // ---- Module P2: never-sold government hospitals ----
 
-    public async Task<NeverSoldHospitalsResponse?> GetNeverSoldHospitalsAsync(string salespersonId, NeverSoldQuery query, CancellationToken cancellationToken = default)
+    public async Task<NeverSoldHospitalsResponse?> GetNeverSoldHospitalsAsync(int salespersonId, NeverSoldQuery query, CancellationToken cancellationToken = default)
     {
         var salesperson = await _dbContext.Salespeople
             .AsNoTracking()
@@ -163,9 +163,9 @@ public class TerritoryViewService : ITerritoryViewService
 
         // hospitalId ทั้งหมดที่มีประวัติการขาย (ถ้ามี productTypeId ให้กรองเฉพาะกลุ่มสินค้านั้น)
         var soldLinesQuery = _dbContext.SalesLines.AsNoTracking();
-        if (!string.IsNullOrEmpty(query.ProductTypeId))
+        if (query.ProductTypeId.HasValue)
         {
-            soldLinesQuery = soldLinesQuery.Where(sl => sl.ProductTypeId == query.ProductTypeId);
+            soldLinesQuery = soldLinesQuery.Where(sl => sl.ProductTypeId == query.ProductTypeId.Value);
         }
 
         var soldHospitalIds = await soldLinesQuery
@@ -177,7 +177,7 @@ public class TerritoryViewService : ITerritoryViewService
         var soldRegistryIds = (await _dbContext.HospitalRegistryLinks
                 .AsNoTracking()
                 .Where(l => soldHospitalIds.Contains(l.HospitalId) && l.Status == RegistryLinkStatus.LINKED && l.HospitalRegistryId != null)
-                .Select(l => l.HospitalRegistryId!)
+                .Select(l => l.HospitalRegistryId!.Value)
                 .ToListAsync(cancellationToken))
             .ToHashSet();
 
@@ -193,12 +193,12 @@ public class TerritoryViewService : ITerritoryViewService
 
         if (!fallback)
         {
-            registriesQuery = registriesQuery.Where(r => r.TerritoryId != null && territoryIds.Contains(r.TerritoryId));
+            registriesQuery = registriesQuery.Where(r => r.TerritoryId != null && territoryIds.Contains(r.TerritoryId.Value));
         }
 
-        if (!string.IsNullOrEmpty(query.ProvinceMappingId))
+        if (query.ProvinceMappingId.HasValue)
         {
-            registriesQuery = registriesQuery.Where(r => r.ProvinceMappingId == query.ProvinceMappingId);
+            registriesQuery = registriesQuery.Where(r => r.ProvinceMappingId == query.ProvinceMappingId.Value);
         }
 
         var registries = await registriesQuery.ToListAsync(cancellationToken);
@@ -243,20 +243,20 @@ public class TerritoryViewService : ITerritoryViewService
     /// "Has credited sales" is contract-defined through SalesLineCredit so excluded personnel never
     /// count as territory sales. In own-credit mode only this person's shares count.
     /// </summary>
-    private async Task<HashSet<string>> HospitalIdsWithCreditedSalesAsync(bool ownCreditsOnly, string salespersonId, List<string> territoryIds, bool fallback, string? productTypeId, List<int>? monthKeys, CancellationToken cancellationToken)
+    private async Task<HashSet<int>> HospitalIdsWithCreditedSalesAsync(bool ownCreditsOnly, int salespersonId, List<int> territoryIds, bool fallback, int? productTypeId, List<int>? monthKeys, CancellationToken cancellationToken)
     {
         var query = CreditedSalesQuery(ownCreditsOnly, salespersonId, territoryIds, fallback, productTypeId, monthKeys);
         var ids = await query.Select(c => c.SalesLine.HospitalId).Distinct().ToListAsync(cancellationToken);
-        return new HashSet<string>(ids);
+        return new HashSet<int>(ids);
     }
 
-    private async Task<Dictionary<string, decimal>> CreditedRevenueByHospitalAsync(bool ownCreditsOnly, string salespersonId, List<string> territoryIds, bool fallback, string? productTypeId, List<int>? monthKeys, CancellationToken cancellationToken)
+    private async Task<Dictionary<int, decimal>> CreditedRevenueByHospitalAsync(bool ownCreditsOnly, int salespersonId, List<int> territoryIds, bool fallback, int? productTypeId, List<int>? monthKeys, CancellationToken cancellationToken)
     {
         var rows = await CreditedSalesQuery(ownCreditsOnly, salespersonId, territoryIds, fallback, productTypeId, monthKeys)
             .Select(c => new { HospitalId = c.SalesLine.HospitalId, Total = c.SalesLine.Total, c.SharePercent })
             .ToListAsync(cancellationToken);
 
-        var totals = new Dictionary<string, decimal>();
+        var totals = new Dictionary<int, decimal>();
         foreach (var row in rows)
         {
             totals[row.HospitalId] = totals.GetValueOrDefault(row.HospitalId) + row.Total * (row.SharePercent / 100m);
@@ -265,7 +265,7 @@ public class TerritoryViewService : ITerritoryViewService
         return totals;
     }
 
-    private IQueryable<SalesLineCredit> CreditedSalesQuery(bool ownCreditsOnly, string salespersonId, List<string> territoryIds, bool fallback, string? productTypeId, List<int>? monthKeys)
+    private IQueryable<SalesLineCredit> CreditedSalesQuery(bool ownCreditsOnly, int salespersonId, List<int> territoryIds, bool fallback, int? productTypeId, List<int>? monthKeys)
     {
         var query = _dbContext.SalesLineCredits.AsNoTracking().AsQueryable();
 
@@ -280,12 +280,12 @@ public class TerritoryViewService : ITerritoryViewService
 
         if (!fallback)
         {
-            query = query.Where(c => c.SalesLine.Hospital != null && territoryIds.Contains(c.SalesLine.Hospital.TerritoryId!));
+            query = query.Where(c => c.SalesLine.Hospital != null && c.SalesLine.Hospital.TerritoryId != null && territoryIds.Contains(c.SalesLine.Hospital.TerritoryId.Value));
         }
 
-        if (!string.IsNullOrEmpty(productTypeId))
+        if (productTypeId.HasValue)
         {
-            query = query.Where(c => c.SalesLine.ProductTypeId == productTypeId);
+            query = query.Where(c => c.SalesLine.ProductTypeId == productTypeId.Value);
         }
 
         if (monthKeys != null)

@@ -41,7 +41,7 @@ public static class KpiEndpoints
     }
 
     private static async Task<IResult> HandleGetSalespersonKpi(
-        string salespersonId,
+        int salespersonId,
         HttpContext httpContext,
         IKpiScoringService kpiScoringService,
         ITerritoryScopeResolver scopeResolver,
@@ -69,7 +69,7 @@ public static class KpiEndpoints
     }
 
     private static async Task<IResult> HandleGetDrillDown(
-        string salespersonId,
+        int salespersonId,
         string metric,
         HttpContext httpContext,
         IKpiScoringService kpiScoringService,
@@ -88,10 +88,13 @@ public static class KpiEndpoints
                 "metric must be one of REVENUE_VS_TARGET, NEW_CUSTOMERS, PRODUCT_GROUP, RETENTION, CONSISTENCY, ACTIVE_CUSTOMERS, CHURNED_CUSTOMERS, PRODUCT_PENETRATION, REVENUE_BY_HOSPITAL, MONTHLY_TREND");
         }
 
-        string? hospitalId = null;
+        int? hospitalId = null;
         if (httpContext.Request.Query.TryGetValue("hospitalId", out var hospitalValue) && !string.IsNullOrEmpty(hospitalValue))
         {
-            hospitalId = hospitalValue.ToString();
+            if (int.TryParse(hospitalValue.ToString(), out var hId))
+            {
+                hospitalId = hId;
+            }
         }
 
         var user = currentUserService.User!;

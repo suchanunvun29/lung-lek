@@ -9,8 +9,8 @@ import { Input } from "@/components/ui/input";
 export interface HospitalRegistryTableProps {
   registries: HospitalRegistry[];
   /** Present while its PATCH /hospital-registry/:id/potential-adjustment round-trips. */
-  savingId: string | null;
-  onSaveAdjustment: (registryId: string, potentialAdjustment: number) => Promise<boolean>;
+  savingId: number | null;
+  onSaveAdjustment: (registryId: number, potentialAdjustment: number) => Promise<boolean>;
 }
 
 const ADJUSTMENT_MIN = 0;
@@ -34,7 +34,7 @@ function formatMetric(value: string | null) {
 }
 
 /** requirement 10.5 — ค่าปรับ/ยกเว้นรายโรงพยาบาล; 0 ตัดโรงพยาบาลนั้นออกจากศักยภาพทั้งหมด. */
-function AdjustmentCell({ registry, saving, onSave }: { registry: HospitalRegistry; saving: boolean; onSave: (registryId: string, potentialAdjustment: number) => Promise<boolean> }) {
+function AdjustmentCell({ registry, saving, onSave }: { registry: HospitalRegistry; saving: boolean; onSave: (registryId: number, potentialAdjustment: number) => Promise<boolean> }) {
   const [editing, setEditing] = useState(false);
   const [raw, setRaw] = useState(String(Number(registry.potentialAdjustment)));
   const value = Number(raw);

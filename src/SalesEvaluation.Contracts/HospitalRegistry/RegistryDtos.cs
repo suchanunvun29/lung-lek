@@ -4,7 +4,7 @@ using SalesEvaluation.Contracts.Territories;
 
 public class RegionDto
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public int SortOrder { get; set; }
     public DateTime CreatedAt { get; set; }
@@ -12,9 +12,9 @@ public class RegionDto
 
 public class ProvinceMappingDto
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public string CanonicalName { get; set; } = string.Empty;
-    public string RegionId { get; set; } = string.Empty;
+    public int RegionId { get; set; }
     public RegionDto Region { get; set; } = null!;
     public DateTime CreatedAt { get; set; }
 }
@@ -30,7 +30,7 @@ public class UpdateProvinceRequest
 {
     public string? CanonicalName { get; set; }
     public bool HasCanonicalName { get; set; }
-    public string? RegionId { get; set; }
+    public int? RegionId { get; set; }
     public bool HasRegionId { get; set; }
 
     public bool HasAnyField => HasCanonicalName || HasRegionId;
@@ -44,10 +44,10 @@ public class ProvinceResponse
 /// <summary>Raw Territory row — Prisma `territory: true` include (display field is `name`).</summary>
 public class TerritoryRecordDto
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? Code { get; set; }
-    public string? RegionId { get; set; }
+    public int? RegionId { get; set; }
     public int SortOrder { get; set; }
     public bool IsActive { get; set; }
     public string? Note { get; set; }
@@ -57,8 +57,8 @@ public class TerritoryRecordDto
 
 public class HospitalRegistryMetricDto
 {
-    public string Id { get; set; } = string.Empty;
-    public string HospitalRegistryId { get; set; } = string.Empty;
+    public int Id { get; set; }
+    public int HospitalRegistryId { get; set; }
     public string Metric { get; set; } = string.Empty;
     /// <summary>Prisma Decimal — serialized as a JSON string per the frontend contract.</summary>
     public string Value { get; set; } = string.Empty;
@@ -71,14 +71,14 @@ public class HospitalRegistryMetricDto
 /// <summary>HospitalRegistry row as returned by GET /hospital-registries (provinceMapping incl. region, territory, metrics).</summary>
 public class HospitalRegistryDto
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public string? SourceCode { get; set; }
     public string NameInFile { get; set; } = string.Empty;
     public string DisplayName { get; set; } = string.Empty;
-    public string? ProvinceMappingId { get; set; }
+    public int? ProvinceMappingId { get; set; }
     public ProvinceMappingDto? ProvinceMapping { get; set; }
     public string ProvinceRaw { get; set; } = string.Empty;
-    public string? RegionId { get; set; }
+    public int? RegionId { get; set; }
     public RegionDto? Region { get; set; }
     public string? HealthZone { get; set; }
     public string? Tier { get; set; }
@@ -87,7 +87,7 @@ public class HospitalRegistryDto
     public string PotentialAdjustment { get; set; } = string.Empty;
     public bool IsActive { get; set; }
     public string? SourceFile { get; set; }
-    public string? TerritoryId { get; set; }
+    public int? TerritoryId { get; set; }
     public TerritoryRecordDto? Territory { get; set; }
     public string TerritorySource { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
@@ -106,7 +106,7 @@ public class HospitalRegistriesResponse
 /// <summary>PATCH /hospital-registry/{id}/potential-adjustment response shape (requirement 10.5).</summary>
 public class PotentialAdjustmentDto
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public string DisplayName { get; set; } = string.Empty;
     public string? Tier { get; set; }
     public string PotentialAdjustment { get; set; } = string.Empty;
@@ -120,7 +120,7 @@ public class PotentialAdjustmentResponse
 
 public class LinkHospitalDto
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public string DisplayName { get; set; } = string.Empty;
     public string? Province { get; set; }
     public ProvinceMappingDto? ProvinceMapping { get; set; }
@@ -128,14 +128,14 @@ public class LinkHospitalDto
 
 public class HospitalRegistryLinkDto
 {
-    public string Id { get; set; } = string.Empty;
-    public string HospitalId { get; set; } = string.Empty;
-    public string? HospitalRegistryId { get; set; }
+    public int Id { get; set; }
+    public int HospitalId { get; set; }
+    public int? HospitalRegistryId { get; set; }
     public string Status { get; set; } = string.Empty;
     public string? Method { get; set; }
     /// <summary>Prisma Decimal — serialized as a JSON string per the frontend contract.</summary>
     public string? Confidence { get; set; }
-    public string? ReviewedById { get; set; }
+    public int? ReviewedById { get; set; }
     public UserSummaryDto? ReviewedBy { get; set; }
     public DateTime? ReviewedAt { get; set; }
     public string? Note { get; set; }
@@ -162,7 +162,7 @@ public class HospitalRegistryLinkResponse
 public class UpdateRegistryLinkRequest
 {
     public string Status { get; set; } = string.Empty;
-    public string? HospitalRegistryId { get; set; }
+    public int? HospitalRegistryId { get; set; }
     public bool HasHospitalRegistryId { get; set; }
     public string? Note { get; set; }
     public bool HasNote { get; set; }

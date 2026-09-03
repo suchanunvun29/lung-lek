@@ -4,9 +4,9 @@ using SalesEvaluation.Domain.Common;
 
 public class ProvinceMapping : IDomainEntity
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public string CanonicalName { get; set; } = string.Empty;
-    public string RegionId { get; set; } = string.Empty;
+    public int RegionId { get; set; }
     public Region Region { get; set; } = null!;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

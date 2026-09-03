@@ -42,10 +42,10 @@ export default function UnassignedTerritoriesPage() {
     void load();
   }, [load]);
 
-  async function assign(hospitalId: string, territoryId: string) {
+  async function assign(hospitalId: number, territoryId: string) {
     if (!token || !territoryId) return;
     try {
-      await moveHospitalToTerritory(token, hospitalId, territoryId);
+      await moveHospitalToTerritory(token, hospitalId, Number(territoryId));
       await load();
     } catch (err) {
       setError(getErrorMessage(err, "ผูกเขตให้โรงพยาบาลไม่สำเร็จ"));

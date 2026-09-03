@@ -118,7 +118,7 @@ public class TerritoryViewEndpointsTests : IClassFixture<CustomWebApplicationFac
 
         // manager sees everyone, but the salesperson must exist — 404
         SetBearerToken(_factory.CreateToken(_factory.ManagerUserId, UserRole.MANAGER));
-        var missing = await _client.GetAsync($"/my-territory-view/sp-nope?{MonthQuery}");
+        var missing = await _client.GetAsync($"/my-territory-view/99999?{MonthQuery}");
         Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
         Assert.Contains("Salesperson not found", await missing.Content.ReadAsStringAsync());
     }
@@ -185,7 +185,7 @@ public class TerritoryViewEndpointsTests : IClassFixture<CustomWebApplicationFac
         Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
 
         SetBearerToken(_factory.CreateToken(_factory.ManagerUserId, UserRole.MANAGER));
-        var missing = await _client.GetAsync($"/my-territory-view/sp-nope/never-sold?{MonthQuery}");
+        var missing = await _client.GetAsync($"/my-territory-view/99999/never-sold?{MonthQuery}");
         Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
 
         var badMetric = await _client.GetAsync($"/my-territory-view/{_factory.SalespersonId1}/never-sold?{MonthQuery}&potentialMetric=NOPE");

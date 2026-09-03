@@ -32,7 +32,7 @@ export function exportTerritoryLeaderboard(
 
 export function getTerritoryLeaderboardPeople(
   token: string,
-  territoryId: string,
+  territoryId: number,
   criteria: LeaderboardCriteria,
   period: PeriodKey
 ) {

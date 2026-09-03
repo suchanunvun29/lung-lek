@@ -5,7 +5,7 @@ using Xunit;
 
 public class RegionSuggestionCalculatorTests
 {
-    private static RegionUnitInput CreateUnit(string territoryId, decimal potential, decimal? coverage, decimal historyBase)
+    private static RegionUnitInput CreateUnit(int territoryId, decimal potential, decimal? coverage, decimal historyBase)
         => new RegionUnitInput
         {
             TerritoryId = territoryId,
@@ -33,8 +33,8 @@ public class RegionSuggestionCalculatorTests
     {
         var units = new[]
         {
-            CreateUnit("T1", 1000m, 0.8m, 500m),
-            CreateUnit("T2", 2000m, 0.6m, 300m),
+            CreateUnit(1, 1000m, 0.8m, 500m),
+            CreateUnit(2, 2000m, 0.6m, 300m),
         };
 
         var result = RegionSuggestionCalculator.ComputeRegionSuggestions(
@@ -56,7 +56,7 @@ public class RegionSuggestionCalculatorTests
         // historyBased = (500/12) * 1.1 = 45.833...
         // suggested = (1-0.7)*45.833 + 0.7*266.667 = 13.75 + 186.667 = 200.417
 
-        var t1Row = result.Rows.First(r => r.TerritoryId == "T1");
+        var t1Row = result.Rows.First(r => r.TerritoryId == 1);
         Assert.Equal(1000m / 3000m, t1Row.PotentialShare);
         Assert.Equal(500m / 12m * 1.1m, t1Row.HistoryBased);
         // R = 73.333..., potentialShare = 1/3, so potentialBased = 73.333... * 1/3 = 24.444...
@@ -64,7 +64,7 @@ public class RegionSuggestionCalculatorTests
         Assert.Equal(Math.Min(0.7m, 0.8m), t1Row.W);
 
         // T2: potentialShare = 2000/3000 = 2/3
-        var t2Row = result.Rows.First(r => r.TerritoryId == "T2");
+        var t2Row = result.Rows.First(r => r.TerritoryId == 2);
         Assert.Equal(2000m / 3000m, t2Row.PotentialShare);
         Assert.Equal(300m / 12m * 1.1m, t2Row.HistoryBased);
         Assert.Equal((500m / 12m * 1.1m + 300m / 12m * 1.1m) * (2000m / 3000m), t2Row.PotentialBased);
@@ -76,14 +76,14 @@ public class RegionSuggestionCalculatorTests
     {
         var units = new[]
         {
-            CreateUnit("T1", 1000m, 0.8m, 500m),
-            CreateUnit("T2", 2000m, 0.6m, 300m),
+            CreateUnit(1, 1000m, 0.8m, 500m),
+            CreateUnit(2, 2000m, 0.6m, 300m),
         };
 
-        var rebalanceTargets = new Dictionary<string, decimal>
+        var rebalanceTargets = new Dictionary<int, decimal>
         {
-            { "T1", 1000m },
-            { "T2", 2000m }
+            { 1, 1000m },
+            { 2, 2000m }
         };
 
         var result = RegionSuggestionCalculator.ComputeRegionSuggestions(
@@ -104,7 +104,7 @@ public class RegionSuggestionCalculatorTests
     {
         var units = new[]
         {
-            CreateUnit("T1", 1000m, 0.8m, 500m),
+            CreateUnit(1, 1000m, 0.8m, 500m),
         };
 
         var result = RegionSuggestionCalculator.ComputeRegionSuggestions(
@@ -126,7 +126,7 @@ public class RegionSuggestionCalculatorTests
     {
         var units = new[]
         {
-            CreateUnit("T1", 1000m, null, 500m),
+            CreateUnit(1, 1000m, null, 500m),
         };
 
         var result = RegionSuggestionCalculator.ComputeRegionSuggestions(
@@ -147,8 +147,8 @@ public class RegionSuggestionCalculatorTests
     {
         var units = new[]
         {
-            CreateUnit("T1", 1000m, 0.8m, 500m),
-            CreateUnit("T2", 2000m, 0.6m, 300m),
+            CreateUnit(1, 1000m, 0.8m, 500m),
+            CreateUnit(2, 2000m, 0.6m, 300m),
         };
 
         var result = RegionSuggestionCalculator.ComputeRegionSuggestions(
@@ -172,7 +172,7 @@ public class RegionSuggestionCalculatorTests
     {
         var units = new[]
         {
-            CreateUnit("T1", 1000m, null, 500m), // No sales at all
+            CreateUnit(1, 1000m, null, 500m), // No sales at all
         };
 
         var result = RegionSuggestionCalculator.ComputeRegionSuggestions(

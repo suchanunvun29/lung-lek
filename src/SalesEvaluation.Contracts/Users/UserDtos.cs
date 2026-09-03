@@ -1,15 +1,15 @@
-﻿namespace SalesEvaluation.Contracts.Users;
+namespace SalesEvaluation.Contracts.Users;
 
 public class SalespersonSummaryDto
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public string DisplayName { get; set; } = string.Empty;
     public string NameInFile { get; set; } = string.Empty;
 }
 
 public class UserDto
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public string Email { get; set; } = string.Empty;
     public string DisplayName { get; set; } = string.Empty;
     public string Role { get; set; } = string.Empty;
@@ -46,7 +46,7 @@ public class UpdateUserRequest
     public string? DisplayName { get; set; }
     public string? Role { get; set; }
     public bool? IsActive { get; set; }
-    public string? SalespersonId { get; set; }
+    public int? SalespersonId { get; set; }
     public bool HasSalespersonId { get; set; }
 }
 

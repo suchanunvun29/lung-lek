@@ -59,7 +59,7 @@ public static class ReviewQueueEndpoints
     }
 
     private static async Task<IResult> HandleDecideHospitalNameReview(
-        string id,
+        int id,
         HttpContext httpContext,
         IReviewQueueService reviewQueueService,
         ICurrentUserService currentUserService,
@@ -100,9 +100,16 @@ public static class ReviewQueueEndpoints
                 return Results.Json(new { error = "Validation failed", details = "decision is required" }, statusCode: StatusCodes.Status400BadRequest);
             }
 
-            if (root.TryGetProperty("mergedIntoId", out var mergeProp) && mergeProp.ValueKind == JsonValueKind.String)
+            if (root.TryGetProperty("mergedIntoId", out var mergeProp))
             {
-                request.MergedIntoId = mergeProp.GetString();
+                if (mergeProp.ValueKind == JsonValueKind.Number)
+                {
+                    request.MergedIntoId = mergeProp.GetInt32();
+                }
+                else if (mergeProp.ValueKind == JsonValueKind.String && int.TryParse(mergeProp.GetString(), out var mId))
+                {
+                    request.MergedIntoId = mId;
+                }
             }
 
             if (root.TryGetProperty("note", out var noteProp) && noteProp.ValueKind == JsonValueKind.String)
@@ -131,7 +138,7 @@ public static class ReviewQueueEndpoints
     }
 
     private static async Task<IResult> HandleDecideSalesmanNameReview(
-        string id,
+        int id,
         HttpContext httpContext,
         IReviewQueueService reviewQueueService,
         ICurrentUserService currentUserService,
@@ -172,9 +179,16 @@ public static class ReviewQueueEndpoints
                 return Results.Json(new { error = "Validation failed", details = "decision is required" }, statusCode: StatusCodes.Status400BadRequest);
             }
 
-            if (root.TryGetProperty("mergedIntoId", out var mergeProp) && mergeProp.ValueKind == JsonValueKind.String)
+            if (root.TryGetProperty("mergedIntoId", out var mergeProp))
             {
-                request.MergedIntoId = mergeProp.GetString();
+                if (mergeProp.ValueKind == JsonValueKind.Number)
+                {
+                    request.MergedIntoId = mergeProp.GetInt32();
+                }
+                else if (mergeProp.ValueKind == JsonValueKind.String && int.TryParse(mergeProp.GetString(), out var mId))
+                {
+                    request.MergedIntoId = mId;
+                }
             }
 
             if (root.TryGetProperty("note", out var noteProp) && noteProp.ValueKind == JsonValueKind.String)
@@ -249,7 +263,16 @@ public static class ReviewQueueEndpoints
                 {
                     if (item.TryGetProperty("salespersonId", out var spProp) && item.TryGetProperty("sharePercent", out var shareProp))
                     {
-                        var spId = spProp.GetString() ?? string.Empty;
+                        int spId = 0;
+                        if (spProp.ValueKind == JsonValueKind.Number)
+                        {
+                            spId = spProp.GetInt32();
+                        }
+                        else if (spProp.ValueKind == JsonValueKind.String && int.TryParse(spProp.GetString(), out var parsedId))
+                        {
+                            spId = parsedId;
+                        }
+
                         decimal share = 0m;
                         if (shareProp.ValueKind == JsonValueKind.Number)
                         {
@@ -278,7 +301,7 @@ public static class ReviewQueueEndpoints
     }
 
     private static async Task<IResult> HandleUpdateSalesmanNameRule(
-        string id,
+        int id,
         HttpContext httpContext,
         IReviewQueueService reviewQueueService,
         ICurrentUserService currentUserService,
@@ -316,7 +339,16 @@ public static class ReviewQueueEndpoints
                 {
                     if (item.TryGetProperty("salespersonId", out var spProp) && item.TryGetProperty("sharePercent", out var shareProp))
                     {
-                        var spId = spProp.GetString() ?? string.Empty;
+                        int spId = 0;
+                        if (spProp.ValueKind == JsonValueKind.Number)
+                        {
+                            spId = spProp.GetInt32();
+                        }
+                        else if (spProp.ValueKind == JsonValueKind.String && int.TryParse(spProp.GetString(), out var parsedId))
+                        {
+                            spId = parsedId;
+                        }
+
                         decimal share = 0m;
                         if (shareProp.ValueKind == JsonValueKind.Number)
                         {

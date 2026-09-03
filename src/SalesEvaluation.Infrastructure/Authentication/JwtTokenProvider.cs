@@ -31,15 +31,16 @@ public class JwtTokenProvider : IJwtTokenProvider
         _audience = configuration["Jwt:Audience"] ?? "SalesEvaluationFrontend";
     }
 
-    public string GenerateToken(string userId, UserRole role)
+    public string GenerateToken(int userId, UserRole role)
     {
         var tokenHandler = new JwtSecurityTokenHandler();
+        var userIdStr = userId.ToString();
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(new[]
             {
-                new Claim("sub", userId),
-                new Claim(ClaimTypes.NameIdentifier, userId),
+                new Claim("sub", userIdStr),
+                new Claim(ClaimTypes.NameIdentifier, userIdStr),
                 new Claim("role", role.ToString()),
                 new Claim(ClaimTypes.Role, role.ToString())
             }),
@@ -53,7 +54,7 @@ public class JwtTokenProvider : IJwtTokenProvider
         return tokenHandler.WriteToken(token);
     }
 
-    public (string UserId, UserRole Role)? ValidateToken(string token)
+    public (int UserId, UserRole Role)? ValidateToken(string token)
     {
         var tokenHandler = new JwtSecurityTokenHandler();
         try
@@ -69,10 +70,10 @@ public class JwtTokenProvider : IJwtTokenProvider
                 ClockSkew = TimeSpan.Zero
             }, out _);
 
-            var userId = principal.FindFirst("sub")?.Value ?? principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userIdStr = principal.FindFirst("sub")?.Value ?? principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var roleStr = principal.FindFirst("role")?.Value ?? principal.FindFirst(ClaimTypes.Role)?.Value;
 
-            if (!string.IsNullOrEmpty(userId) && Enum.TryParse<UserRole>(roleStr, out var role))
+            if (!string.IsNullOrEmpty(userIdStr) && int.TryParse(userIdStr, out var userId) && Enum.TryParse<UserRole>(roleStr, out var role))
             {
                 return (userId, role);
             }

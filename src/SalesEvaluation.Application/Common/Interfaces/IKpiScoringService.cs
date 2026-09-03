@@ -6,19 +6,19 @@ using SalesEvaluation.Contracts.Common;
 public interface IKpiScoringService
 {
     /// <summary>GET /kpi/:salespersonId — composite + supplementary. Returns null when the salesperson does not exist.</summary>
-    Task<SalespersonKpiResponse?> GetSalespersonKpiAsync(string salespersonId, AppPeriodKey period, CancellationToken cancellationToken = default);
+    Task<SalespersonKpiResponse?> GetSalespersonKpiAsync(int salespersonId, AppPeriodKey period, CancellationToken cancellationToken = default);
 
     /// <summary>GET /kpi/team — every salesperson the viewer may see; reason ACCOUNT_NOT_LINKED when the account has no salesperson link.</summary>
     Task<TeamKpiResponse> GetTeamKpiAsync(CurrentUserRef user, AppPeriodKey period, CancellationToken cancellationToken = default);
 
     /// <summary>GET /kpi/:salespersonId/drill-down/:metric — scored and supplementary metrics. Returns null when the salesperson does not exist.</summary>
-    Task<KpiDrillDownResponse?> GetDrillDownAsync(string salespersonId, string metric, AppPeriodKey period, string? hospitalId, CancellationToken cancellationToken = default);
+    Task<KpiDrillDownResponse?> GetDrillDownAsync(int salespersonId, string metric, AppPeriodKey period, int? hospitalId, CancellationToken cancellationToken = default);
 
     /// <summary>The one composite-score path every module shares (dashboard, team view, leaderboard).</summary>
-    Task<CompositeScoreResultDto> ComputeCompositeScoreAsync(string salespersonId, AppPeriodKey period, CancellationToken cancellationToken = default);
+    Task<CompositeScoreResultDto> ComputeCompositeScoreAsync(int salespersonId, AppPeriodKey period, CancellationToken cancellationToken = default);
 
     /// <summary>Every active salesperson's composite — team average and Module F2's SELF_SUMMARY source.</summary>
-    Task<List<(string SalespersonId, CompositeScoreResultDto Result)>> ComputeActiveSalespersonCompositesAsync(AppPeriodKey period, CancellationToken cancellationToken = default);
+    Task<List<(int SalespersonId, CompositeScoreResultDto Result)>> ComputeActiveSalespersonCompositesAsync(AppPeriodKey period, CancellationToken cancellationToken = default);
 
     Task<int> GetDataCoverageMonthsAsync(CancellationToken cancellationToken = default);
 

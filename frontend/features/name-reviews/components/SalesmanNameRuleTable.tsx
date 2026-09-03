@@ -14,16 +14,16 @@ export interface SalesmanNameRuleTableProps {
 }
 
 export function SalesmanNameRuleTable({ rules, onSave }: SalesmanNameRuleTableProps) {
-  const [drafts, setDrafts] = useState<Record<string, string[]>>({});
+  const [drafts, setDrafts] = useState<Record<number, string[]>>({});
   const [draftsSource, setDraftsSource] = useState(rules);
-  const [busyId, setBusyId] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<number | null>(null);
 
   if (rules !== draftsSource) {
     setDraftsSource(rules);
     setDrafts(Object.fromEntries(rules.map((rule) => [rule.id, rule.members.map((member) => member.sharePercent)])));
   }
 
-  function updateDraft(ruleId: string, index: number, value: string) {
+  function updateDraft(ruleId: number, index: number, value: string) {
     setDrafts((previous) => ({ ...previous, [ruleId]: previous[ruleId].map((share, currentIndex) => currentIndex === index ? value : share) }));
   }
 

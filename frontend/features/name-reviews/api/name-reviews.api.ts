@@ -14,12 +14,12 @@ export function listHospitalNameReviews(token: string) {
 }
 
 export type HospitalNameReviewDecision =
-  | { decision: "MERGED"; mergedIntoId?: string; note?: string }
+  | { decision: "MERGED"; mergedIntoId?: number; note?: string }
   | { decision: "KEPT_SEPARATE"; note?: string };
 
 export function decideHospitalNameReview(
   token: string,
-  id: string,
+  id: number,
   input: HospitalNameReviewDecision
 ) {
   return request<{ hospitalNameReview: HospitalNameReview }>(
@@ -46,12 +46,12 @@ export function listSalesmanNameReviews(token: string) {
 }
 
 export type SalesmanNameReviewDecision =
-  | { decision: "MERGED"; mergedIntoId: string; note?: string }
+  | { decision: "MERGED"; mergedIntoId: number; note?: string }
   | { decision: "KEPT_SEPARATE"; note?: string };
 
 export function decideSalesmanNameReview(
   token: string,
-  id: string,
+  id: number,
   input: SalesmanNameReviewDecision
 ) {
   return request<{ salesmanNameReview: SalesmanNameReview }>(
@@ -63,8 +63,8 @@ export function decideSalesmanNameReview(
 
 export function updateSalesmanNameRule(
   token: string,
-  id: string,
-  members: { salespersonId: string; sharePercent: number }[]
+  id: number,
+  members: { salespersonId: number; sharePercent: number }[]
 ) {
   return request<{ salesmanNameRule: SalesmanNameRule }>(
     `/salesman-name-rules/${id}`,

@@ -27,7 +27,7 @@ const statusLabel = {
 export default function TerritoryProductsPage() {
   const token = useAuthStore((s) => s.token);
   const [period, setPeriod] = useState<PeriodKey>(defaultPeriod());
-  const [territories, setTerritories] = useState<{ id: string; name: string }[]>([]);
+  const [territories, setTerritories] = useState<{ id: number; name: string }[]>([]);
   const [territoryId, setTerritoryId] = useState("");
   const [data, setData] = useState<TerritoryProductRankingResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +39,7 @@ export default function TerritoryProductsPage() {
       .then((r) => {
         const entries = r.territories.map((x) => ({ id: x.territoryId, name: x.name }));
         setTerritories(entries);
-        setTerritoryId((value) => value || entries[0]?.id || "");
+        setTerritoryId((value) => value || String(entries[0]?.id ?? ""));
       })
       .catch((e) => setError(getErrorMessage(e, "โหลดรายชื่อเขตไม่สำเร็จ")));
   }, [period, token]);

@@ -50,7 +50,7 @@ public class SettingsService : ISettingsService
                 Before = SnapshotJson.Deserialize<List<ScoringWeightSnapshotEntryDto>>(r.Before) ?? new List<ScoringWeightSnapshotEntryDto>(),
                 After = SnapshotJson.Deserialize<List<ScoringWeightSnapshotEntryDto>>(r.After) ?? new List<ScoringWeightSnapshotEntryDto>(),
                 ChangedById = r.ChangedById,
-                ChangedBy = new UserSummaryDto { Id = r.ChangedBy.Id, DisplayName = r.ChangedBy.DisplayName, Email = r.ChangedBy.Email },
+                ChangedBy = new UserSummaryDto { Id = r.ChangedBy.Id, DisplayName = r.ChangedBy.DisplayName },
                 ChangedAt = r.ChangedAt,
                 Note = r.Note
             }).ToList()
@@ -59,7 +59,7 @@ public class SettingsService : ISettingsService
 
     public async Task<UpdatedScoringWeightsResponse> UpdateScoringWeightsAsync(
         List<ScoringWeightInputDto> weights,
-        string changedById,
+        int changedById,
         string? note,
         CancellationToken cancellationToken = default)
     {
@@ -81,7 +81,6 @@ public class SettingsService : ISettingsService
 
         _dbContext.ScoringWeightRevisions.Add(new ScoringWeightRevision
         {
-            Id = Guid.NewGuid().ToString(),
             Before = SnapshotJson.Serialize(before.Select(w => new { metric = w.Metric.ToString(), weight = w.Weight }).ToList()),
             After = SnapshotJson.Serialize(after.Select(w => new { metric = w.Metric.ToString(), weight = w.Weight }).ToList()),
             ChangedById = changedById,
@@ -106,17 +105,17 @@ public class SettingsService : ISettingsService
     {
         var setting = await _dbContext.EvaluationSettings
             .AsNoTracking()
-            .FirstOrDefaultAsync(s => s.Id == "singleton", cancellationToken);
+            .FirstOrDefaultAsync(cancellationToken);
         return setting == null ? null : MapSetting(setting);
     }
 
     public async Task<EvaluationSettingDto> UpdateEvaluationSettingAsync(
         EvaluationSettingUpdateInput input,
-        string updatedById,
+        int updatedById,
         CancellationToken cancellationToken = default)
     {
         var setting = await _dbContext.EvaluationSettings
-            .FirstOrDefaultAsync(s => s.Id == "singleton", cancellationToken)
+            .FirstOrDefaultAsync(cancellationToken)
             ?? throw new InvalidOperationException("EvaluationSetting singleton row is missing");
 
         if (input.ChurnMonths.HasValue)

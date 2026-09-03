@@ -10,7 +10,7 @@ using SalesEvaluation.Domain.Enums;
 
 public class ScoringWeightDto
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public KpiMetric Metric { get; set; }
     public int Weight { get; set; }
     public DateTime UpdatedAt { get; set; }
@@ -24,10 +24,10 @@ public class ScoringWeightSnapshotEntryDto
 
 public class ScoringWeightRevisionDto
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public List<ScoringWeightSnapshotEntryDto> Before { get; set; } = new();
     public List<ScoringWeightSnapshotEntryDto> After { get; set; } = new();
-    public string ChangedById { get; set; } = string.Empty;
+    public int ChangedById { get; set; }
     public UserSummaryDto ChangedBy { get; set; } = null!;
     public DateTime ChangedAt { get; set; }
     public string? Note { get; set; }
@@ -58,7 +58,7 @@ public class ScoringWeightsUpdateBody
 
 public class EvaluationSettingDto
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public int ChurnMonths { get; set; }
     public int MinMonthsForChurn { get; set; }
     public int MinMonthsForConsistency { get; set; }
@@ -72,7 +72,7 @@ public class EvaluationSettingDto
     public int TargetLookbackMonths { get; set; }
     public string TargetOutlierThreshold { get; set; } = string.Empty;
     public string TargetGrowthRate { get; set; } = string.Empty;
-    public string? UpdatedById { get; set; }
+    public int? UpdatedById { get; set; }
     public DateTime UpdatedAt { get; set; }
 }
 

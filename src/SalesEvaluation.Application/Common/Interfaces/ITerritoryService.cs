@@ -13,25 +13,25 @@ public interface ITerritoryService
 
     Task<TerritoryResponse> CreateTerritoryAsync(CreateTerritoryRequest request, CancellationToken cancellationToken = default);
 
-    Task<TerritoryResponse> UpdateTerritoryAsync(string id, UpdateTerritoryRequest request, CancellationToken cancellationToken = default);
+    Task<TerritoryResponse> UpdateTerritoryAsync(int id, UpdateTerritoryRequest request, CancellationToken cancellationToken = default);
 
-    Task<TerritoryAssignmentsResponse> ListAssignmentsAsync(string? territoryId, string? salespersonId, string? status, CancellationToken cancellationToken = default);
+    Task<TerritoryAssignmentsResponse> ListAssignmentsAsync(int? territoryId, int? salespersonId, string? status, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// PUT /territory-assignments — assign (effectiveFrom present, 201) or withdraw
     /// (effectiveTo present, 200). Returns the saved assignment and whether it was a create.
     /// </summary>
-    Task<(TerritoryAssignmentDto Assignment, bool Created)> PutAssignmentAsync(PutAssignmentRequest request, string assignedById, CancellationToken cancellationToken = default);
+    Task<(TerritoryAssignmentDto Assignment, bool Created)> PutAssignmentAsync(PutAssignmentRequest request, int assignedById, CancellationToken cancellationToken = default);
 
     Task<TerritoryGroupsResponse> ListGroupsAsync(CancellationToken cancellationToken = default);
 
     Task<TerritoryGroupResponse> CreateGroupAsync(CreateTerritoryGroupRequest request, CancellationToken cancellationToken = default);
 
-    Task<TerritoryGroupResponse> UpdateGroupAsync(string id, UpdateTerritoryGroupRequest request, CancellationToken cancellationToken = default);
+    Task<TerritoryGroupResponse> UpdateGroupAsync(int id, UpdateTerritoryGroupRequest request, CancellationToken cancellationToken = default);
 
     /// <summary>Returns null when the group does not exist (caller maps to 404 "Territory group").</summary>
-    Task<TerritoryGroupMemberDto?> AddGroupMemberAsync(string groupId, AddGroupMemberRequest request, CancellationToken cancellationToken = default);
+    Task<TerritoryGroupMemberDto?> AddGroupMemberAsync(int groupId, AddGroupMemberRequest request, CancellationToken cancellationToken = default);
 
     /// <summary>Returns null when the member does not exist (caller maps to 404 "Territory group member").</summary>
-    Task<TerritoryGroupMemberDto> UpdateGroupMemberAsync(string groupId, string memberId, UpdateGroupMemberRequest request, CancellationToken cancellationToken = default);
+    Task<TerritoryGroupMemberDto> UpdateGroupMemberAsync(int groupId, int memberId, UpdateGroupMemberRequest request, CancellationToken cancellationToken = default);
 }

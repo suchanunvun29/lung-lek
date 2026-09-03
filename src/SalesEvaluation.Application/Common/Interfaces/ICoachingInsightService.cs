@@ -9,7 +9,7 @@ public interface ICoachingInsightService
     /// GET /coaching-insights/:salespersonId — fetch existing insight for period.
     /// </summary>
     Task<CoachingInsightResponse> GetInsightAsync(
-        string salespersonId,
+        int salespersonId,
         AppPeriodKey period,
         CurrentUserRef viewer,
         CancellationToken cancellationToken = default);
@@ -19,16 +19,16 @@ public interface ICoachingInsightService
     /// Rule-based fallback if Gemini is disabled or fails.
     /// </summary>
     Task<CoachingInsightDto> GenerateInsightAsync(
-        string salespersonId,
+        int salespersonId,
         AppPeriodKey period,
-        string generatedById,
+        int generatedById,
         CancellationToken cancellationToken = default);
 }
 
 public class CoachingInsightDto
 {
-    public string Id { get; init; } = string.Empty;
-    public string SalespersonId { get; init; } = string.Empty;
+    public int Id { get; init; }
+    public int SalespersonId { get; init; }
     public string PeriodType { get; init; } = string.Empty;
     public int Year { get; init; }
     public int PeriodNumber { get; init; }
@@ -39,7 +39,7 @@ public class CoachingInsightDto
     public string? Model { get; init; }
     public string? ErrorMessage { get; init; }
     public bool IsStale { get; init; }
-    public string? GeneratedById { get; init; }
+    public int? GeneratedById { get; init; }
     public DateTime GeneratedAt { get; init; }
 }
 
@@ -53,7 +53,7 @@ public class CoachingInsightResponse
 
 public class SalespersonRef
 {
-    public string Id { get; init; } = string.Empty;
+    public int Id { get; init; }
     public string DisplayName { get; init; } = string.Empty;
 }
 

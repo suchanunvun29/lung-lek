@@ -20,5 +20,5 @@ public interface ILeaderboardService
     Task<LeaderboardBuildResult> BuildAsync(CurrentUserRef user, AppPeriodKey period, string criteria, CancellationToken cancellationToken = default);
 
     /// <summary>GET /leaderboard/territories/:territoryId/people — FULL rows or the SELF_SUMMARY summary block. Returns null on 403.</summary>
-    Task<object?> GetTerritoryPeopleAsync(CurrentUserRef user, string territoryId, AppPeriodKey period, string criteria, CancellationToken cancellationToken = default);
+    Task<object?> GetTerritoryPeopleAsync(CurrentUserRef user, int territoryId, AppPeriodKey period, string criteria, CancellationToken cancellationToken = default);
 }

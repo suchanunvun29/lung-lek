@@ -15,7 +15,7 @@ public class PeriodKeyDto
 /// <summary>id + displayName + email summary — revision `changedBy` include.</summary>
 public class UserSummaryDto
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public string DisplayName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
 }

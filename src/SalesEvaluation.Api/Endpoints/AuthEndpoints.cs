@@ -1,4 +1,4 @@
-﻿namespace SalesEvaluation.Api.Endpoints;
+namespace SalesEvaluation.Api.Endpoints;
 
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -30,13 +30,12 @@ public static class AuthEndpoints
             ICurrentUserService currentUserService,
             CancellationToken ct) =>
         {
-            var userId = currentUserService.User?.Id;
-            if (string.IsNullOrEmpty(userId))
+            if (currentUserService.User == null)
             {
                 return Results.Json(new { error = "Unauthorized" }, statusCode: StatusCodes.Status401Unauthorized);
             }
 
-            var result = await authService.ChangePasswordAsync(userId, request, ct);
+            var result = await authService.ChangePasswordAsync(currentUserService.User.Id, request, ct);
             return Results.Ok(result);
         });
 
@@ -46,13 +45,12 @@ public static class AuthEndpoints
             ICurrentUserService currentUserService,
             CancellationToken ct) =>
         {
-            var userId = currentUserService.User?.Id;
-            if (string.IsNullOrEmpty(userId))
+            if (currentUserService.User == null)
             {
                 return Results.Json(new { error = "Unauthorized" }, statusCode: StatusCodes.Status401Unauthorized);
             }
 
-            var result = await authService.ChangePasswordAsync(userId, request, ct);
+            var result = await authService.ChangePasswordAsync(currentUserService.User.Id, request, ct);
             return Results.Ok(result);
         });
 
@@ -62,13 +60,12 @@ public static class AuthEndpoints
             ICurrentUserService currentUserService,
             CancellationToken ct) =>
         {
-            var userId = currentUserService.User?.Id;
-            if (string.IsNullOrEmpty(userId))
+            if (currentUserService.User == null)
             {
                 return Results.Json(new { error = "Unauthorized" }, statusCode: StatusCodes.Status401Unauthorized);
             }
 
-            var result = await authService.GetMeAsync(userId, ct);
+            var result = await authService.GetMeAsync(currentUserService.User.Id, ct);
             return Results.Ok(result);
         });
 
@@ -77,13 +74,12 @@ public static class AuthEndpoints
             ICurrentUserService currentUserService,
             CancellationToken ct) =>
         {
-            var userId = currentUserService.User?.Id;
-            if (string.IsNullOrEmpty(userId))
+            if (currentUserService.User == null)
             {
                 return Results.Json(new { error = "Unauthorized" }, statusCode: StatusCodes.Status401Unauthorized);
             }
 
-            var result = await authService.GetMeAsync(userId, ct);
+            var result = await authService.GetMeAsync(currentUserService.User.Id, ct);
             return Results.Ok(result);
         });
 

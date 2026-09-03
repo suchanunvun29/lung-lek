@@ -61,7 +61,8 @@ export default function IndividualReportPage() {
         setSalespersonId((prev) => {
           if (prev) return prev;
           const own = data.salespeople.find((sp) => sp.user?.id === currentUser?.id);
-          return (own ?? data.salespeople[0])?.id ?? "";
+          const id = (own ?? data.salespeople[0])?.id;
+          return id !== undefined ? String(id) : "";
         });
       })
       .catch(() => {

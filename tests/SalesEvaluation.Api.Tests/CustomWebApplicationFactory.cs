@@ -22,55 +22,55 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
     private readonly string _dbName = Guid.NewGuid().ToString();
 
-    public string ManagerUserId { get; } = "user-manager-1";
-    public string SalespersonUserId { get; } = "user-sales-1";
-    public string Salesperson2UserId { get; } = "user-sales-2";
-    public string MustChangePasswordUserId { get; } = "user-must-change-1";
-    public string InactiveUserId { get; } = "user-inactive-1";
+    public int ManagerUserId { get; } = 1;
+    public int SalespersonUserId { get; } = 2;
+    public int Salesperson2UserId { get; } = 3;
+    public int MustChangePasswordUserId { get; } = 4;
+    public int InactiveUserId { get; } = 5;
 
-    public string ProductTypeId1 { get; } = "pt-1";
-    public string ProductTypeId2 { get; } = "pt-2";
-    public string ProductId1 { get; } = "prod-1";
-    public string ProductId2 { get; } = "prod-2";
-    public string ProductId3 { get; } = "prod-3";
-    public string ProductId4 { get; } = "prod-4";
+    public int ProductTypeId1 { get; } = 1;
+    public int ProductTypeId2 { get; } = 2;
+    public int ProductId1 { get; } = 1;
+    public int ProductId2 { get; } = 2;
+    public int ProductId3 { get; } = 3;
+    public int ProductId4 { get; } = 4;
 
-    public string SalespersonId1 { get; } = "sp-1";
-    public string SalespersonId2 { get; } = "sp-2";
-    public string SalespersonId3 { get; } = "sp-3";
+    public int SalespersonId1 { get; } = 1;
+    public int SalespersonId2 { get; } = 2;
+    public int SalespersonId3 { get; } = 3;
 
-    public string TerritoryId1 { get; } = "terr-1";
-    public string TerritoryId2 { get; } = "terr-2";
+    public int TerritoryId1 { get; } = 1;
+    public int TerritoryId2 { get; } = 2;
 
-    public string HospitalId1 { get; } = "hosp-1";
-    public string HospitalId2 { get; } = "hosp-2";
-    public string HospitalId3 { get; } = "hosp-3";
+    public int HospitalId1 { get; } = 1;
+    public int HospitalId2 { get; } = 2;
+    public int HospitalId3 { get; } = 3;
 
-    public string AliasId1 { get; } = "alias-1";
-    public string AliasId2 { get; } = "alias-2";
-    public string AliasId3 { get; } = "alias-3";
+    public int AliasId1 { get; } = 1;
+    public int AliasId2 { get; } = 2;
+    public int AliasId3 { get; } = 3;
 
-    public string HospitalReviewId1 { get; } = "hr-1";
-    public string SalesmanReviewId1 { get; } = "sr-1";
-    public string SalesmanRuleId1 { get; } = "srule-1";
+    public int HospitalReviewId1 { get; } = 1;
+    public int SalesmanReviewId1 { get; } = 1;
+    public int SalesmanRuleId1 { get; } = 1;
 
     // Phase B seeds — territories, groups, provinces, registry and credited sales
-    public string RegionId1 { get; } = "region-1";
-    public string RegionId2 { get; } = "region-2";
-    public string TerritoryGroupId1 { get; } = "tg-1";
-    public string GroupMemberId1 { get; } = "tgm-1";
-    public string ProvinceMappingId1 { get; } = "pm-1";
-    public string ProvinceMappingId2 { get; } = "pm-2";
-    public string HospitalRegistryId1 { get; } = "hreg-1";
-    public string HospitalRegistryId2 { get; } = "hreg-2";
-    public string HospitalRegistryId3 { get; } = "hreg-3";
-    public string HospitalRegistryId4 { get; } = "hreg-4";
-    public string RegistryLinkId1 { get; } = "rlink-1";
-    public string ImportBatchId1 { get; } = "batch-1";
-    public string SalesLineId1 { get; } = "sl-1";
-    public string SalesLineId2 { get; } = "sl-2";
-    public string SalesLineCreditId1 { get; } = "slc-1";
-    public string SalesLineCreditId2 { get; } = "slc-2";
+    public int RegionId1 { get; } = 1;
+    public int RegionId2 { get; } = 2;
+    public int TerritoryGroupId1 { get; } = 1;
+    public int GroupMemberId1 { get; } = 1;
+    public int ProvinceMappingId1 { get; } = 1;
+    public int ProvinceMappingId2 { get; } = 2;
+    public int HospitalRegistryId1 { get; } = 1;
+    public int HospitalRegistryId2 { get; } = 2;
+    public int HospitalRegistryId3 { get; } = 3;
+    public int HospitalRegistryId4 { get; } = 4;
+    public int RegistryLinkId1 { get; } = 1;
+    public int ImportBatchId1 { get; } = 1;
+    public int SalesLineId1 { get; } = 1;
+    public int SalesLineId2 { get; } = 2;
+    public int SalesLineCreditId1 { get; } = 1;
+    public int SalesLineCreditId2 { get; } = 2;
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -386,7 +386,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
         hreg1.Metrics.Add(new HospitalPotentialMetric
         {
-            Id = "hpm-1",
+            Id = 1,
             Metric = PotentialMetricKey.BEDS,
             Value = 100.5m,
             PeriodYear = 2025,
@@ -396,7 +396,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
         hreg1.Metrics.Add(new HospitalPotentialMetric
         {
-            Id = "hpm-2",
+            Id = 2,
             Metric = PotentialMetricKey.CMI,
             Value = 3.25m,
             PeriodYear = 2025,
@@ -545,7 +545,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         // Territory Assignments
         var ta1 = new TerritoryAssignment
         {
-            Id = "ta-1",
+            Id = 1,
             TerritoryId = TerritoryId1,
             SalespersonId = SalespersonId1,
             IsSupervisor = true,
@@ -555,7 +555,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
         var ta2 = new TerritoryAssignment
         {
-            Id = "ta-2",
+            Id = 2,
             TerritoryId = TerritoryId1,
             SalespersonId = SalespersonId2,
             IsSupervisor = false,
@@ -676,7 +676,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
         var snMember1 = new SalesmanNameRuleMember
         {
-            Id = "snm-1",
+            Id = 1,
             RuleId = SalesmanRuleId1,
             SalespersonId = SalespersonId1,
             SharePercent = 60m
@@ -684,7 +684,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
         var snMember2 = new SalesmanNameRuleMember
         {
-            Id = "snm-2",
+            Id = 2,
             RuleId = SalesmanRuleId1,
             SalespersonId = SalespersonId2,
             SharePercent = 40m
@@ -698,7 +698,6 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         // Evaluation Setting singleton
         db.EvaluationSettings.Add(new EvaluationSetting
         {
-            Id = "singleton",
             ChurnMonths = 6,
             MinMonthsForChurn = 3,
             MinMonthsForConsistency = 6,
@@ -712,24 +711,24 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
         // Scoring Weights
         db.ScoringWeights.AddRange(
-            new ScoringWeight { Id = "sw-1", Metric = KpiMetric.REVENUE_VS_TARGET, Weight = 40, UpdatedAt = DateTime.UtcNow },
-            new ScoringWeight { Id = "sw-2", Metric = KpiMetric.NEW_CUSTOMERS, Weight = 15, UpdatedAt = DateTime.UtcNow },
-            new ScoringWeight { Id = "sw-3", Metric = KpiMetric.PRODUCT_GROUP, Weight = 15, UpdatedAt = DateTime.UtcNow },
-            new ScoringWeight { Id = "sw-4", Metric = KpiMetric.RETENTION, Weight = 15, UpdatedAt = DateTime.UtcNow },
-            new ScoringWeight { Id = "sw-5", Metric = KpiMetric.CONSISTENCY, Weight = 15, UpdatedAt = DateTime.UtcNow }
+            new ScoringWeight { Metric = KpiMetric.REVENUE_VS_TARGET, Weight = 40, UpdatedAt = DateTime.UtcNow },
+            new ScoringWeight { Metric = KpiMetric.NEW_CUSTOMERS, Weight = 15, UpdatedAt = DateTime.UtcNow },
+            new ScoringWeight { Metric = KpiMetric.PRODUCT_GROUP, Weight = 15, UpdatedAt = DateTime.UtcNow },
+            new ScoringWeight { Metric = KpiMetric.RETENTION, Weight = 15, UpdatedAt = DateTime.UtcNow },
+            new ScoringWeight { Metric = KpiMetric.CONSISTENCY, Weight = 15, UpdatedAt = DateTime.UtcNow }
         );
 
         // Tier Weights
         db.TierWeights.AddRange(
-            new TierWeight { Id = "tw-1", Tier = "A", Weight = 1.0m, UpdatedAt = DateTime.UtcNow },
-            new TierWeight { Id = "tw-2", Tier = "B", Weight = 0.8m, UpdatedAt = DateTime.UtcNow },
-            new TierWeight { Id = "tw-3", Tier = "C", Weight = 0.5m, UpdatedAt = DateTime.UtcNow }
+            new TierWeight { Tier = "A", Weight = 1.0m, UpdatedAt = DateTime.UtcNow },
+            new TierWeight { Tier = "B", Weight = 0.8m, UpdatedAt = DateTime.UtcNow },
+            new TierWeight { Tier = "C", Weight = 0.5m, UpdatedAt = DateTime.UtcNow }
         );
 
         db.SaveChanges();
     }
 
-    public string CreateToken(string userId, UserRole role)
+    public string CreateToken(int userId, UserRole role)
     {
         using var scope = Services.CreateScope();
         var tokenProvider = scope.ServiceProvider.GetRequiredService<IJwtTokenProvider>();

@@ -7,7 +7,7 @@ import {
   TeamKpiResponse,
 } from "@/lib/types";
 
-export function getSalespersonKpi(token: string, salespersonId: string, period: PeriodKey) {
+export function getSalespersonKpi(token: string, salespersonId: number, period: PeriodKey) {
   return request<SalespersonKpiResponse>(
     `/kpi/${salespersonId}?${periodQueryParams(period)}`,
     { method: "GET" },
@@ -21,13 +21,13 @@ export function getTeamKpi(token: string, period: PeriodKey) {
 
 export function getKpiDrillDown(
   token: string,
-  salespersonId: string,
+  salespersonId: number,
   metric: DrillDownMetric,
   period: PeriodKey,
-  hospitalId?: string
+  hospitalId?: number
 ) {
   const params = new URLSearchParams(periodQueryParams(period));
-  if (hospitalId) params.set("hospitalId", hospitalId);
+  if (hospitalId) params.set("hospitalId", String(hospitalId));
   return request<KpiDrillDownResponse>(
     `/kpi/${salespersonId}/drill-down/${metric}?${params.toString()}`,
     { method: "GET" },

@@ -6,7 +6,7 @@ using SalesEvaluation.Contracts.Common;
 /// <summary>Full (unstripped) territory KPI row — the internal computation shape of buildFullTerritoryRows.</summary>
 public class TerritoryKpiRowData
 {
-    public string TerritoryId { get; init; } = string.Empty;
+    public int TerritoryId { get; init; }
     public string Name { get; init; } = string.Empty;
     public List<string> OwnerNames { get; init; } = new();
     public int Rank { get; set; }
@@ -23,10 +23,10 @@ public class TerritoryKpiRowData
 /// <summary>Full (unstripped) territory-group KPI row — buildTerritoryGroupRows output.</summary>
 public class TerritoryGroupKpiRowData
 {
-    public string TerritoryId { get; init; } = string.Empty;
+    public int TerritoryId { get; init; }
     public string Name { get; init; } = string.Empty;
     public List<string> OwnerNames { get; init; } = new();
-    public List<string> MemberTerritoryIds { get; init; } = new();
+    public List<int> MemberTerritoryIds { get; init; } = new();
     public int Rank { get; set; }
     public double Revenue { get; init; }
     public double? RevenueTarget { get; init; }
@@ -44,23 +44,23 @@ public interface ITerritoryKpiService
     Task<List<TerritoryGroupKpiRowData>> BuildTerritoryGroupRowsAsync(List<TerritoryKpiRowData> fullRows, AppPeriodKey period, CancellationToken cancellationToken = default);
 
     /// <summary>Owner display names inside the period-effective window; shared with Module O's ranking.</summary>
-    Task<List<string>> OwnerNamesForAsync(string territoryId, AppPeriodKey period, CancellationToken cancellationToken = default);
+    Task<List<string>> OwnerNamesForAsync(int territoryId, AppPeriodKey period, CancellationToken cancellationToken = default);
 
     /// <summary>Compute-then-strip serialization (Data Visibility Rules ข้อ 6): null visible ids = see all.</summary>
-    object SerializeRow(TerritoryKpiRowData row, HashSet<string>? visibleTerritoryIds);
+    object SerializeRow(TerritoryKpiRowData row, HashSet<int>? visibleTerritoryIds);
 
     /// <summary>Group rows are TERRITORY_FULL only when the viewer has FULL on every member territory.</summary>
-    object SerializeGroupRow(TerritoryGroupKpiRowData row, HashSet<string>? visibleTerritoryIds);
+    object SerializeGroupRow(TerritoryGroupKpiRowData row, HashSet<int>? visibleTerritoryIds);
 
     /// <summary>Three-bucket equation chunks (MANAGER-only payload in both /territory-kpi/team and the leaderboard).</summary>
     Task<TerritoryKpiBucketsDto> GetBucketsAsync(AppPeriodKey period, CancellationToken cancellationToken = default);
 
     /// <summary>GET /territory-kpi/:territoryId — the serialized row for one territory.</summary>
-    Task<TerritoryKpiSingleResponse?> GetTerritoryKpiAsync(string territoryId, AppPeriodKey period, HashSet<string>? visibleTerritoryIds, CancellationToken cancellationToken = default);
+    Task<TerritoryKpiSingleResponse?> GetTerritoryKpiAsync(int territoryId, AppPeriodKey period, HashSet<int>? visibleTerritoryIds, CancellationToken cancellationToken = default);
 
     /// <summary>GET /territory-kpi/:territoryId/drill-down/:metric — product types and hospitals with amounts, SalesLineCredit only.</summary>
-    Task<TerritoryKpiDrillDownResponse?> GetTerritoryDrillDownAsync(string territoryId, string metric, AppPeriodKey period, CancellationToken cancellationToken = default);
+    Task<TerritoryKpiDrillDownResponse?> GetTerritoryDrillDownAsync(int territoryId, string metric, AppPeriodKey period, CancellationToken cancellationToken = default);
 
     /// <summary>GET /territory-product-ranking/:territoryId — every product with credited revenue for the territory. Returns null when the territory does not exist.</summary>
-    Task<TerritoryProductRankingResponse?> GetTerritoryProductRankingAsync(string territoryId, AppPeriodKey period, CancellationToken cancellationToken = default);
+    Task<TerritoryProductRankingResponse?> GetTerritoryProductRankingAsync(int territoryId, AppPeriodKey period, CancellationToken cancellationToken = default);
 }

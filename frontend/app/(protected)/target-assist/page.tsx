@@ -52,15 +52,15 @@ export default function TargetAssistPage() {
   const [reinstated, setReinstated] = useState<ReadonlySet<string>>(new Set());
   const [pendingInvoiceNo, setPendingInvoiceNo] = useState<string | null>(null);
 
-  const [existingByTerritoryId, setExistingByTerritoryId] = useState<Map<string, Target>>(new Map());
-  const [savingTerritoryId, setSavingTerritoryId] = useState<string | null>(null);
+  const [existingByTerritoryId, setExistingByTerritoryId] = useState<Map<number, Target>>(new Map());
+  const [savingTerritoryId, setSavingTerritoryId] = useState<number | null>(null);
 
   const loadSavedTargets = useCallback(async () => {
     if (!token) return;
     try {
       const data = await listTargets(token, year, "TERRITORY");
       setExistingByTerritoryId(
-        new Map(data.targets.filter((target) => target.territoryId !== null).map((target) => [target.territoryId as string, target]))
+        new Map(data.targets.filter((target) => target.territoryId !== null).map((target) => [target.territoryId as number, target]))
       );
     } catch {
       // Saved targets only enrich the accept panel ("เป้าปัจจุบัน" column) — the assist table works without them.
@@ -169,7 +169,7 @@ export default function TargetAssistPage() {
     }
   }
 
-  async function handleAccept(territoryId: string, revenueTarget: number): Promise<boolean> {
+  async function handleAccept(territoryId: number, revenueTarget: number): Promise<boolean> {
     if (!token) return false;
     setSavingTerritoryId(territoryId);
     setActionError(null);

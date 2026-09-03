@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 public sealed class RegionUnitInput
 {
-    public required string TerritoryId { get; init; }
+    public required int TerritoryId { get; init; }
     public required decimal Potential { get; init; }
     public required decimal? TerritoryCoverage { get; init; }
     public required decimal HistoryBase { get; init; }
@@ -12,7 +12,7 @@ public sealed class RegionUnitInput
 
 public sealed class RegionSuggestionRow
 {
-    public required string TerritoryId { get; init; }
+    public required int TerritoryId { get; init; }
     public required decimal Potential { get; init; }
     public required decimal? TerritoryCoverage { get; init; }
     public required decimal HistoryBase { get; init; }
@@ -46,7 +46,7 @@ public static class RegionSuggestionCalculator
         decimal alpha,
         int monthsUsed,
         decimal growthRate,
-        IReadOnlyDictionary<string, decimal>? rebalanceTargetByTerritory,
+        IReadOnlyDictionary<int, decimal>? rebalanceTargetByTerritory,
         IEnumerable<RegionUnitInput> units)
     {
         var unitList = units.ToList();

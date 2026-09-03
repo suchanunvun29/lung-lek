@@ -55,17 +55,17 @@ public class KpiScoringService : IKpiScoringService
     // never SalesLine.salespersonId directly. Every per-person aggregation goes through here.
 
     private sealed record CreditedLine(
-        string SalesLineId,
-        string HospitalId,
-        string ProductTypeId,
+        int SalesLineId,
+        int HospitalId,
+        int ProductTypeId,
         int Year,
         int Month,
         double CreditedTotal);
 
-    private sealed record NewCustomerCredit(string HospitalId, string SalesLineId, double SharePercent);
+    private sealed record NewCustomerCredit(int HospitalId, int SalesLineId, double SharePercent);
 
     private async Task<List<CreditedLine>> GetCreditedSalesLinesAsync(
-        string salespersonId,
+        int salespersonId,
         List<int>? monthKeys,
         (int Year, int Month)? upToPeriodEnd,
         CancellationToken cancellationToken)
@@ -108,7 +108,7 @@ public class KpiScoringService : IKpiScoringService
     }
 
     private Task<List<CreditedLine>> GetCreditedSalesLinesInMonthsAsync(
-        string salespersonId,
+        int salespersonId,
         List<int> monthKeys,
         CancellationToken cancellationToken)
     {
@@ -129,7 +129,7 @@ public class KpiScoringService : IKpiScoringService
     {
         var settings = await _dbContext.EvaluationSettings
             .AsNoTracking()
-            .FirstOrDefaultAsync(s => s.Id == "singleton", cancellationToken);
+            .FirstOrDefaultAsync(cancellationToken);
         if (settings == null)
         {
             throw new InvalidOperationException("EvaluationSetting singleton row is missing — re-run the seed script");
@@ -146,7 +146,7 @@ public class KpiScoringService : IKpiScoringService
         return rows.ToDictionary(row => row.Metric, row => (decimal)row.Weight);
     }
 
-    private async Task<MetricResultDto> ComputeRevenueVsTargetAsync(string salespersonId, AppPeriodKey period, CancellationToken cancellationToken)
+    private async Task<MetricResultDto> ComputeRevenueVsTargetAsync(int salespersonId, AppPeriodKey period, CancellationToken cancellationToken)
     {
         var months = PeriodUtils.MonthsInPeriod(period);
         var monthKeys = PeriodUtils.MonthKeys(months);
@@ -189,7 +189,7 @@ public class KpiScoringService : IKpiScoringService
         };
     }
 
-    private async Task<MetricResultDto> ComputeNewCustomersAsync(string salespersonId, AppPeriodKey period, CancellationToken cancellationToken)
+    private async Task<MetricResultDto> ComputeNewCustomersAsync(int salespersonId, AppPeriodKey period, CancellationToken cancellationToken)
     {
         var monthKeys = PeriodUtils.MonthKeys(PeriodUtils.MonthsInPeriod(period));
         var targetRows = await _dbContext.Targets
@@ -234,7 +234,7 @@ public class KpiScoringService : IKpiScoringService
     // the "new customer" credit lands in — independent of who is asking. A hospital's first-sale
     // line is credited to whichever salesperson(s) hold a SalesLineCredit on it, split by
     // sharePercent (design.md: a 50/50 shared deal counts as 0.5 new customers each).
-    private async Task<Dictionary<string, (string Id, int Year, int Month)>> GetFirstSalePerHospitalAsync(CancellationToken cancellationToken)
+    private async Task<Dictionary<int, (int Id, int Year, int Month)>> GetFirstSalePerHospitalAsync(CancellationToken cancellationToken)
     {
         var lines = await _dbContext.SalesLines
             .AsNoTracking()
@@ -242,7 +242,7 @@ public class KpiScoringService : IKpiScoringService
             .Select(sl => new { sl.Id, sl.HospitalId, sl.Year, sl.Month, sl.InvoiceDate, sl.CreatedAt })
             .ToListAsync(cancellationToken);
 
-        var firstSaleByHospital = new Dictionary<string, (string, int, int)>();
+        var firstSaleByHospital = new Dictionary<int, (int, int, int)>();
         foreach (var line in lines.OrderBy(l => l.Year).ThenBy(l => l.Month).ThenBy(l => l.InvoiceDate).ThenBy(l => l.CreatedAt))
         {
             if (!firstSaleByHospital.ContainsKey(line.HospitalId))
@@ -254,7 +254,7 @@ public class KpiScoringService : IKpiScoringService
         return firstSaleByHospital;
     }
 
-    private async Task<List<NewCustomerCredit>> GetNewCustomerCreditedLinesAsync(string salespersonId, AppPeriodKey period, CancellationToken cancellationToken)
+    private async Task<List<NewCustomerCredit>> GetNewCustomerCreditedLinesAsync(int salespersonId, AppPeriodKey period, CancellationToken cancellationToken)
     {
         var months = PeriodUtils.MonthsInPeriod(period);
         var periodKeys = months.Select(m => PeriodUtils.MonthKey(m.Year, m.Month)).ToHashSet();
@@ -283,14 +283,14 @@ public class KpiScoringService : IKpiScoringService
     // Actual new-customer count regardless of whether a target is set — the scoring metric
     // short-circuits to 0 when there's no target, but the Leaderboard's "new customers" ranking
     // criterion needs the real count even with no target configured.
-    public async Task<double> GetNewCustomerActualCountAsync(string salespersonId, AppPeriodKey period, CancellationToken cancellationToken)
+    public async Task<double> GetNewCustomerActualCountAsync(int salespersonId, AppPeriodKey period, CancellationToken cancellationToken)
     {
         var creditedLines = await GetNewCustomerCreditedLinesAsync(salespersonId, period, cancellationToken);
         var actual = creditedLines.Sum(l => l.SharePercent / 100.0);
         return Math.Round(actual * 10.0, MidpointRounding.AwayFromZero) / 10.0;
     }
 
-    private async Task<MetricResultDto> ComputeProductGroupAsync(string salespersonId, AppPeriodKey period, CancellationToken cancellationToken)
+    private async Task<MetricResultDto> ComputeProductGroupAsync(int salespersonId, AppPeriodKey period, CancellationToken cancellationToken)
     {
         var monthKeys = PeriodUtils.MonthKeys(PeriodUtils.MonthsInPeriod(period));
         var targetGroups = await _dbContext.TargetProductGroups
@@ -313,7 +313,7 @@ public class KpiScoringService : IKpiScoringService
             };
         }
 
-        var targetByType = new Dictionary<string, (double Target, string Name)>();
+        var targetByType = new Dictionary<int, (double Target, string Name)>();
         foreach (var g in targetGroups)
         {
             var existing = targetByType.GetValueOrDefault(g.ProductTypeId);
@@ -334,7 +334,7 @@ public class KpiScoringService : IKpiScoringService
         }
 
         var creditedLines = await GetCreditedSalesLinesInMonthsAsync(salespersonId, monthKeys, cancellationToken);
-        var actualByType = new Dictionary<string, double>();
+        var actualByType = new Dictionary<int, double>();
         foreach (var line in creditedLines)
         {
             if (!targetByType.ContainsKey(line.ProductTypeId))
@@ -378,7 +378,7 @@ public class KpiScoringService : IKpiScoringService
     }
 
     private async Task<MetricResultDto> ComputeRetentionAsync(
-        string salespersonId,
+        int salespersonId,
         AppPeriodKey period,
         EvaluationSetting settings,
         int dataCoverageMonths,
@@ -441,7 +441,7 @@ public class KpiScoringService : IKpiScoringService
     }
 
     private async Task<MetricResultDto> ComputeConsistencyAsync(
-        string salespersonId,
+        int salespersonId,
         AppPeriodKey period,
         EvaluationSetting settings,
         int dataCoverageMonths,
@@ -510,7 +510,7 @@ public class KpiScoringService : IKpiScoringService
         };
     }
 
-    public async Task<CompositeScoreResultDto> ComputeCompositeScoreAsync(string salespersonId, AppPeriodKey period, CancellationToken cancellationToken = default)
+    public async Task<CompositeScoreResultDto> ComputeCompositeScoreAsync(int salespersonId, AppPeriodKey period, CancellationToken cancellationToken = default)
     {
         var settings = await GetEvaluationSettingsAsync(cancellationToken);
         var weights = await GetScoringWeightsAsync(cancellationToken);
@@ -562,7 +562,7 @@ public class KpiScoringService : IKpiScoringService
     // ---------- Supplementary KPIs (shown but not scored) ----------
 
     public async Task<SupplementaryKpisDto> ComputeSupplementaryKpisAsync(
-        string salespersonId,
+        int salespersonId,
         AppPeriodKey period,
         EvaluationSetting settings,
         CancellationToken cancellationToken)
@@ -580,13 +580,13 @@ public class KpiScoringService : IKpiScoringService
 
         var churnedCustomers = await ComputeChurnedCustomersAsync(salespersonId, periodEnd, settings.ChurnMonths, activeHospitalIds, cancellationToken);
 
-        var distinctProductTypesByHospital = new Dictionary<string, HashSet<string>>();
-        var revenueByProductTypeId = new Dictionary<string, double>();
+        var distinctProductTypesByHospital = new Dictionary<int, HashSet<int>>();
+        var revenueByProductTypeId = new Dictionary<int, double>();
         foreach (var line in periodCreditedLines)
         {
             if (!distinctProductTypesByHospital.TryGetValue(line.HospitalId, out var set))
             {
-                set = new HashSet<string>();
+                set = new HashSet<int>();
                 distinctProductTypesByHospital[line.HospitalId] = set;
             }
 
@@ -613,12 +613,12 @@ public class KpiScoringService : IKpiScoringService
             ProductTypeGroupsSold = revenueByProductTypeId.Select(kvp => new ProductTypeGroupSoldDto
             {
                 ProductTypeId = kvp.Key,
-                Name = productTypeNameById.GetValueOrDefault(kvp.Key, kvp.Key),
+                Name = productTypeNameById.GetValueOrDefault(kvp.Key, kvp.Key.ToString()),
                 RevenueShare = totalRevenueForPenetration > 0 ? kvp.Value / totalRevenueForPenetration * 100.0 : 0
             }).ToList()
         };
 
-        var revenueByHospitalId = new Dictionary<string, double>();
+        var revenueByHospitalId = new Dictionary<int, double>();
         foreach (var line in periodCreditedLines)
         {
             revenueByHospitalId[line.HospitalId] = revenueByHospitalId.GetValueOrDefault(line.HospitalId) + line.CreditedTotal;
@@ -636,7 +636,7 @@ public class KpiScoringService : IKpiScoringService
             .Select(kvp => new RevenueByHospitalEntryDto
             {
                 HospitalId = kvp.Key,
-                HospitalName = hospitalNameById.GetValueOrDefault(kvp.Key, kvp.Key),
+                HospitalName = hospitalNameById.GetValueOrDefault(kvp.Key, kvp.Key.ToString()),
                 Revenue = kvp.Value,
                 SharePercent = totalRevenue > 0 ? kvp.Value / totalRevenue * 100.0 : 0
             })
@@ -668,10 +668,10 @@ public class KpiScoringService : IKpiScoringService
     }
 
     private async Task<ChurnedCustomersDto> ComputeChurnedCustomersAsync(
-        string salespersonId,
+        int salespersonId,
         (int Year, int Month) periodEnd,
         int churnMonths,
-        List<string> activeHospitalIdsInPeriod,
+        List<int> activeHospitalIdsInPeriod,
         CancellationToken cancellationToken)
     {
         var activeSet = activeHospitalIdsInPeriod.ToHashSet();
@@ -682,7 +682,7 @@ public class KpiScoringService : IKpiScoringService
             upToPeriodEnd: periodEnd,
             cancellationToken);
 
-        var lastOrderByHospital = new Dictionary<string, (int Year, int Month)>();
+        var lastOrderByHospital = new Dictionary<int, (int Year, int Month)>();
         foreach (var line in linesUpToPeriodEnd)
         {
             var current = lastOrderByHospital.GetValueOrDefault(line.HospitalId);
@@ -718,7 +718,7 @@ public class KpiScoringService : IKpiScoringService
 
     // ---------- Endpoint compositions ----------
 
-    public async Task<SalespersonKpiResponse?> GetSalespersonKpiAsync(string salespersonId, AppPeriodKey period, CancellationToken cancellationToken = default)
+    public async Task<SalespersonKpiResponse?> GetSalespersonKpiAsync(int salespersonId, AppPeriodKey period, CancellationToken cancellationToken = default)
     {
         var salesperson = await _dbContext.Salespeople
             .AsNoTracking()
@@ -782,10 +782,10 @@ public class KpiScoringService : IKpiScoringService
     // ---------- Drill-down ----------
 
     public async Task<KpiDrillDownResponse?> GetDrillDownAsync(
-        string salespersonId,
+        int salespersonId,
         string metric,
         AppPeriodKey period,
-        string? hospitalId,
+        int? hospitalId,
         CancellationToken cancellationToken = default)
     {
         var salesperson = await _dbContext.Salespeople
@@ -812,7 +812,7 @@ public class KpiScoringService : IKpiScoringService
         return result;
     }
 
-    private async Task<KpiDrillDownResponse> GetScoredMetricDrillDownAsync(string salespersonId, string metric, AppPeriodKey period, CancellationToken cancellationToken)
+    private async Task<KpiDrillDownResponse> GetScoredMetricDrillDownAsync(int salespersonId, string metric, AppPeriodKey period, CancellationToken cancellationToken)
     {
         var monthKeys = PeriodUtils.MonthKeys(PeriodUtils.MonthsInPeriod(period));
 
@@ -861,7 +861,7 @@ public class KpiScoringService : IKpiScoringService
             var settings = await GetEvaluationSettingsAsync(cancellationToken);
             var dataCoverageMonths = await GetDataCoverageMonthsAsync(cancellationToken);
             var result = await ComputeRetentionAsync(salespersonId, period, settings, dataCoverageMonths, cancellationToken);
-            var retainedHospitalIds = (result.Detail.GetValueOrDefault("retainedHospitalIds") as List<string>) ?? new List<string>();
+            var retainedHospitalIds = (result.Detail.GetValueOrDefault("retainedHospitalIds") as List<int>) ?? new List<int>();
             var prevMonths = PeriodUtils.MonthsInPeriod(PeriodUtils.PreviousPeriod(period));
             var allMonthKeys = monthKeys.Concat(PeriodUtils.MonthKeys(prevMonths)).Distinct().ToList();
             var salesLines = await QueryDrillDownSalesLines(cancellationToken,
@@ -891,10 +891,10 @@ public class KpiScoringService : IKpiScoringService
     }
 
     private async Task<KpiDrillDownResponse> GetSupplementaryDrillDownAsync(
-        string salespersonId,
+        int salespersonId,
         string metric,
         AppPeriodKey period,
-        string? hospitalId,
+        int? hospitalId,
         CancellationToken cancellationToken)
     {
         var monthKeys = PeriodUtils.MonthKeys(PeriodUtils.MonthsInPeriod(period));
@@ -917,7 +917,7 @@ public class KpiScoringService : IKpiScoringService
             var settings = await GetEvaluationSettingsAsync(cancellationToken);
             var salesLines = await QueryDrillDownSalesLines(cancellationToken,
                 line => (line.Year < periodEnd.Year || (line.Year == periodEnd.Year && line.Month <= periodEnd.Month)) &&
-                        (hospitalId == null || line.HospitalId == hospitalId) &&
+                        (!hospitalId.HasValue || line.HospitalId == hospitalId.Value) &&
                         line.Credits.Any(c => c.SalespersonId == salespersonId),
                 includeProduct: false,
                 orderBy: q => q.OrderBy(l => l.HospitalId).ThenByDescending(l => l.Year).ThenByDescending(l => l.Month));
@@ -927,7 +927,7 @@ public class KpiScoringService : IKpiScoringService
         // ACTIVE_CUSTOMERS, PRODUCT_PENETRATION, REVENUE_BY_HOSPITAL all reduce to the period's sales lines
         var salesLinesForPeriod = await QueryDrillDownSalesLines(cancellationToken,
             line => monthKeys.Contains(PeriodUtils.MonthKey(line.Year, line.Month)) &&
-                    (hospitalId == null || line.HospitalId == hospitalId) &&
+                    (!hospitalId.HasValue || line.HospitalId == hospitalId.Value) &&
                     line.Credits.Any(c => c.SalespersonId == salespersonId),
             includeProduct: true,
             includeProductType: true,
@@ -1000,7 +1000,7 @@ public class KpiScoringService : IKpiScoringService
 
     // ---------- Team-level composites (single source) ----------
 
-    public async Task<List<(string SalespersonId, CompositeScoreResultDto Result)>> ComputeActiveSalespersonCompositesAsync(
+    public async Task<List<(int SalespersonId, CompositeScoreResultDto Result)>> ComputeActiveSalespersonCompositesAsync(
         AppPeriodKey period,
         CancellationToken cancellationToken = default)
     {
@@ -1011,7 +1011,7 @@ public class KpiScoringService : IKpiScoringService
             .Select(sp => sp.Id)
             .ToListAsync(cancellationToken);
 
-        var entries = new List<(string, CompositeScoreResultDto)>();
+        var entries = new List<(int, CompositeScoreResultDto)>();
         foreach (var id in salespeople)
         {
             entries.Add((id, await ComputeCompositeScoreAsync(id, period, cancellationToken)));

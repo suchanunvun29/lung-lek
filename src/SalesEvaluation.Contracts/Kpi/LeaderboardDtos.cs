@@ -13,7 +13,7 @@ using System.Text.Json.Serialization;
 public abstract class LeaderboardUnitDto
 {
     public string UnitType { get; set; } = string.Empty;
-    public string TerritoryId { get; set; } = string.Empty;
+    public int TerritoryId { get; set; }
     public string Name { get; set; } = string.Empty;
     public List<string> OwnerNames { get; set; } = new();
     /// <summary>null for unranked units (tail block).</summary>
@@ -46,7 +46,7 @@ public class LeaderboardGroupFullUnitDto : LeaderboardUnitDto
 {
     public string Visibility => "TERRITORY_FULL";
     public string? CriterionReason { get; set; }
-    public List<string> MemberTerritoryIds { get; set; } = new();
+    public List<int> MemberTerritoryIds { get; set; } = new();
     public double Revenue { get; set; }
     public double? RevenueTarget { get; set; }
     public double? AchievementPercent { get; set; }

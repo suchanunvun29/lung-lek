@@ -10,7 +10,7 @@ export interface HospitalNameReviewTableProps {
 }
 
 export function HospitalNameReviewTable({ reviews, onDecide }: HospitalNameReviewTableProps) {
-  const [busyId, setBusyId] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<number | null>(null);
 
   async function handleDecision(review: HospitalNameReview, decision: "MERGED" | "KEPT_SEPARATE") {
     setBusyId(review.id);

@@ -110,7 +110,7 @@ public class SalespersonEndpointsTests : IClassFixture<CustomWebApplicationFacto
         SetBearerToken(token);
 
         var content = new StringContent(JsonSerializer.Serialize(new { displayName = "New Name" }), Encoding.UTF8, "application/json");
-        var response = await _client.PatchAsync("/salespeople/non-existent-sp-999", content);
+        var response = await _client.PatchAsync("/salespeople/999", content);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }

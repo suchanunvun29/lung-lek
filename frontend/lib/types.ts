@@ -4,14 +4,14 @@
 export type UserRole = "MANAGER" | "SALESPERSON";
 
 export interface SalespersonSummary {
-  id: string;
+  id: number;
   displayName: string;
   nameInFile: string;
 }
 
 /** Full user record as returned by GET/POST/PATCH /users (userWithSalespersonSelect). */
 export interface AppUser {
-  id: string;
+  id: number;
   email: string;
   displayName: string;
   role: UserRole;
@@ -26,7 +26,7 @@ export interface AppUser {
 
 /** Minimal user shape returned by POST /auth/login — what we keep in the auth store. */
 export interface AuthUser {
-  id: string;
+  id: number;
   email: string;
   displayName: string;
   role: UserRole;
@@ -44,7 +44,7 @@ export type ImportIssueLevel = "WARNING" | "ERROR";
 export type ImportMode = "APPEND" | "REPLACE_PERIOD" | "PERIOD_DELETE";
 
 export interface UploaderSummary {
-  id: string;
+  id: number;
   displayName: string;
   email: string;
 }
@@ -55,8 +55,8 @@ export interface PeriodTouched {
 }
 
 export interface ImportIssue {
-  id: string;
-  importBatchId: string;
+  id: number;
+  importBatchId: number;
   sheetName: string | null;
   rowNumber: number | null;
   columnName: string | null;
@@ -72,33 +72,33 @@ export type NameDecisionSource = "AUTO" | "MANAGER";
 export type HospitalNameReviewStatus = "PENDING" | "MERGED" | "KEPT_SEPARATE";
 
 export interface HospitalNameReview {
-  id: string;
+  id: number;
   normalizedKeyA: string;
   normalizedKeyB: string;
   sampleRawA: string;
   sampleRawB: string;
   similarity: string | null;
   status: HospitalNameReviewStatus;
-  mergedIntoId: string | null;
-  decidedById: string | null;
+  mergedIntoId: number | null;
+  decidedById: number | null;
   decidedAt: string | null;
   note: string | null;
   createdAt: string;
 }
 
 export interface SalesmanNameRuleMember {
-  id: string;
-  ruleId: string;
-  salespersonId: string;
+  id: number;
+  ruleId: number;
+  salespersonId: number;
   sharePercent: string;
   salesperson: SalespersonSummary;
 }
 
 export interface SalesmanNameRule {
-  id: string;
+  id: number;
   normalizedRaw: string;
   sampleRaw: string;
-  decidedById: string | null;
+  decidedById: number | null;
   decidedAt: string | null;
   createdAt: string;
   members: SalesmanNameRuleMember[];
@@ -106,10 +106,10 @@ export interface SalesmanNameRule {
 
 /** Full ImportBatch record — `issues` is only present on POST /import and GET /import-batches/:id. */
 export interface ImportBatch {
-  id: string;
+  id: number;
   fileName: string;
   fileSizeBytes: number;
-  uploadedById: string;
+  uploadedById: number;
   uploadedBy: UploaderSummary;
   startedAt: string;
   finishedAt: string | null;
@@ -124,7 +124,7 @@ export interface ImportBatch {
   mode: ImportMode;
   targetPeriods: PeriodTouched[] | null;
   removedRows: number;
-  confirmedById: string | null;
+  confirmedById: number | null;
   periodsTouched: PeriodTouched[] | null;
   errorMessage: string | null;
   issues?: ImportIssue[];
@@ -158,22 +158,22 @@ export interface PeriodImportConfirmedResponse {
 }
 
 export interface EntitySummary {
-  id: string;
+  id: number;
   displayName: string;
 }
 
 /** Row shape returned by GET /sales-lines (nested selects from import.controller.ts). */
 export interface SalesLine {
-  id: string;
+  id: number;
   invoiceNo: string;
   poNo: string | null;
   invoiceDate: string;
   year: number;
   month: number;
-  hospitalId: string;
-  salespersonId: string;
-  productId: string;
-  productTypeId: string;
+  hospitalId: number;
+  salespersonId: number;
+  productId: number;
+  productTypeId: number;
   lot: string | null;
   expiryDate: string | null;
   province: string | null;
@@ -185,15 +185,15 @@ export interface SalesLine {
   rowKey: string;
   sourceSheetName: string;
   sourceRowNumber: number;
-  importBatchId: string;
+  importBatchId: number;
   hospital: EntitySummary;
   salesperson: EntitySummary;
-  product: { id: string; name: string };
-  productType: { id: string; name: string };
+  product: { id: number; name: string };
+  productType: { id: number; name: string };
 }
 
 export interface Hospital {
-  id: string;
+  id: number;
   nameInFile: string;
   displayName: string;
   province: string | null;
@@ -211,20 +211,20 @@ export type PotentialMetricKey = "BEDS" | "CMI" | "SUM_ADJ_RW" | "OCCUPANCY_RATE
 export type TerritoryLinkSource = "INFERRED" | "MANUAL";
 
 export interface Region {
-  id: string;
+  id: number;
   name: string;
   sortOrder: number;
 }
 
 export interface ProvinceMapping {
-  id: string;
+  id: number;
   canonicalName: string;
-  regionId: string;
+  regionId: number;
   region: Region;
 }
 
 export interface HospitalRegistryMetric {
-  id: string;
+  id: number;
   metric: PotentialMetricKey;
   value: string;
   periodYear: number | null;
@@ -232,14 +232,14 @@ export interface HospitalRegistryMetric {
 }
 
 export interface HospitalRegistry {
-  id: string;
+  id: number;
   sourceCode: string | null;
   nameInFile: string;
   displayName: string;
-  provinceMappingId: string | null;
+  provinceMappingId: number | null;
   provinceMapping: ProvinceMapping | null;
   provinceRaw: string;
-  regionId: string | null;
+  regionId: number | null;
   region: Region | null;
   healthZone: string | null;
   tier: string | null;
@@ -247,16 +247,16 @@ export interface HospitalRegistry {
   potentialAdjustment: string;
   isActive: boolean;
   sourceFile: string | null;
-  territoryId: string | null;
+  territoryId: number | null;
   territory: EntitySummary | null;
   territorySource: TerritoryLinkSource;
   metrics: HospitalRegistryMetric[];
 }
 
 export interface HospitalRegistryLink {
-  id: string;
-  hospitalId: string;
-  hospitalRegistryId: string | null;
+  id: number;
+  hospitalId: number;
+  hospitalRegistryId: number | null;
   status: RegistryLinkStatus;
   method: RegistryLinkMethod | null;
   confidence: string | null;
@@ -267,17 +267,17 @@ export interface HospitalRegistryLink {
 }
 
 export interface LinkedUserSummary {
-  id: string;
+  id: number;
   email: string;
   displayName: string;
 }
 
 export interface Salesperson {
-  id: string;
+  id: number;
   nameInFile: string;
   displayName: string;
   isActive: boolean;
-  userId: string | null;
+  userId: number | null;
   user: LinkedUserSummary | null;
   employmentEndedAt: string | null;
   createdAt: string;
@@ -287,15 +287,15 @@ export interface Salesperson {
 // ---------- Module J (2026-08-22): salesman auto-create review queue ----------
 
 export interface SalesmanNameReview {
-  id: string;
+  id: number;
   personKey: string;
   sampleRaw: string;
   status: HospitalNameReviewStatus; // same enum: PENDING | MERGED | KEPT_SEPARATE ("คนใหม่จริง")
-  createdSalespersonId: string | null;
+  createdSalespersonId: number | null;
   createdSalesperson: SalespersonSummary | null;
-  mergedIntoId: string | null;
+  mergedIntoId: number | null;
   mergedInto: SalespersonSummary | null;
-  decidedById: string | null;
+  decidedById: number | null;
   decidedAt: string | null;
   note: string | null;
   createdAt: string;
@@ -306,15 +306,15 @@ export interface SalesmanNameReview {
 export type TargetScope = "SALESPERSON" | "TERRITORY" | "TERRITORY_GROUP";
 
 export interface RegionSummary {
-  id: string;
+  id: number;
   name: string;
 }
 
 export interface Territory {
-  id: string;
+  id: number;
   name: string;
   code: string | null;
-  regionId: string | null;
+  regionId: number | null;
   region: RegionSummary | null;
   sortOrder: number;
   isActive: boolean;
@@ -324,20 +324,20 @@ export interface Territory {
 }
 
 export interface TerritoryAssignment {
-  id: string;
-  territoryId: string;
-  salespersonId: string;
+  id: number;
+  territoryId: number;
+  salespersonId: number;
   isSupervisor: boolean;
   effectiveFrom: string;
   effectiveTo: string | null;
   note: string | null;
   /** Raw Territory include — its display field is `name`, not `displayName`. */
-  territory: { id: string; name: string };
+  territory: { id: number; name: string };
   salesperson: SalespersonSummary;
 }
 
 export interface UnassignedTerritoryHospital {
-  id: string;
+  id: number;
   displayName: string;
   province: string | null;
   /** Credit-weighted & exclusion-aware amount for this hospital; `ambiguous` = 2nd-ranked contributor ≥30% of 1st. */
@@ -346,7 +346,7 @@ export interface UnassignedTerritoryHospital {
 }
 
 export interface TerritoryGroup {
-  id: string;
+  id: number;
   name: string;
   isActive: boolean;
   note: string | null;
@@ -354,12 +354,12 @@ export interface TerritoryGroup {
 }
 
 export interface TerritoryGroupMember {
-  id: string;
-  territoryId: string;
+  id: number;
+  territoryId: number;
   effectiveFrom: string;
   effectiveTo: string | null;
   /** Raw Territory include — its display field is `name`, not `displayName`. */
-  territory: { id: string; name: string };
+  territory: { id: number; name: string };
 }
 
 export type DerivedTargetSource = "MANUAL" | "TERRITORY" | "TERRITORY_GROUP";
@@ -367,8 +367,8 @@ export type DerivedTargetSource = "MANUAL" | "TERRITORY" | "TERRITORY_GROUP";
 /** One contribution line of GET /targets/derived — a TERRITORY or TERRITORY_GROUP target split by active owners.
  *  `unassigned: true` marks a unit with no active owner: it must surface as its own block, never silently dropped. */
 export interface DerivedTargetContribution {
-  territoryId?: string;
-  territoryGroupId?: string;
+  territoryId?: number;
+  territoryGroupId?: number;
   revenueTarget: number;
   unassigned?: boolean;
 }
@@ -386,7 +386,7 @@ export interface DerivedTarget {
 export type TerritoryKpiVisibility = "TERRITORY_FULL" | "TERRITORY_RANK_ONLY";
 
 export interface TerritoryKpiFullRow {
-  territoryId: string;
+  territoryId: number;
   name: string;
   ownerNames: string[];
   revenue: number;
@@ -404,7 +404,7 @@ export interface TerritoryKpiFullRow {
 }
 
 export interface TerritoryKpiRankOnlyRow {
-  territoryId: string;
+  territoryId: number;
   name: string;
   ownerNames: string[];
   compositeScore: number | null;
@@ -416,7 +416,7 @@ export interface TerritoryKpiRankOnlyRow {
 export type TerritoryKpiRow = TerritoryKpiFullRow | TerritoryKpiRankOnlyRow;
 
 export interface TerritoryPersonalBucketEntry {
-  salespersonId: string;
+  salespersonId: number;
   displayName: string;
   revenue: number;
   personalTarget: number;
@@ -441,15 +441,15 @@ export interface TerritoryKpiTeamResponse {
 export interface TerritoryKpiDrillDownResponse {
   territory: EntitySummary;
   metric: DrillDownMetric;
-  productTypes: { id: string; name: string; revenue: number }[];
-  hospitals: { id: string; name: string; revenue: number }[];
+  productTypes: { id: number; name: string; revenue: number }[];
+  hospitals: { id: number; name: string; revenue: number }[];
 }
 
 export interface TerritoryGroupKpiFullRow {
-  territoryId: string;
+  territoryId: number;
   name: string;
   ownerNames: string[];
-  memberTerritoryIds: string[];
+  memberTerritoryIds: number[];
   revenue: number;
   revenueTarget: number | null;
   achievementPercent: number | null;
@@ -460,7 +460,7 @@ export interface TerritoryGroupKpiFullRow {
 }
 
 export interface TerritoryGroupKpiRankOnlyRow {
-  territoryId: string;
+  territoryId: number;
   name: string;
   ownerNames: string[];
   compositeScore: number | null;
@@ -485,18 +485,18 @@ export interface MyTerritoryViewResponse {
   territories: EntitySummary[];
   mode: MyTerritoryViewMode;
   creditOnly: boolean;
-  productTypeId: string | null;
-  soldHospitals: { hospital: { id: string; displayName: string }; revenue: number }[];
-  soldBeforeButNotInPeriod: { hospital: { id: string; displayName: string; province: string | null } }[];
+  productTypeId: number | null;
+  soldHospitals: { hospital: { id: number; displayName: string }; revenue: number }[];
+  soldBeforeButNotInPeriod: { hospital: { id: number; displayName: string; province: string | null } }[];
 }
 
 // ---------- Module P2: Never-sold government hospitals ----------
 
 export interface NeverSoldHospitalItem {
-  id: string;
+  id: number;
   displayName: string;
   province: string;
-  provinceMappingId: string | null;
+  provinceMappingId: number | null;
   tier: string | null;
   category: string;
   metricKey: string;
@@ -511,17 +511,17 @@ export interface NeverSoldHospitalsResponse {
   mode: MyTerritoryViewMode;
   potentialMetric: string;
   topN: number;
-  provinceMappingId: string | null;
-  productTypeId: string | null;
+  provinceMappingId: number | null;
+  productTypeId: number | null;
   totalNeverSold: number;
   neverSoldHospitals: NeverSoldHospitalItem[];
 }
 
 export type ProductZeroSaleStatus = "SOLD_BEFORE_NOT_IN_PERIOD" | "NEVER_SOLD_IN_TERRITORY";
 
-export interface TerritoryProductRankingItem { productId: string; code: string; name: string; productType: { id: string; name: string }; revenue: number; quantity: number; zeroSaleStatus: ProductZeroSaleStatus | null; }
+export interface TerritoryProductRankingItem { productId: number; code: string; name: string; productType: { id: number; name: string }; revenue: number; quantity: number; zeroSaleStatus: ProductZeroSaleStatus | null; }
 /** GET /territory-products/ranking sends the raw Territory model (`name`), not an EntitySummary (`displayName`). */
-export interface TerritoryProductRankingTerritory { id: string; name: string; ownerNames: string[]; }
+export interface TerritoryProductRankingTerritory { id: number; name: string; ownerNames: string[]; }
 export interface TerritoryProductRankingResponse { period: PeriodKey; territory: TerritoryProductRankingTerritory; items: TerritoryProductRankingItem[]; zeroSaleWarning: string; personalBucket?: Omit<TerritoryProductRankingItem, "zeroSaleStatus">[]; }
 
 // ---------- Module O: Product Master ----------
@@ -529,13 +529,13 @@ export interface TerritoryProductRankingResponse { period: PeriodKey; territory:
 export type ProductSource = "SALES_HISTORY" | "CATALOG";
 
 export interface ProductMasterItem {
-  id: string;
+  id: number;
   name: string;
   code: string | null;
   displayName: string | null;
   source: ProductSource;
   isActive: boolean;
-  productType: { id: string; name: string };
+  productType: { id: number; name: string };
 }
 
 // ---------- Module D: Targets ----------
@@ -549,20 +549,20 @@ export interface ProductMasterItem {
 export type TargetChangeType = "CREATE" | "UPDATE" | "DELETE";
 
 export interface TargetProductGroupTarget {
-  id: string;
-  targetId: string;
-  productTypeId: string;
+  id: number;
+  targetId: number;
+  productTypeId: number;
   revenueTarget: string;
   /** Only present on GET /targets — listTargets includes it, the PUT endpoints don't. */
-  productType?: { id: string; name: string };
+  productType?: { id: number; name: string };
 }
 
 export interface Target {
-  id: string;
+  id: number;
   scope: TargetScope;
-  territoryId: string | null;
-  territoryGroupId: string | null;
-  salespersonId: string | null;
+  territoryId: number | null;
+  territoryGroupId: number | null;
+  salespersonId: number | null;
   year: number;
   month: number;
   revenueTarget: string;
@@ -572,19 +572,19 @@ export interface Target {
   updatedAt: string;
   productGroupTargets: TargetProductGroupTarget[];
   /** Only present on GET /targets — listTargets includes it, the PUT endpoints don't. */
-  salesperson?: { id: string; displayName: string };
-  territory?: { id: string; name: string };
-  territoryGroup?: { id: string; name: string };
+  salesperson?: { id: number; displayName: string };
+  territory?: { id: number; name: string };
+  territoryGroup?: { id: number; name: string };
 }
 
 export interface TargetProductGroupSnapshot {
-  productTypeId: string;
+  productTypeId: number;
   revenueTarget: number;
 }
 
 export interface TargetSnapshot {
-  id: string;
-  salespersonId: string;
+  id: number;
+  salespersonId: number;
   year: number;
   month: number;
   revenueTarget: number;
@@ -594,18 +594,18 @@ export interface TargetSnapshot {
 }
 
 export interface TargetRevisionChangedBy {
-  id: string;
+  id: number;
   displayName: string;
   email: string;
 }
 
 export interface TargetRevision {
-  id: string;
-  targetId: string;
+  id: number;
+  targetId: number;
   changeType: TargetChangeType;
   before: TargetSnapshot | null;
   after: TargetSnapshot | null;
-  changedById: string;
+  changedById: number;
   changedBy: TargetRevisionChangedBy;
   changedAt: string;
   note: string | null;
@@ -659,20 +659,20 @@ export interface CompositeScoreResult {
 }
 
 export interface ChurnedCustomerEntry {
-  hospitalId: string;
+  hospitalId: number;
   lastOrderYear: number;
   lastOrderMonth: number;
   monthsSinceLastOrder: number;
 }
 
 export interface ProductTypeGroupSold {
-  productTypeId: string;
+  productTypeId: number;
   name: string;
   revenueShare: number;
 }
 
 export interface RevenueByHospitalEntry {
-  hospitalId: string;
+  hospitalId: number;
   hospitalName: string;
   revenue: number;
   sharePercent: number;
@@ -685,7 +685,7 @@ export interface MonthlyTrendEntry {
 }
 
 export interface SupplementaryKpis {
-  activeCustomers: { count: number; hospitalIds: string[] };
+  activeCustomers: { count: number; hospitalIds: number[] };
   churnedCustomers: { count: number; hospitals: ChurnedCustomerEntry[] };
   productPenetration: {
     avgDistinctProductTypesPerCustomer: number;
@@ -718,8 +718,8 @@ export interface TeamKpiResponse {
 // `hospital` is the only relation every metric includes. Reflect that instead of reusing the
 // full `SalesLine` shape, which would falsely promise fields that aren't always there.
 export interface KpiDrillDownSalesLine extends Omit<SalesLine, "salesperson" | "product" | "productType"> {
-  product?: { id: string; name: string };
-  productType?: { id: string; name: string };
+  product?: { id: number; name: string };
+  productType?: { id: number; name: string };
 }
 
 export interface KpiDrillDownResponse {
@@ -727,13 +727,13 @@ export interface KpiDrillDownResponse {
   period: PeriodKey;
   metric: DrillDownMetric;
   salesLines: KpiDrillDownSalesLine[];
-  retainedHospitalIds?: string[];
+  retainedHospitalIds?: number[];
   trailingMonths?: { year: number; month: number }[];
   churnMonths?: number;
 }
 
 export interface ScoringWeight {
-  id: string;
+  id: number;
   metric: ScoredKpiMetric;
   weight: number;
   updatedAt: string;
@@ -745,23 +745,23 @@ export interface ScoringWeightSnapshotEntry {
 }
 
 export interface ScoringWeightRevisionChangedBy {
-  id: string;
+  id: number;
   displayName: string;
   email: string;
 }
 
 export interface ScoringWeightRevision {
-  id: string;
+  id: number;
   before: ScoringWeightSnapshotEntry[];
   after: ScoringWeightSnapshotEntry[];
-  changedById: string;
+  changedById: number;
   changedBy: ScoringWeightRevisionChangedBy;
   changedAt: string;
   note: string | null;
 }
 
 export interface EvaluationSetting {
-  id: string;
+  id: number;
   churnMonths: number;
   minMonthsForChurn: number;
   minMonthsForConsistency: number;
@@ -774,7 +774,7 @@ export interface EvaluationSetting {
   targetLookbackMonths: number;
   targetOutlierThreshold: string;
   targetGrowthRate: string;
-  updatedById: string | null;
+  updatedById: number | null;
   updatedAt: string;
 }
 
@@ -792,8 +792,8 @@ export interface EvaluationSetting {
 export type InsightStatus = "PENDING" | "SUCCESS" | "FAILED";
 
 export interface CoachingInsight {
-  id: string;
-  salespersonId: string;
+  id: number;
+  salespersonId: number;
   periodType: PeriodType;
   year: number;
   periodNumber: number;
@@ -804,7 +804,7 @@ export interface CoachingInsight {
   model: string | null;
   errorMessage: string | null;
   isStale: boolean;
-  generatedById: string | null;
+  generatedById: number | null;
   generatedAt: string;
 }
 
@@ -824,14 +824,13 @@ export interface CoachingInsightGenerateResponse {
 // ---------- Module F2: Leaderboard 2 tiers ----------
 // Types derived verbatim from the shapes actually returned by
 // backend/src/controllers/territoryLeaderboard.controller.ts. Every unit's fields depend on the
-// server-sent `visibility` level (Data Visibility Rules ข้อ 6) — restricted units carry exactly
-// the whitelist, so the page renders only what actually arrives.
+// server-sent `visibility` level (Data Visibility Rules ข้อ 6) — practical whitelist.
 
 export type LeaderboardCriteria = "COMPOSITE" | "PERCENT_TARGET" | "REVENUE" | "NEW_CUSTOMERS";
 
 interface LeaderboardUnitBase {
   unitType: "TERRITORY" | "GROUP";
-  territoryId: string;
+  territoryId: number;
   name: string;
   ownerNames: string[];
   rank: number | null;
@@ -872,7 +871,7 @@ export interface TerritoryLeaderboardResponse {
 
 export interface LeaderboardMemberRow {
   visibility: "TERRITORY_FULL" | "TERRITORY_RANK_ONLY";
-  territoryId: string;
+  territoryId: number;
   name: string;
   ownerNames: string[];
   rank?: number;
@@ -966,7 +965,7 @@ export interface SuggestionWindow {
 
 /** One territory row inside a region block of GET /target-suggestions. */
 export interface TerritorySuggestionRow {
-  territoryId: string;
+  territoryId: number;
   territoryName: string;
   potential: number;
   potentialShare: number;
@@ -983,7 +982,7 @@ export interface TerritorySuggestionRow {
 }
 
 export interface RegionSuggestionGroup {
-  regionId: string;
+  regionId: number;
   regionName: string;
   coveragePass: boolean;
   /** null = the region has no sales at all. */
@@ -995,7 +994,7 @@ export interface RegionSuggestionGroup {
 }
 
 export interface UnmappedBaseEntry {
-  territoryId: string;
+  territoryId: number;
   territoryName: string;
   unmappedBase: number;
   unmappedHospitalCount: number;
@@ -1003,13 +1002,13 @@ export interface UnmappedBaseEntry {
 
 /** Σ suggested over every region + unmappedBase — the number "รับข้อเสนอ" writes into Target. */
 export interface TerritorySuggestedTotal {
-  territoryId: string;
+  territoryId: number;
   territoryName: string;
   suggestedTotal: number;
 }
 
 export interface CutDealEntry {
-  territoryId: string;
+  territoryId: number;
   territoryName: string;
   invoiceNo: string;
   dealValue: number;

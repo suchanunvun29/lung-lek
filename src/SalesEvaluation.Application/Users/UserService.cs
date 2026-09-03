@@ -65,7 +65,6 @@ public class UserService : IUserService
 
         var user = new User
         {
-            Id = Guid.NewGuid().ToString(),
             Email = normalizedEmail,
             DisplayName = request.DisplayName.Trim(),
             Role = parsedRole,
@@ -86,7 +85,7 @@ public class UserService : IUserService
         };
     }
 
-    public async Task<UserResponse> UpdateUserAsync(string id, UpdateUserRequest request, string currentUserId, CancellationToken cancellationToken = default)
+    public async Task<UserResponse> UpdateUserAsync(int id, UpdateUserRequest request, int currentUserId, CancellationToken cancellationToken = default)
     {
         var user = await _dbContext.Users
             .Include(u => u.Salesperson)
@@ -104,7 +103,7 @@ public class UserService : IUserService
 
         if (request.HasSalespersonId)
         {
-            if (string.IsNullOrWhiteSpace(request.SalespersonId))
+            if (!request.SalespersonId.HasValue)
             {
                 // Unlink any salesperson currently linked to this user
                 var currentSalespersons = await _dbContext.Salespeople
@@ -119,20 +118,20 @@ public class UserService : IUserService
             else
             {
                 var targetSalesperson = await _dbContext.Salespeople
-                    .FirstOrDefaultAsync(s => s.Id == request.SalespersonId, cancellationToken);
+                    .FirstOrDefaultAsync(s => s.Id == request.SalespersonId.Value, cancellationToken);
 
                 if (targetSalesperson == null)
                 {
                     throw new NotFoundException("Salesperson not found");
                 }
 
-                if (!string.IsNullOrEmpty(targetSalesperson.UserId) && targetSalesperson.UserId != id)
+                if (targetSalesperson.UserId.HasValue && targetSalesperson.UserId.Value != id)
                 {
                     throw new ConflictException("This salesperson is already linked to another user");
                 }
 
                 var otherSalespersons = await _dbContext.Salespeople
-                    .Where(s => s.UserId == id && s.Id != request.SalespersonId)
+                    .Where(s => s.UserId == id && s.Id != request.SalespersonId.Value)
                     .ToListAsync(cancellationToken);
 
                 foreach (var sp in otherSalespersons)
@@ -182,7 +181,7 @@ public class UserService : IUserService
         };
     }
 
-    public async Task<ResetPasswordResponse> ResetPasswordAsync(string id, ResetPasswordRequest request, CancellationToken cancellationToken = default)
+    public async Task<ResetPasswordResponse> ResetPasswordAsync(int id, ResetPasswordRequest request, CancellationToken cancellationToken = default)
     {
         var user = await _dbContext.Users
             .FirstOrDefaultAsync(u => u.Id == id, cancellationToken);

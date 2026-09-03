@@ -2,18 +2,18 @@ namespace SalesEvaluation.Contracts.Salespeople;
 
 public class LinkedUserSummaryDto
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public string Email { get; set; } = string.Empty;
     public string DisplayName { get; set; } = string.Empty;
 }
 
 public class SalespersonDto
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public string NameInFile { get; set; } = string.Empty;
     public string DisplayName { get; set; } = string.Empty;
     public bool IsActive { get; set; }
-    public string? UserId { get; set; }
+    public int? UserId { get; set; }
     public LinkedUserSummaryDto? User { get; set; }
     public bool ExcludedFromTerritoryTotals { get; set; }
     public string? EmploymentEndedAt { get; set; }
@@ -33,7 +33,7 @@ public class SalespersonResponse
 
 public class UpdateSalespersonRequest
 {
-    public string? UserId { get; set; }
+    public int? UserId { get; set; }
     public bool HasUserId { get; set; }
     public string? DisplayName { get; set; }
     public bool HasDisplayName { get; set; }

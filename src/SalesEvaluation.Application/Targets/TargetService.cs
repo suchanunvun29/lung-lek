@@ -22,14 +22,14 @@ public class TargetService : ITargetService
 
     // Phase 12 XOR-3-way guard: every Target row must carry EXACTLY ONE owner key and it must
     // match its own `scope`. The monthly upsert below only ever writes SALESPERSON targets.
-    private static void AssertTargetScopeXor(TargetScope scope, string? salespersonId, string? territoryId, string? territoryGroupId)
+    private static void AssertTargetScopeXor(TargetScope scope, int? salespersonId, int? territoryId, int? territoryGroupId)
     {
-        var filled = new[] { salespersonId, territoryId, territoryGroupId }.Count(id => !string.IsNullOrEmpty(id));
+        var filled = new[] { salespersonId.HasValue, territoryId.HasValue, territoryGroupId.HasValue }.Count(b => b);
         var expectedKeyFilled = scope switch
         {
-            TargetScope.SALESPERSON => !string.IsNullOrEmpty(salespersonId),
-            TargetScope.TERRITORY => !string.IsNullOrEmpty(territoryId),
-            TargetScope.TERRITORY_GROUP => !string.IsNullOrEmpty(territoryGroupId),
+            TargetScope.SALESPERSON => salespersonId.HasValue,
+            TargetScope.TERRITORY => territoryId.HasValue,
+            TargetScope.TERRITORY_GROUP => territoryGroupId.HasValue,
             _ => false
         };
 
@@ -52,7 +52,7 @@ public class TargetService : ITargetService
             newCustomerTarget = target.NewCustomerTarget,
             note = target.Note,
             productGroupTargets = target.ProductGroupTargets
-                .OrderBy(pg => pg.ProductTypeId, StringComparer.Ordinal)
+                .OrderBy(pg => pg.ProductTypeId)
                 .Select(pg => new { productTypeId = pg.ProductTypeId, revenueTarget = (double)pg.RevenueTarget })
                 .ToList()
         };
@@ -75,7 +75,7 @@ public class TargetService : ITargetService
             CreatedAt = target.CreatedAt,
             UpdatedAt = target.UpdatedAt,
             ProductGroupTargets = target.ProductGroupTargets
-                .OrderBy(pg => pg.ProductTypeId, StringComparer.Ordinal)
+                .OrderBy(pg => pg.ProductTypeId)
                 .Select(pg => new TargetProductGroupDto
                 {
                     Id = pg.Id,
@@ -113,11 +113,11 @@ public class TargetService : ITargetService
     }
 
     public async Task<TargetResponse?> UpsertMonthlyTargetAsync(
-        string salespersonId,
+        int salespersonId,
         int year,
         int month,
         UpsertTargetInput input,
-        string changedById,
+        int changedById,
         CancellationToken cancellationToken = default)
     {
         AssertTargetScopeXor(TargetScope.SALESPERSON, salespersonId, null, null);
@@ -139,7 +139,6 @@ public class TargetService : ITargetService
         {
             target = new Target
             {
-                Id = Guid.NewGuid().ToString(),
                 SalespersonId = salespersonId,
                 Scope = TargetScope.SALESPERSON,
                 Year = year,
@@ -149,10 +148,10 @@ public class TargetService : ITargetService
                 Note = input.Note ?? null
             };
             _dbContext.Targets.Add(target);
+            await _dbContext.SaveChangesAsync(cancellationToken);
 
             _dbContext.TargetRevisions.Add(new TargetRevision
             {
-                Id = Guid.NewGuid().ToString(),
                 TargetId = target.Id,
                 ChangeType = TargetChangeType.CREATE,
                 Before = null,
@@ -176,7 +175,6 @@ public class TargetService : ITargetService
 
             _dbContext.TargetRevisions.Add(new TargetRevision
             {
-                Id = Guid.NewGuid().ToString(),
                 TargetId = existing.Id,
                 ChangeType = TargetChangeType.UPDATE,
                 Before = before,
@@ -193,9 +191,9 @@ public class TargetService : ITargetService
     // Scope-agnostic by design: keyed purely by targetId, so it serves SALESPERSON targets and
     // TERRITORY/TERRITORY_GROUP targets without any branching.
     public async Task<TargetResponse?> SetProductGroupTargetsAsync(
-        string targetId,
+        int targetId,
         List<ProductGroupInputDto> productGroups,
-        string changedById,
+        int changedById,
         CancellationToken cancellationToken = default)
     {
         var existing = await _dbContext.Targets
@@ -213,7 +211,6 @@ public class TargetService : ITargetService
         {
             _dbContext.TargetProductGroups.Add(new TargetProductGroup
             {
-                Id = Guid.NewGuid().ToString(),
                 TargetId = targetId,
                 ProductTypeId = pg.ProductTypeId,
                 RevenueTarget = pg.RevenueTarget
@@ -230,7 +227,6 @@ public class TargetService : ITargetService
 
         _dbContext.TargetRevisions.Add(new TargetRevision
         {
-            Id = Guid.NewGuid().ToString(),
             TargetId = targetId,
             ChangeType = TargetChangeType.UPDATE,
             Before = before,
@@ -242,7 +238,7 @@ public class TargetService : ITargetService
         return new TargetResponse { Target = MapTarget(updated, includeSalesperson: false, includeProductType: false) };
     }
 
-    public async Task<CopyTargetsResult> CopyTargetsAsync(CopyTargetsInput input, string changedById, CancellationToken cancellationToken = default)
+    public async Task<CopyTargetsResult> CopyTargetsAsync(CopyTargetsInput input, int changedById, CancellationToken cancellationToken = default)
     {
         var sourceTargets = await _dbContext.Targets
             .AsNoTracking()
@@ -256,18 +252,18 @@ public class TargetService : ITargetService
         foreach (var source in sourceTargets)
         {
             var salespersonId = source.SalespersonId;
-            if (salespersonId == null)
+            if (!salespersonId.HasValue)
             {
                 continue;
             }
 
             var destination = await _dbContext.Targets
                 .Include(t => t.ProductGroupTargets)
-                .FirstOrDefaultAsync(t => t.SalespersonId == salespersonId && t.Year == input.ToYear && t.Month == input.ToMonth, cancellationToken);
+                .FirstOrDefaultAsync(t => t.SalespersonId == salespersonId.Value && t.Year == input.ToYear && t.Month == input.ToMonth, cancellationToken);
 
             if (destination != null && !input.Overwrite)
             {
-                result.Skipped.Add(salespersonId);
+                result.Skipped.Add(salespersonId.Value);
                 continue;
             }
 
@@ -276,7 +272,6 @@ public class TargetService : ITargetService
                 AssertTargetScopeXor(TargetScope.SALESPERSON, salespersonId, null, null);
                 var newTarget = new Target
                 {
-                    Id = Guid.NewGuid().ToString(),
                     SalespersonId = salespersonId,
                     Scope = TargetScope.SALESPERSON,
                     Year = input.ToYear,
@@ -289,17 +284,16 @@ public class TargetService : ITargetService
                 {
                     newTarget.ProductGroupTargets.Add(new TargetProductGroup
                     {
-                        Id = Guid.NewGuid().ToString(),
-                        TargetId = newTarget.Id,
                         ProductTypeId = pg.ProductTypeId,
                         RevenueTarget = pg.RevenueTarget
                     });
                 }
 
                 _dbContext.Targets.Add(newTarget);
+                await _dbContext.SaveChangesAsync(cancellationToken);
+
                 _dbContext.TargetRevisions.Add(new TargetRevision
                 {
-                    Id = Guid.NewGuid().ToString(),
                     TargetId = newTarget.Id,
                     ChangeType = TargetChangeType.CREATE,
                     Before = null,
@@ -307,7 +301,7 @@ public class TargetService : ITargetService
                     ChangedById = changedById,
                     Note = revisionNote
                 });
-                result.Created.Add(salespersonId);
+                result.Created.Add(salespersonId.Value);
                 continue;
             }
 
@@ -320,7 +314,6 @@ public class TargetService : ITargetService
             {
                 _dbContext.TargetProductGroups.Add(new TargetProductGroup
                 {
-                    Id = Guid.NewGuid().ToString(),
                     TargetId = destination.Id,
                     ProductTypeId = pg.ProductTypeId,
                     RevenueTarget = pg.RevenueTarget
@@ -329,7 +322,6 @@ public class TargetService : ITargetService
 
             _dbContext.TargetRevisions.Add(new TargetRevision
             {
-                Id = Guid.NewGuid().ToString(),
                 TargetId = destination.Id,
                 ChangeType = TargetChangeType.UPDATE,
                 Before = before,
@@ -337,14 +329,14 @@ public class TargetService : ITargetService
                 ChangedById = changedById,
                 Note = revisionNote
             });
-            result.Updated.Add(salespersonId);
+            result.Updated.Add(salespersonId.Value);
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
         return result;
     }
 
-    public async Task<TargetRevisionsResponse?> GetTargetRevisionsAsync(string targetId, CancellationToken cancellationToken = default)
+    public async Task<TargetRevisionsResponse?> GetTargetRevisionsAsync(int targetId, CancellationToken cancellationToken = default)
     {
         var target = await _dbContext.Targets
             .AsNoTracking()
@@ -371,7 +363,7 @@ public class TargetService : ITargetService
                 Before = ParseSnapshot(r.Before),
                 After = ParseSnapshot(r.After),
                 ChangedById = r.ChangedById,
-                ChangedBy = new UserSummaryDto { Id = r.ChangedBy.Id, DisplayName = r.ChangedBy.DisplayName, Email = r.ChangedBy.Email },
+                ChangedBy = new UserSummaryDto { Id = r.ChangedBy.Id, DisplayName = r.ChangedBy.DisplayName },
                 ChangedAt = r.ChangedAt,
                 Note = r.Note
             }).ToList()
@@ -388,7 +380,7 @@ public class TargetService : ITargetService
         return JsonDocument.Parse(json).RootElement.Clone();
     }
 
-    public async Task<DerivedTargetResponse?> GetDerivedTargetAsync(string salespersonId, int year, int month, CancellationToken cancellationToken = default)
+    public async Task<DerivedTargetResponse?> GetDerivedTargetAsync(int salespersonId, int year, int month, CancellationToken cancellationToken = default)
     {
         var salesperson = await _dbContext.Salespeople
             .AsNoTracking()
@@ -435,8 +427,8 @@ public class TargetService : ITargetService
         var targets = await _dbContext.Targets
             .AsNoTracking()
             .Where(t => t.Year == year && t.Month == month &&
-                        ((t.Scope == TargetScope.TERRITORY && t.TerritoryId != null && territoryIds.Contains(t.TerritoryId)) ||
-                         (t.Scope == TargetScope.TERRITORY_GROUP && t.TerritoryGroupId != null && groupIds.Contains(t.TerritoryGroupId))))
+                        ((t.Scope == TargetScope.TERRITORY && t.TerritoryId != null && territoryIds.Contains(t.TerritoryId.Value)) ||
+                         (t.Scope == TargetScope.TERRITORY_GROUP && t.TerritoryGroupId != null && groupIds.Contains(t.TerritoryGroupId.Value))))
             .ToListAsync(cancellationToken);
 
         var assignmentRows = await _dbContext.TerritoryAssignments
@@ -445,12 +437,12 @@ public class TargetService : ITargetService
             .Select(a => new { a.TerritoryId, a.SalespersonId })
             .ToListAsync(cancellationToken);
 
-        var ownersByTerritory = new Dictionary<string, HashSet<string>>();
+        var ownersByTerritory = new Dictionary<int, HashSet<int>>();
         foreach (var row in assignmentRows)
         {
             if (!ownersByTerritory.TryGetValue(row.TerritoryId, out var owners))
             {
-                owners = new HashSet<string>();
+                owners = new HashSet<int>();
                 ownersByTerritory[row.TerritoryId] = owners;
             }
 
@@ -465,7 +457,7 @@ public class TargetService : ITargetService
         {
             if (target.Scope == TargetScope.TERRITORY && target.TerritoryId != null)
             {
-                var owners = ownersByTerritory.GetValueOrDefault(target.TerritoryId) ?? new HashSet<string>();
+                var owners = ownersByTerritory.GetValueOrDefault(target.TerritoryId.Value) ?? new HashSet<int>();
                 if (owners.Count == 0)
                 {
                     items.Add(new DerivedTargetContributionDto
@@ -492,7 +484,7 @@ public class TargetService : ITargetService
                 // person — never just the caller's own territories (Territory KPI Rules ข้อ 6 extension).
                 var members = await _dbContext.TerritoryGroupMembers
                     .AsNoTracking()
-                    .Where(m => m.GroupId == target.TerritoryGroupId && m.EffectiveFrom <= lastDay && (m.EffectiveTo == null || m.EffectiveTo >= firstDay))
+                    .Where(m => m.GroupId == target.TerritoryGroupId.Value && m.EffectiveFrom <= lastDay && (m.EffectiveTo == null || m.EffectiveTo >= firstDay))
                     .Select(m => m.TerritoryId)
                     .ToListAsync(cancellationToken);
 

@@ -39,7 +39,7 @@ public static class SalespersonEndpoints
     }
 
     private static async Task<IResult> HandleUpdateSalesperson(
-        string id,
+        int id,
         HttpContext httpContext,
         ISalespersonService salespersonService,
         ICurrentUserService currentUserService,
@@ -78,13 +78,17 @@ public static class SalespersonEndpoints
                 {
                     request.UserId = null;
                 }
-                else if (userProp.ValueKind == JsonValueKind.String)
+                else if (userProp.ValueKind == JsonValueKind.Number)
                 {
-                    request.UserId = userProp.GetString();
+                    request.UserId = userProp.GetInt32();
+                }
+                else if (userProp.ValueKind == JsonValueKind.String && int.TryParse(userProp.GetString(), out var uId))
+                {
+                    request.UserId = uId;
                 }
                 else
                 {
-                    return Results.Json(new { error = "Validation failed", details = "userId must be a string or null" }, statusCode: StatusCodes.Status400BadRequest);
+                    return Results.Json(new { error = "Validation failed", details = "userId must be a number or null" }, statusCode: StatusCodes.Status400BadRequest);
                 }
             }
 

@@ -20,7 +20,8 @@ interface TargetRevisionsPageProps {
 }
 
 export default function TargetRevisionsPage({ params }: TargetRevisionsPageProps) {
-  const { targetId } = use(params);
+  const { targetId: targetIdParam } = use(params);
+  const targetId = Number(targetIdParam);
   const token = useAuthStore((state) => state.token);
   const [revisions, setRevisions] = useState<TargetRevision[]>([]);
   const [salespeople, setSalespeople] = useState<Salesperson[]>([]);

@@ -4,6 +4,6 @@ using SalesEvaluation.Domain.Enums;
 
 public interface IJwtTokenProvider
 {
-    string GenerateToken(string userId, UserRole role);
-    (string UserId, UserRole Role)? ValidateToken(string token);
+    string GenerateToken(int userId, UserRole role);
+    (int UserId, UserRole Role)? ValidateToken(string token);
 }

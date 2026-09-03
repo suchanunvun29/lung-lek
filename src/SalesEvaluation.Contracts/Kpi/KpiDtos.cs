@@ -30,7 +30,7 @@ public class CompositeScoreResultDto
 
 public class ChurnedCustomerEntryDto
 {
-    public string HospitalId { get; set; } = string.Empty;
+    public int HospitalId { get; set; }
     public int LastOrderYear { get; set; }
     public int LastOrderMonth { get; set; }
     public int MonthsSinceLastOrder { get; set; }
@@ -38,14 +38,14 @@ public class ChurnedCustomerEntryDto
 
 public class ProductTypeGroupSoldDto
 {
-    public string ProductTypeId { get; set; } = string.Empty;
+    public int ProductTypeId { get; set; }
     public string Name { get; set; } = string.Empty;
     public double RevenueShare { get; set; }
 }
 
 public class RevenueByHospitalEntryDto
 {
-    public string HospitalId { get; set; } = string.Empty;
+    public int HospitalId { get; set; }
     public string HospitalName { get; set; } = string.Empty;
     public double Revenue { get; set; }
     public double SharePercent { get; set; }
@@ -70,7 +70,7 @@ public class SupplementaryKpisDto
 public class ActiveCustomersDto
 {
     public int Count { get; set; }
-    public List<string> HospitalIds { get; set; } = new();
+    public List<int> HospitalIds { get; set; } = new();
 }
 
 public class ChurnedCustomersDto
@@ -115,16 +115,16 @@ public class TeamKpiResponse
 /// </summary>
 public class KpiSalesLineDto
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public string InvoiceNo { get; set; } = string.Empty;
     public string? PoNo { get; set; }
     public DateTime InvoiceDate { get; set; }
     public int Year { get; set; }
     public int Month { get; set; }
-    public string HospitalId { get; set; } = string.Empty;
-    public string SalespersonId { get; set; } = string.Empty;
-    public string ProductId { get; set; } = string.Empty;
-    public string ProductTypeId { get; set; } = string.Empty;
+    public int HospitalId { get; set; }
+    public int SalespersonId { get; set; }
+    public int ProductId { get; set; }
+    public int ProductTypeId { get; set; }
     public string? Lot { get; set; }
     public DateTime? ExpiryDate { get; set; }
     public string? Province { get; set; }
@@ -136,7 +136,7 @@ public class KpiSalesLineDto
     public string RowKey { get; set; } = string.Empty;
     public string SourceSheetName { get; set; } = string.Empty;
     public int SourceRowNumber { get; set; }
-    public string ImportBatchId { get; set; } = string.Empty;
+    public int ImportBatchId { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     public KpiDrillHospitalDto Hospital { get; set; } = null!;
@@ -155,7 +155,7 @@ public class KpiDrillDownResponse
     public PeriodKeyDto Period { get; set; } = new();
     public string Metric { get; set; } = string.Empty;
     public List<KpiSalesLineDto> SalesLines { get; set; } = new();
-    public List<string>? RetainedHospitalIds { get; set; }
+    public List<int>? RetainedHospitalIds { get; set; }
     public List<YearMonthDto>? TrailingMonths { get; set; }
     public int? ChurnMonths { get; set; }
 }

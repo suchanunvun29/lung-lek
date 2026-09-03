@@ -58,7 +58,7 @@ public static class TargetEndpoints
     }
 
     private static async Task<IResult> HandleUpsertTarget(
-        string salespersonId,
+        int salespersonId,
         string year,
         string month,
         HttpContext httpContext,
@@ -147,7 +147,7 @@ public static class TargetEndpoints
     }
 
     private static async Task<IResult> HandleUpdateProductGroupTargets(
-        string targetId,
+        int targetId,
         HttpContext httpContext,
         ITargetService targetService,
         ICurrentUserService currentUserService,
@@ -174,15 +174,27 @@ public static class TargetEndpoints
             }
 
             var productGroups = new List<ProductGroupInputDto>();
-            var seenTypeIds = new HashSet<string>();
+            var seenTypeIds = new HashSet<int>();
             foreach (var item in groupsProp.EnumerateArray())
             {
+                int productTypeId;
                 if (item.ValueKind != JsonValueKind.Object ||
-                    !item.TryGetProperty("productTypeId", out var typeIdProp) ||
-                    typeIdProp.ValueKind != JsonValueKind.String ||
-                    string.IsNullOrEmpty(typeIdProp.GetString()))
+                    !item.TryGetProperty("productTypeId", out var typeIdProp))
                 {
                     return TerritoryEndpoints.Invalid("productGroups entries need a productTypeId");
+                }
+
+                if (typeIdProp.ValueKind == JsonValueKind.Number)
+                {
+                    productTypeId = typeIdProp.GetInt32();
+                }
+                else if (typeIdProp.ValueKind == JsonValueKind.String && int.TryParse(typeIdProp.GetString(), out var ptId))
+                {
+                    productTypeId = ptId;
+                }
+                else
+                {
+                    return TerritoryEndpoints.Invalid("productGroups entries need a valid productTypeId integer");
                 }
 
                 if (!item.TryGetProperty("revenueTarget", out var revenueProp) ||
@@ -192,7 +204,6 @@ public static class TargetEndpoints
                     return TerritoryEndpoints.Invalid("revenueTarget must be a nonnegative number");
                 }
 
-                var productTypeId = typeIdProp.GetString()!;
                 if (!seenTypeIds.Add(productTypeId))
                 {
                     return Results.Json(new { error = "productGroups มีกลุ่มสินค้าซ้ำกัน" }, statusCode: StatusCodes.Status400BadRequest);
@@ -286,7 +297,7 @@ public static class TargetEndpoints
     }
 
     private static async Task<IResult> HandleGetTargetRevisions(
-        string targetId,
+        int targetId,
         ITargetService targetService,
         CancellationToken ct)
     {
@@ -300,7 +311,7 @@ public static class TargetEndpoints
     }
 
     private static async Task<IResult> HandleGetDerivedTarget(
-        string salespersonId,
+        int salespersonId,
         string year,
         string month,
         HttpContext httpContext,

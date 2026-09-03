@@ -25,7 +25,7 @@ public static class ReportEndpoints
     }
 
     private static async Task<IResult> HandleExportIndividualReport(
-        string salespersonId,
+        int salespersonId,
         string? periodType,
         string? year,
         string? periodNumber,

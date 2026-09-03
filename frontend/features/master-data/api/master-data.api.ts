@@ -5,7 +5,7 @@ export function listHospitals(token: string) {
   return request<{ hospitals: Hospital[] }>("/hospitals", { method: "GET" }, token);
 }
 
-export function updateHospital(token: string, id: string, isPreExistingCustomer: boolean) {
+export function updateHospital(token: string, id: number, isPreExistingCustomer: boolean) {
   return request<{ hospital: Hospital }>(
     `/hospitals/${id}`,
     { method: "PATCH", body: JSON.stringify({ isPreExistingCustomer }) },
@@ -19,8 +19,8 @@ export function listSalespeople(token: string) {
 
 export function updateSalesperson(
   token: string,
-  id: string,
-  input: { userId?: string | null; employmentEndedAt?: string | null }
+  id: number,
+  input: { userId?: number | null; employmentEndedAt?: string | null }
 ) {
   return request<{ salesperson: Salesperson }>(
     `/salespeople/${id}`,

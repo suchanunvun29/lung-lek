@@ -6,15 +6,15 @@ public sealed class UnitInvoice
 {
     public required string InvoiceNo { get; init; }
     public required decimal Total { get; init; }
-    public required Dictionary<string, decimal> ByRegion { get; init; }
+    public required Dictionary<int, decimal> ByRegion { get; init; }
     public required decimal Unmapped { get; init; }
 }
 
 public sealed class OutlierCutResult
 {
-    public required Dictionary<string, decimal> BeforeByRegion { get; set; }
+    public required Dictionary<int, decimal> BeforeByRegion { get; set; }
     public required decimal BeforeUnmapped { get; set; }
-    public required Dictionary<string, decimal> AfterByRegion { get; set; }
+    public required Dictionary<int, decimal> AfterByRegion { get; set; }
     public required decimal AfterUnmapped { get; set; }
     public required List<CutDeal> CutDeals { get; set; }
 }
@@ -35,9 +35,9 @@ public static class OutlierCutCalculator
     {
         var result = new OutlierCutResult
         {
-            BeforeByRegion = new Dictionary<string, decimal>(),
+            BeforeByRegion = new Dictionary<int, decimal>(),
             BeforeUnmapped = 0m,
-            AfterByRegion = new Dictionary<string, decimal>(),
+            AfterByRegion = new Dictionary<int, decimal>(),
             AfterUnmapped = 0m,
             CutDeals = new List<CutDeal>()
         };

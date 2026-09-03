@@ -7,18 +7,18 @@ import { Select } from "@/components/ui/select";
 
 export interface SalesmanNameReviewTableProps {
   reviews: SalesmanNameReview[];
-  mergeTargets: { id: string; displayName: string }[];
+  mergeTargets: { id: number; displayName: string }[];
   onDecide: (
     review: SalesmanNameReview,
-    decision: { decision: "MERGED"; mergedIntoId: string } | { decision: "KEPT_SEPARATE" }
+    decision: { decision: "MERGED"; mergedIntoId: number } | { decision: "KEPT_SEPARATE" }
   ) => Promise<void>;
 }
 
 export function SalesmanNameReviewTable({ reviews, mergeTargets, onDecide }: SalesmanNameReviewTableProps) {
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [targets, setTargets] = useState<Record<string, string>>({});
+  const [busyId, setBusyId] = useState<number | null>(null);
+  const [targets, setTargets] = useState<Record<number, string>>({});
 
-  function updateTarget(reviewId: string, value: string) {
+  function updateTarget(reviewId: number, value: string) {
     setTargets((prev) => ({ ...prev, [reviewId]: value }));
   }
 
@@ -26,7 +26,7 @@ export function SalesmanNameReviewTable({ reviews, mergeTargets, onDecide }: Sal
     setBusyId(review.id);
     try {
       if (decision.decision === "MERGED") {
-        await onDecide(review, { decision: "MERGED", mergedIntoId: targets[review.id] ?? "" });
+        await onDecide(review, { decision: "MERGED", mergedIntoId: Number(targets[review.id] ?? "") });
       } else {
         await onDecide(review, { decision: "KEPT_SEPARATE" });
       }

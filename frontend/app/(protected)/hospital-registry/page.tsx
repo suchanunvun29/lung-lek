@@ -60,7 +60,7 @@ export default function HospitalRegistryPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [uploadResult, setUploadResult] = useState<RegistryImportResult | null>(null);
-  const [savingAdjustmentId, setSavingAdjustmentId] = useState<string | null>(null);
+  const [savingAdjustmentId, setSavingAdjustmentId] = useState<number | null>(null);
   const [adjustmentError, setAdjustmentError] = useState<string | null>(null);
 
   const loadRegistries = useCallback(async () => {
@@ -100,7 +100,7 @@ export default function HospitalRegistryPage() {
     }
   }
 
-  async function handleSaveAdjustment(registryId: string, potentialAdjustment: number): Promise<boolean> {
+  async function handleSaveAdjustment(registryId: number, potentialAdjustment: number): Promise<boolean> {
     if (!token) return false;
     setSavingAdjustmentId(registryId);
     setAdjustmentError(null);

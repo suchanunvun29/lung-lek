@@ -10,7 +10,7 @@ import { DrillDownMetric, PeriodKey, TerritoryKpiDrillDownResponse } from "@/lib
 import { useAuthStore } from "@/store/useAuthStore";
 
 export interface TerritoryKpiDrillDownModalProps {
-  territoryId: string;
+  territoryId: number;
   territoryName: string;
   metric: DrillDownMetric;
   period: PeriodKey;

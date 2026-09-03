@@ -9,7 +9,7 @@ using System.Text.Json.Serialization;
 
 public class TerritoryProductRankingItemDto
 {
-    public string ProductId { get; set; } = string.Empty;
+    public int ProductId { get; set; }
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public ProductTypeSummaryDto ProductType { get; set; } = null!;
@@ -23,7 +23,7 @@ public class TerritoryProductRankingItemDto
 /// <summary>personalBucket rows carry no zeroSaleStatus (Omit&lt;..., "zeroSaleStatus"&gt; on the frontend).</summary>
 public class TerritoryPersonalBucketItemDto
 {
-    public string ProductId { get; set; } = string.Empty;
+    public int ProductId { get; set; }
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public ProductTypeSummaryDto ProductType { get; set; } = null!;
@@ -33,7 +33,7 @@ public class TerritoryPersonalBucketItemDto
 
 public class TerritoryProductRankingTerritoryDto
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public List<string> OwnerNames { get; set; } = new();
 }

@@ -33,7 +33,7 @@ public static class TerritoryEndpoints
         app.MapPatch("/territories/{id}", HandleUpdateTerritory);
 
         // GET /territory-assignments — any authenticated user
-        app.MapGet("/territory-assignments", async (string? territoryId, string? salespersonId, string? status, ITerritoryService territoryService, CancellationToken ct) =>
+        app.MapGet("/territory-assignments", async (int? territoryId, int? salespersonId, string? status, ITerritoryService territoryService, CancellationToken ct) =>
             Results.Ok(await territoryService.ListAssignmentsAsync(territoryId, salespersonId, status, ct)));
 
         // PUT /territory-assignments — MANAGER; one payload shape covers assign and withdraw
@@ -43,7 +43,7 @@ public static class TerritoryEndpoints
     }
 
     private static async Task<IResult> HandleUpdateTerritory(
-        string id,
+        int id,
         HttpContext httpContext,
         ITerritoryService territoryService,
         ICurrentUserService currentUserService,
@@ -89,7 +89,18 @@ public static class TerritoryEndpoints
             if (root.TryGetProperty("regionId", out var regionProp))
             {
                 request.HasRegionId = true;
-                request.RegionId = regionProp.ValueKind == JsonValueKind.Null ? null : regionProp.GetString();
+                if (regionProp.ValueKind == JsonValueKind.Null)
+                {
+                    request.RegionId = null;
+                }
+                else if (regionProp.ValueKind == JsonValueKind.Number)
+                {
+                    request.RegionId = regionProp.GetInt32();
+                }
+                else if (regionProp.ValueKind == JsonValueKind.String && int.TryParse(regionProp.GetString(), out var rId))
+                {
+                    request.RegionId = rId;
+                }
             }
 
             if (root.TryGetProperty("sortOrder", out var sortProp))
@@ -150,17 +161,45 @@ public static class TerritoryEndpoints
 
             var request = new PutAssignmentRequest();
 
-            if (!root.TryGetProperty("territoryId", out var terrProp) || terrProp.ValueKind != JsonValueKind.String || string.IsNullOrEmpty(terrProp.GetString()))
+            if (root.TryGetProperty("territoryId", out var terrProp))
+            {
+                if (terrProp.ValueKind == JsonValueKind.Number)
+                {
+                    request.TerritoryId = terrProp.GetInt32();
+                }
+                else if (terrProp.ValueKind == JsonValueKind.String && int.TryParse(terrProp.GetString(), out var tId))
+                {
+                    request.TerritoryId = tId;
+                }
+                else
+                {
+                    return Invalid("territoryId is required and must be an integer");
+                }
+            }
+            else
             {
                 return Invalid("territoryId is required");
             }
-            request.TerritoryId = terrProp.GetString()!;
 
-            if (!root.TryGetProperty("salespersonId", out var spProp) || spProp.ValueKind != JsonValueKind.String || string.IsNullOrEmpty(spProp.GetString()))
+            if (root.TryGetProperty("salespersonId", out var spProp))
+            {
+                if (spProp.ValueKind == JsonValueKind.Number)
+                {
+                    request.SalespersonId = spProp.GetInt32();
+                }
+                else if (spProp.ValueKind == JsonValueKind.String && int.TryParse(spProp.GetString(), out var spId))
+                {
+                    request.SalespersonId = spId;
+                }
+                else
+                {
+                    return Invalid("salespersonId is required and must be an integer");
+                }
+            }
+            else
             {
                 return Invalid("salespersonId is required");
             }
-            request.SalespersonId = spProp.GetString()!;
 
             if (root.TryGetProperty("effectiveFrom", out var fromProp) && fromProp.ValueKind != JsonValueKind.Null)
             {

@@ -4,7 +4,7 @@ using SalesEvaluation.Domain.Common;
 
 public class ProductType : IDomainEntity
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

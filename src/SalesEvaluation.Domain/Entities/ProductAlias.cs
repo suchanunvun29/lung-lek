@@ -5,13 +5,13 @@ using SalesEvaluation.Domain.Enums;
 
 public class ProductAlias : IDomainEntity
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public string NormalizedKey { get; set; } = string.Empty;
     public string SampleRaw { get; set; } = string.Empty;
-    public string ProductId { get; set; } = string.Empty;
+    public int ProductId { get; set; }
     public Product Product { get; set; } = null!;
     public NameDecisionSource Source { get; set; }
-    public string? DecidedById { get; set; }
+    public int? DecidedById { get; set; }
     public User? DecidedBy { get; set; }
     public DateTime? DecidedAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

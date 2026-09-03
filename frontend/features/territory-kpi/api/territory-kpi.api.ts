@@ -18,7 +18,7 @@ export function getTerritoryKpiTeam(token: string, period: PeriodKey) {
 
 export function getTerritoryKpiDrillDown(
   token: string,
-  territoryId: string,
+  territoryId: number,
   metric: DrillDownMetric,
   period: PeriodKey
 ) {

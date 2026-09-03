@@ -1,4 +1,4 @@
-﻿namespace SalesEvaluation.Api.Endpoints;
+namespace SalesEvaluation.Api.Endpoints;
 
 using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
@@ -47,7 +47,7 @@ public static class ProductEndpoints
     }
 
     private static async Task<IResult> HandleUpdateProduct(
-        string id,
+        int id,
         HttpContext httpContext,
         IProductService productService,
         ICurrentUserService currentUserService,

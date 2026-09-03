@@ -11,7 +11,6 @@ public class RegionConfiguration : IEntityTypeConfiguration<Region>
         builder.ToTable("Region");
 
         builder.HasKey(r => r.Id);
-        builder.Property(r => r.Id).ValueGeneratedNever();
 
         builder.Property(r => r.Name).IsRequired();
         builder.HasIndex(r => r.Name).IsUnique();
@@ -27,7 +26,6 @@ public class ProvinceMappingConfiguration : IEntityTypeConfiguration<ProvinceMap
         builder.ToTable("ProvinceMapping");
 
         builder.HasKey(p => p.Id);
-        builder.Property(p => p.Id).ValueGeneratedNever();
 
         builder.Property(p => p.CanonicalName).IsRequired();
         builder.HasIndex(p => p.CanonicalName).IsUnique();
@@ -48,7 +46,6 @@ public class ProvinceAliasConfiguration : IEntityTypeConfiguration<ProvinceAlias
         builder.ToTable("ProvinceAlias");
 
         builder.HasKey(a => a.Id);
-        builder.Property(a => a.Id).ValueGeneratedNever();
 
         builder.Property(a => a.NormalizedAlias).IsRequired();
         builder.HasIndex(a => a.NormalizedAlias).IsUnique();
@@ -71,7 +68,6 @@ public class TerritoryConfiguration : IEntityTypeConfiguration<Territory>
         builder.ToTable("Territory");
 
         builder.HasKey(t => t.Id);
-        builder.Property(t => t.Id).ValueGeneratedNever();
 
         builder.Property(t => t.Name).IsRequired();
         builder.HasIndex(t => t.Name).IsUnique();
@@ -96,7 +92,6 @@ public class TerritoryAssignmentConfiguration : IEntityTypeConfiguration<Territo
         builder.ToTable("TerritoryAssignment");
 
         builder.HasKey(a => a.Id);
-        builder.Property(a => a.Id).ValueGeneratedNever();
 
         builder.Property(a => a.IsSupervisor).HasDefaultValue(false);
         builder.Property(a => a.EffectiveFrom).HasColumnType("date");
@@ -132,7 +127,6 @@ public class TerritoryGroupConfiguration : IEntityTypeConfiguration<TerritoryGro
         builder.ToTable("TerritoryGroup");
 
         builder.HasKey(g => g.Id);
-        builder.Property(g => g.Id).ValueGeneratedNever();
 
         builder.Property(g => g.Name).IsRequired();
         builder.HasIndex(g => g.Name).IsUnique();
@@ -150,7 +144,6 @@ public class TerritoryGroupMemberConfiguration : IEntityTypeConfiguration<Territ
         builder.ToTable("TerritoryGroupMember");
 
         builder.HasKey(m => m.Id);
-        builder.Property(m => m.Id).ValueGeneratedNever();
 
         builder.Property(m => m.EffectiveFrom).HasColumnType("date");
         builder.Property(m => m.EffectiveTo).HasColumnType("date");
@@ -179,7 +172,6 @@ public class HospitalTerritoryChangeConfiguration : IEntityTypeConfiguration<Hos
         builder.ToTable("HospitalTerritoryChange");
 
         builder.HasKey(c => c.Id);
-        builder.Property(c => c.Id).ValueGeneratedNever();
 
         builder.Property(c => c.ChangedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
 

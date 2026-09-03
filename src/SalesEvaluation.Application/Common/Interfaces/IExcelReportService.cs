@@ -10,8 +10,8 @@ using SalesEvaluation.Contracts.Common;
 public interface IExcelReportService
 {
     /// <summary>GET /reports/individual/:salespersonId — individual coaching workbook.</summary>
-    Task<byte[]> BuildIndividualReportAsync(string salespersonId, AppPeriodKey period, CancellationToken cancellationToken = default);
+    Task<byte[]> BuildIndividualReportAsync(int salespersonId, AppPeriodKey period, CancellationToken cancellationToken = default);
 
     /// <summary>GET /reports/team-overview — team overview workbook.</summary>
-    Task<byte[]> BuildTeamOverviewReportAsync(AppPeriodKey period, List<string>? visibleSalespersonIds, CancellationToken cancellationToken = default);
+    Task<byte[]> BuildTeamOverviewReportAsync(AppPeriodKey period, List<int>? visibleSalespersonIds, CancellationToken cancellationToken = default);
 }

@@ -11,7 +11,6 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.ToTable("User");
 
         builder.HasKey(u => u.Id);
-        builder.Property(u => u.Id).ValueGeneratedNever();
 
         builder.Property(u => u.Email).IsRequired();
         builder.HasIndex(u => u.Email).IsUnique();
@@ -38,7 +37,6 @@ public class SalespersonConfiguration : IEntityTypeConfiguration<Salesperson>
         builder.ToTable("Salesperson");
 
         builder.HasKey(s => s.Id);
-        builder.Property(s => s.Id).ValueGeneratedNever();
 
         builder.Property(s => s.NameInFile).IsRequired();
         builder.HasIndex(s => s.NameInFile).IsUnique();

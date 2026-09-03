@@ -7,7 +7,7 @@ export interface SalespersonTableProps {
   salespeople: Salesperson[];
   linkableUsers: AppUser[];
   canEdit: boolean;
-  onLink: (salesperson: Salesperson, userId: string | null) => Promise<void>;
+  onLink: (salesperson: Salesperson, userId: number | null) => Promise<void>;
   onEmploymentDate: (salesperson: Salesperson, employmentEndedAt: string | null) => Promise<void>;
 }
 
@@ -20,12 +20,12 @@ export function SalespersonTable({
   onLink,
   onEmploymentDate,
 }: SalespersonTableProps) {
-  const [busyId, setBusyId] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<number | null>(null);
 
   async function handleChange(salesperson: Salesperson, value: string) {
     setBusyId(salesperson.id);
     try {
-      await onLink(salesperson, value === UNLINKED_VALUE ? null : value);
+      await onLink(salesperson, value === UNLINKED_VALUE ? null : Number(value));
     } finally {
       setBusyId(null);
     }

@@ -53,7 +53,7 @@ public static class DependencyInjection
 
         services.AddDbContext<AppDbContext>(options =>
         {
-            options.UseNpgsql(dataSource);
+            options.UseNpgsql(dataSource).UseCamelCaseNamingConvention();
         });
 
         services.AddScoped<IAppDbContext>(provider => provider.GetRequiredService<AppDbContext>());

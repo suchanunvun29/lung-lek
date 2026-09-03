@@ -4,10 +4,10 @@ using SalesEvaluation.Domain.Common;
 
 public class TerritoryGroupMember : IDomainEntity
 {
-    public string Id { get; set; } = string.Empty;
-    public string GroupId { get; set; } = string.Empty;
+    public int Id { get; set; }
+    public int GroupId { get; set; }
     public TerritoryGroup Group { get; set; } = null!;
-    public string TerritoryId { get; set; } = string.Empty;
+    public int TerritoryId { get; set; }
     public Territory Territory { get; set; } = null!;
     public DateOnly EffectiveFrom { get; set; }
     public DateOnly? EffectiveTo { get; set; }

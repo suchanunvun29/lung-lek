@@ -100,7 +100,7 @@ public class TerritoryEndpointsTests : IClassFixture<CustomWebApplicationFactory
     {
         SetBearerToken(_factory.CreateToken(_factory.ManagerUserId, UserRole.MANAGER));
 
-        var response = await _client.PostAsync("/territories", JsonBody(new { name = "X", regionId = "region-nope" }));
+        var response = await _client.PostAsync("/territories", JsonBody(new { name = "X", regionId = 99999 }));
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
 
         var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
@@ -139,7 +139,7 @@ public class TerritoryEndpointsTests : IClassFixture<CustomWebApplicationFactory
     {
         SetBearerToken(_factory.CreateToken(_factory.ManagerUserId, UserRole.MANAGER));
 
-        var response = await _client.PatchAsync("/territories/nope", JsonBody(new { name = "X" }));
+        var response = await _client.PatchAsync("/territories/99999", JsonBody(new { name = "X" }));
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 

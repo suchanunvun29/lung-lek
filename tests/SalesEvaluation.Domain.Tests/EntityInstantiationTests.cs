@@ -11,7 +11,7 @@ public class EntityInstantiationTests
     {
         var user = new User
         {
-            Id = "user_1",
+            Id = 1,
             Email = "manager@example.com",
             PasswordHash = "hash",
             DisplayName = "Manager",
@@ -29,15 +29,15 @@ public class EntityInstantiationTests
     {
         var salesLine = new SalesLine
         {
-            Id = "sl_1",
+            Id = 1,
             InvoiceNo = "INV-001",
             InvoiceDate = new DateOnly(2026, 8, 1),
             Year = 2026,
             Month = 8,
-            HospitalId = "hosp_1",
-            SalespersonId = "sp_1",
-            ProductId = "prod_1",
-            ProductTypeId = "pt_1",
+            HospitalId = 1,
+            SalespersonId = 1,
+            ProductId = 1,
+            ProductTypeId = 1,
             Qty = 10m,
             UnitPrice = 100m,
             Amount = 1000m,
@@ -46,15 +46,15 @@ public class EntityInstantiationTests
             RowKey = "INV-001|ProductA||1",
             SourceSheetName = "August",
             SourceRowNumber = 2,
-            ImportBatchId = "batch_1"
+            ImportBatchId = 1
         };
 
         var credit = new SalesLineCredit
         {
-            Id = "credit_1",
+            Id = 1,
             SalesLineId = salesLine.Id,
             SalesLine = salesLine,
-            SalespersonId = "sp_1",
+            SalespersonId = 1,
             SharePercent = 100.000m,
             IsPrimary = true
         };
@@ -71,7 +71,7 @@ public class EntityInstantiationTests
     {
         var setting = new EvaluationSetting();
 
-        Assert.Equal("singleton", setting.Id);
+        Assert.Equal(0, setting.Id);
         Assert.Equal(6, setting.ChurnMonths);
         Assert.Equal(6, setting.MinMonthsForChurn);
         Assert.Equal(6, setting.MinMonthsForConsistency);
@@ -90,9 +90,9 @@ public class EntityInstantiationTests
     {
         var target = new Target
         {
-            Id = "tgt_1",
+            Id = 1,
             Scope = TargetScope.SALESPERSON,
-            SalespersonId = "sp_1",
+            SalespersonId = 1,
             Year = 2026,
             Month = 8,
             RevenueTarget = 500000m,
@@ -101,18 +101,18 @@ public class EntityInstantiationTests
 
         target.ProductGroupTargets.Add(new TargetProductGroup
         {
-            Id = "tpg_1",
+            Id = 1,
             TargetId = target.Id,
-            ProductTypeId = "pt_1",
+            ProductTypeId = 1,
             RevenueTarget = 200000m
         });
 
         target.Revisions.Add(new TargetRevision
         {
-            Id = "rev_1",
+            Id = 1,
             TargetId = target.Id,
             ChangeType = TargetChangeType.CREATE,
-            ChangedById = "user_1"
+            ChangedById = 1
         });
 
         Assert.Single(target.ProductGroupTargets);

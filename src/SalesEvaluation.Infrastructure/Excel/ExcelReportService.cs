@@ -42,7 +42,7 @@ public class ExcelReportService : IExcelReportService
     }
 
     public async Task<byte[]> BuildIndividualReportAsync(
-        string salespersonId, AppPeriodKey period, CancellationToken cancellationToken = default)
+        int salespersonId, AppPeriodKey period, CancellationToken cancellationToken = default)
     {
         var salesperson = await _dbContext.Salespeople
             .AsNoTracking()
@@ -99,51 +99,64 @@ public class ExcelReportService : IExcelReportService
         sheet.Cell(row, 5).Value = "หมายเหตุ";
         row++;
 
-        foreach (var metric in composite.Metrics)
+        foreach (var m in composite.Metrics)
         {
-            var detail = metric.Detail;
-            var actual = TryGetDetailValue(detail, "actual");
-            var target = TryGetDetailValue(detail, "target");
-
-            sheet.Cell(row, 1).Value = MetricLabelTh.GetValueOrDefault(metric.Metric.ToString(), metric.Metric.ToString());
-            sheet.Cell(row, 2).Value = ScoreCell(metric.Score);
-            sheet.Cell(row, 3).Value = actual;
-            sheet.Cell(row, 4).Value = target;
-            sheet.Cell(row, 5).Value = metric.Reason ?? string.Empty;
+            sheet.Cell(row, 1).Value = MetricLabelTh.GetValueOrDefault(m.Metric.ToString(), m.Metric.ToString());
+            sheet.Cell(row, 2).Value = ScoreCell(m.Score);
+            sheet.Cell(row, 3).Value = TryGetDetailValue(m.Detail, "actual");
+            sheet.Cell(row, 4).Value = TryGetDetailValue(m.Detail, "target");
+            sheet.Cell(row, 5).Value = m.Reason ?? string.Empty;
             row++;
         }
-        row++; // blank
 
-        // Supplementary
-        sheet.Cell(row, 1).Value = "ข้อมูลเสริม";
-        sheet.Cell(row, 2).Value = string.Empty;
+        row += 2; // blank
+
+        // Supplementary KPIs section
+        sheet.Cell(row, 1).Value = "ข้อมูลประกอบการประเมิน";
         row++;
+
         if (salespersonKpi != null)
         {
-            sheet.Cell(row, 1).Value = "ลูกค้าที่ยัง active";
+            sheet.Cell(row, 1).Value = "ลูกค้าที่มีการซื้อในงวด (Active)";
             sheet.Cell(row, 2).Value = salespersonKpi.Supplementary.ActiveCustomers.Count;
             row++;
-            sheet.Cell(row, 1).Value = "ลูกค้าที่หายไป (churn)";
+
+            sheet.Cell(row, 1).Value = "ลูกค้าที่ไม่มียอดซื้อในงวด (Churned)";
             sheet.Cell(row, 2).Value = salespersonKpi.Supplementary.ChurnedCustomers.Count;
             row++;
-            sheet.Cell(row, 1).Value = "จำนวนกลุ่มสินค้าเฉลี่ยต่อลูกค้า";
-            sheet.Cell(row, 2).Value = Math.Round(salespersonKpi.Supplementary.ProductPenetration.AvgDistinctProductTypesPerCustomer * 100) / 100;
-            row++;
-        }
-        row++; // blank
 
-        // Coaching insight
-        sheet.Cell(row, 1).Value = "จุดแข็ง / จุดที่ควรพัฒนา";
+            sheet.Cell(row, 1).Value = "Product Penetration (กลุ่มสินค้าเฉลี่ย/ลูกค้า)";
+            sheet.Cell(row, 2).Value = Math.Round(salespersonKpi.Supplementary.ProductPenetration.AvgDistinctProductTypesPerCustomer * 100, MidpointRounding.AwayFromZero) / 100;
+            row++;
+
+            // Top hospitals sub-table
+            if (salespersonKpi.Supplementary.RevenueShareByHospital.Count > 0)
+            {
+                row++;
+                sheet.Cell(row, 1).Value = "สัดส่วนยอดขายตามโรงพยาบาล (5 อันดับแรก)";
+                sheet.Cell(row, 2).Value = "ยอดขาย";
+                sheet.Cell(row, 3).Value = "สัดส่วน (%)";
+                row++;
+
+                foreach (var h in salespersonKpi.Supplementary.RevenueShareByHospital.Take(5))
+                {
+                    sheet.Cell(row, 1).Value = h.HospitalName;
+                    sheet.Cell(row, 2).Value = h.Revenue;
+                    sheet.Cell(row, 3).Value = $"{Math.Round(h.SharePercent, 1):F1}%";
+                    row++;
+                }
+            }
+        }
+
+        row += 2; // blank
+
+        // Coaching insight text section
+        sheet.Cell(row, 1).Value = "คำแนะนำ / สรุปจุดแข็ง-จุดที่ควรพัฒนา";
         row++;
-        if (!string.IsNullOrEmpty(coachingInsight?.ContentTh))
+
+        if (coachingInsight?.ContentTh != null)
         {
             sheet.Cell(row, 1).Value = coachingInsight.ContentTh;
-            row++;
-            if (coachingInsight.IsStale)
-            {
-                sheet.Cell(row, 1).Value = "(ข้อมูลอัปเดตแล้ว — สรุปนี้อาจไม่ตรงกับตัวเลขล่าสุด)";
-                row++;
-            }
         }
         else
         {
@@ -154,7 +167,7 @@ public class ExcelReportService : IExcelReportService
     }
 
     public async Task<byte[]> BuildTeamOverviewReportAsync(
-        AppPeriodKey period, List<string>? visibleSalespersonIds, CancellationToken cancellationToken = default)
+        AppPeriodKey period, List<int>? visibleSalespersonIds, CancellationToken cancellationToken = default)
     {
         var query = _dbContext.Salespeople.AsNoTracking().Where(s => s.IsActive);
         if (visibleSalespersonIds != null)
@@ -162,7 +175,7 @@ public class ExcelReportService : IExcelReportService
 
         var salespeople = await query.OrderBy(s => s.DisplayName).ToListAsync(cancellationToken);
 
-        var entries = new List<(string Id, string DisplayName, CompositeScoreResultDto Composite)>();
+        var entries = new List<(int Id, string DisplayName, CompositeScoreResultDto Composite)>();
         foreach (var sp in salespeople)
         {
             var c = await _kpiService.ComputeCompositeScoreAsync(sp.Id, period, cancellationToken);

@@ -11,7 +11,7 @@ export interface UpdateProductInput {
   isActive?: boolean;
 }
 
-export function updateProduct(token: string, id: string, input: UpdateProductInput) {
+export function updateProduct(token: string, id: number, input: UpdateProductInput) {
   return request<{ product: ProductMasterItem }>(
     `/products/${id}`,
     { method: "PATCH", body: JSON.stringify(input) },
@@ -20,7 +20,7 @@ export function updateProduct(token: string, id: string, input: UpdateProductInp
 }
 
 export function listProductTypes(token: string) {
-  return request<{ productTypes: { id: string; name: string }[] }>(
+  return request<{ productTypes: { id: number; name: string }[] }>(
     "/product-types",
     { method: "GET" },
     token

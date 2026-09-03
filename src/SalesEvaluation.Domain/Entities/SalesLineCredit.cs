@@ -4,10 +4,10 @@ using SalesEvaluation.Domain.Common;
 
 public class SalesLineCredit : IDomainEntity
 {
-    public string Id { get; set; } = string.Empty;
-    public string SalesLineId { get; set; } = string.Empty;
+    public int Id { get; set; }
+    public int SalesLineId { get; set; }
     public SalesLine SalesLine { get; set; } = null!;
-    public string SalespersonId { get; set; } = string.Empty;
+    public int SalespersonId { get; set; }
     public Salesperson Salesperson { get; set; } = null!;
     public decimal SharePercent { get; set; }
     public bool IsPrimary { get; set; } = false;

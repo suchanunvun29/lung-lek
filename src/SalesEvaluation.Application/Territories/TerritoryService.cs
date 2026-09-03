@@ -42,7 +42,7 @@ public class TerritoryService : ITerritoryService
         var hospitalRows = await _dbContext.Hospitals
             .AsNoTracking()
             .Where(h => h.TerritoryId != null)
-            .Select(h => h.TerritoryId!)
+            .Select(h => h.TerritoryId!.Value)
             .ToListAsync(cancellationToken);
         var hospitalCounts = hospitalRows
             .GroupBy(id => id)
@@ -62,15 +62,14 @@ public class TerritoryService : ITerritoryService
             throw new ValidationException("Validation failed", "name must not be empty");
         }
 
-        if (!string.IsNullOrEmpty(request.RegionId) &&
-            !await _dbContext.Regions.AnyAsync(r => r.Id == request.RegionId, cancellationToken))
+        if (request.RegionId.HasValue &&
+            !await _dbContext.Regions.AnyAsync(r => r.Id == request.RegionId.Value, cancellationToken))
         {
             throw new NotFoundException("Region not found");
         }
 
         var territory = new Territory
         {
-            Id = Guid.NewGuid().ToString(),
             Name = name,
             Code = request.Code,
             RegionId = request.RegionId,
@@ -88,7 +87,7 @@ public class TerritoryService : ITerritoryService
         return new TerritoryResponse { Territory = MapTerritory(territory, 0, 0) };
     }
 
-    public async Task<TerritoryResponse> UpdateTerritoryAsync(string id, UpdateTerritoryRequest request, CancellationToken cancellationToken = default)
+    public async Task<TerritoryResponse> UpdateTerritoryAsync(int id, UpdateTerritoryRequest request, CancellationToken cancellationToken = default)
     {
         var territory = await _dbContext.Territories
             .FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
@@ -103,8 +102,8 @@ public class TerritoryService : ITerritoryService
             throw new ValidationException("Validation failed", "ต้องระบุข้อมูลที่ต้องการแก้ไข");
         }
 
-        if (request.HasRegionId && !string.IsNullOrEmpty(request.RegionId) &&
-            !await _dbContext.Regions.AnyAsync(r => r.Id == request.RegionId, cancellationToken))
+        if (request.HasRegionId && request.RegionId.HasValue &&
+            !await _dbContext.Regions.AnyAsync(r => r.Id == request.RegionId.Value, cancellationToken))
         {
             throw new NotFoundException("Region not found");
         }
@@ -173,7 +172,7 @@ public class TerritoryService : ITerritoryService
 
     // ---- Assignments ----
 
-    public async Task<TerritoryAssignmentsResponse> ListAssignmentsAsync(string? territoryId, string? salespersonId, string? status, CancellationToken cancellationToken = default)
+    public async Task<TerritoryAssignmentsResponse> ListAssignmentsAsync(int? territoryId, int? salespersonId, string? status, CancellationToken cancellationToken = default)
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
@@ -184,14 +183,14 @@ public class TerritoryService : ITerritoryService
             .Include(a => a.AssignedBy)
             .AsQueryable();
 
-        if (!string.IsNullOrEmpty(territoryId))
+        if (territoryId.HasValue)
         {
-            query = query.Where(a => a.TerritoryId == territoryId);
+            query = query.Where(a => a.TerritoryId == territoryId.Value);
         }
 
-        if (!string.IsNullOrEmpty(salespersonId))
+        if (salespersonId.HasValue)
         {
-            query = query.Where(a => a.SalespersonId == salespersonId);
+            query = query.Where(a => a.SalespersonId == salespersonId.Value);
         }
 
         if (status == "ACTIVE")
@@ -213,13 +212,8 @@ public class TerritoryService : ITerritoryService
         };
     }
 
-    public async Task<(TerritoryAssignmentDto Assignment, bool Created)> PutAssignmentAsync(PutAssignmentRequest request, string assignedById, CancellationToken cancellationToken = default)
+    public async Task<(TerritoryAssignmentDto Assignment, bool Created)> PutAssignmentAsync(PutAssignmentRequest request, int assignedById, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrEmpty(request.TerritoryId) || string.IsNullOrEmpty(request.SalespersonId))
-        {
-            throw new ValidationException("Validation failed", "territoryId and salespersonId are required");
-        }
-
         if (request.HasEffectiveFrom && request.HasEffectiveTo)
         {
             throw new ValidationException("Validation failed", "ห้ามส่ง effectiveFrom และ effectiveTo พร้อมกัน");
@@ -272,7 +266,7 @@ public class TerritoryService : ITerritoryService
         return MapAssignment(openRows[0]);
     }
 
-    private async Task<TerritoryAssignmentDto> AssignTerritoryAsync(PutAssignmentRequest request, string assignedById, CancellationToken cancellationToken)
+    private async Task<TerritoryAssignmentDto> AssignTerritoryAsync(PutAssignmentRequest request, int assignedById, CancellationToken cancellationToken)
     {
         var effectiveFrom = request.EffectiveFrom!.Value;
 
@@ -313,7 +307,6 @@ public class TerritoryService : ITerritoryService
 
         var assignment = new TerritoryAssignment
         {
-            Id = Guid.NewGuid().ToString(),
             TerritoryId = request.TerritoryId,
             SalespersonId = request.SalespersonId,
             EffectiveFrom = effectiveFrom,
@@ -396,7 +389,6 @@ public class TerritoryService : ITerritoryService
 
         var group = new TerritoryGroup
         {
-            Id = Guid.NewGuid().ToString(),
             Name = request.Name.Trim(),
             IsActive = request.IsActive ?? true,
             Note = request.Note,
@@ -410,7 +402,7 @@ public class TerritoryService : ITerritoryService
         return new TerritoryGroupResponse { TerritoryGroup = MapGroup(group) };
     }
 
-    public async Task<TerritoryGroupResponse> UpdateGroupAsync(string id, UpdateTerritoryGroupRequest request, CancellationToken cancellationToken = default)
+    public async Task<TerritoryGroupResponse> UpdateGroupAsync(int id, UpdateTerritoryGroupRequest request, CancellationToken cancellationToken = default)
     {
         var group = await _dbContext.TerritoryGroups
             .FirstOrDefaultAsync(g => g.Id == id, cancellationToken);
@@ -450,7 +442,7 @@ public class TerritoryService : ITerritoryService
         return new TerritoryGroupResponse { TerritoryGroup = MapGroup(group) };
     }
 
-    public async Task<TerritoryGroupMemberDto?> AddGroupMemberAsync(string groupId, AddGroupMemberRequest request, CancellationToken cancellationToken = default)
+    public async Task<TerritoryGroupMemberDto?> AddGroupMemberAsync(int groupId, AddGroupMemberRequest request, CancellationToken cancellationToken = default)
     {
         var period = new MembershipPeriod(request.EffectiveFrom, request.HasEffectiveTo ? request.EffectiveTo : null);
 
@@ -467,7 +459,6 @@ public class TerritoryService : ITerritoryService
 
         var member = new TerritoryGroupMember
         {
-            Id = Guid.NewGuid().ToString(),
             GroupId = groupId,
             TerritoryId = request.TerritoryId,
             EffectiveFrom = period.EffectiveFrom,
@@ -494,7 +485,7 @@ public class TerritoryService : ITerritoryService
         return MapMember(saved);
     }
 
-    public async Task<TerritoryGroupMemberDto> UpdateGroupMemberAsync(string groupId, string memberId, UpdateGroupMemberRequest request, CancellationToken cancellationToken = default)
+    public async Task<TerritoryGroupMemberDto> UpdateGroupMemberAsync(int groupId, int memberId, UpdateGroupMemberRequest request, CancellationToken cancellationToken = default)
     {
         var member = await _dbContext.TerritoryGroupMembers
             .Include(m => m.Territory)
@@ -538,7 +529,7 @@ public class TerritoryService : ITerritoryService
     private static string FormatPeriod(MembershipPeriod period) =>
         $"{period.EffectiveFrom:yyyy-MM-dd} ถึง {(period.EffectiveTo?.ToString("yyyy-MM-dd") ?? "ไม่มีกำหนด")}";
 
-    private async Task EnsureMembershipDoesNotOverlapAsync(string territoryId, MembershipPeriod period, string? excludedMemberId, CancellationToken cancellationToken)
+    private async Task EnsureMembershipDoesNotOverlapAsync(int territoryId, MembershipPeriod period, int? excludedMemberId, CancellationToken cancellationToken)
     {
         var effectiveToUpper = period.EffectiveTo ?? DateOnly.MaxValue;
 
@@ -555,7 +546,7 @@ public class TerritoryService : ITerritoryService
         }
     }
 
-    private async Task EnsureMembershipHasNoTerritoryTargetsAsync(string territoryId, MembershipPeriod period, CancellationToken cancellationToken)
+    private async Task EnsureMembershipHasNoTerritoryTargetsAsync(int territoryId, MembershipPeriod period, CancellationToken cancellationToken)
     {
         var effectiveToUpper = period.EffectiveTo ?? DateOnly.MaxValue;
 

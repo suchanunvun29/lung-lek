@@ -25,12 +25,12 @@ export default function HospitalMovesPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [query, setQuery] = useState("");
-  const [selectedHospitalId, setSelectedHospitalId] = useState("");
-  const [singleTerritoryId, setSingleTerritoryId] = useState("");
+  const [selectedHospitalId, setSelectedHospitalId] = useState<number | "">("");
+  const [singleTerritoryId, setSingleTerritoryId] = useState<number | "">("");
   const [singleSuccess, setSingleSuccess] = useState<string | null>(null);
 
   const [province, setProvince] = useState("");
-  const [bulkTerritoryId, setBulkTerritoryId] = useState("");
+  const [bulkTerritoryId, setBulkTerritoryId] = useState<number | "">("");
   const [confirmingBulk, setConfirmingBulk] = useState(false);
   const [bulkSuccess, setBulkSuccess] = useState<string | null>(null);
 
@@ -71,7 +71,7 @@ export default function HospitalMovesPage() {
 
   const selectedHospital = hospitals.find((item) => item.id === selectedHospitalId);
   const bulkHospitalCount = hospitals.filter((item) => item.province === province).length;
-  const territoryName = (territoryId: string) => territories.find((item) => item.id === territoryId)?.name ?? "";
+  const territoryName = (territoryId: number | "") => territories.find((item) => item.id === territoryId)?.name ?? "";
 
   function selectHospital(item: Hospital) {
     setSelectedHospitalId(item.id);
@@ -169,7 +169,7 @@ export default function HospitalMovesPage() {
                 <Select
                   required
                   value={singleTerritoryId}
-                  onChange={(event) => setSingleTerritoryId(event.target.value)}
+                  onChange={(event) => setSingleTerritoryId(event.target.value ? Number(event.target.value) : "")}
                   className="mt-1"
                 >
                   <option value="">เลือกเขต</option>
@@ -228,7 +228,7 @@ export default function HospitalMovesPage() {
                   required
                   value={bulkTerritoryId}
                   onChange={(event) => {
-                    setBulkTerritoryId(event.target.value);
+                    setBulkTerritoryId(event.target.value ? Number(event.target.value) : "");
                     setConfirmingBulk(false);
                   }}
                   className="mt-1"

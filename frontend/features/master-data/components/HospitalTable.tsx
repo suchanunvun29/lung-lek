@@ -10,7 +10,7 @@ export interface HospitalTableProps {
 }
 
 export function HospitalTable({ hospitals, canEdit, onToggle }: HospitalTableProps) {
-  const [busyId, setBusyId] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<number | null>(null);
 
   async function handleToggle(hospital: Hospital) {
     setBusyId(hospital.id);

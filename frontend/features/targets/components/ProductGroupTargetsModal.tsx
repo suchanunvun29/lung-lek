@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 
 interface ProductGroupRow {
-  productTypeId: string;
+  productTypeId: number;
   revenueTarget: string;
 }
 
@@ -33,7 +33,7 @@ export function ProductGroupTargetsModal({
 }: ProductGroupTargetsModalProps) {
   const token = useAuthStore((state) => state.token);
   const [rows, setRows] = useState<ProductGroupRow[]>(
-    target.productGroupTargets.map((pg) => ({ productTypeId: pg.productTypeId, revenueTarget: pg.revenueTarget }))
+    target.productGroupTargets.map((pg) => ({ productTypeId: pg.productTypeId, revenueTarget: String(pg.revenueTarget) }))
   );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,7 +46,7 @@ export function ProductGroupTargetsModal({
     setRows((prev) => [...prev, { productTypeId: availableToAdd[0].id, revenueTarget: "0" }]);
   }
 
-  function removeRow(productTypeId: string) {
+  function removeRow(productTypeId: number) {
     setRows((prev) => prev.filter((r) => r.productTypeId !== productTypeId));
   }
 
@@ -87,7 +87,7 @@ export function ProductGroupTargetsModal({
               <div key={row.productTypeId} className="flex items-center gap-2">
                 <Select
                   value={row.productTypeId}
-                  onChange={(e) => updateRow(index, { productTypeId: e.target.value })}
+                  onChange={(e) => updateRow(index, { productTypeId: Number(e.target.value) })}
                   className="flex-1"
                 >
                   <option value={row.productTypeId}>{nameById.get(row.productTypeId) ?? row.productTypeId}</option>

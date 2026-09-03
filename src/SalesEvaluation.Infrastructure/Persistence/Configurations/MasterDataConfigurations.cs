@@ -12,7 +12,6 @@ public class HospitalConfiguration : IEntityTypeConfiguration<Hospital>
         builder.ToTable("Hospital");
 
         builder.HasKey(h => h.Id);
-        builder.Property(h => h.Id).ValueGeneratedNever();
 
         builder.Property(h => h.NameInFile).IsRequired();
         builder.HasIndex(h => h.NameInFile).IsUnique();
@@ -42,7 +41,6 @@ public class ProductTypeConfiguration : IEntityTypeConfiguration<ProductType>
         builder.ToTable("ProductType");
 
         builder.HasKey(p => p.Id);
-        builder.Property(p => p.Id).ValueGeneratedNever();
 
         builder.Property(p => p.Name).IsRequired();
         builder.HasIndex(p => p.Name).IsUnique();
@@ -58,7 +56,6 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
         builder.ToTable("Product");
 
         builder.HasKey(p => p.Id);
-        builder.Property(p => p.Id).ValueGeneratedNever();
 
         builder.Property(p => p.Name).IsRequired();
         builder.Property(p => p.ProductTypeId).IsRequired();
@@ -83,7 +80,6 @@ public class ProductAliasConfiguration : IEntityTypeConfiguration<ProductAlias>
         builder.ToTable("ProductAlias");
 
         builder.HasKey(a => a.Id);
-        builder.Property(a => a.Id).ValueGeneratedNever();
 
         builder.Property(a => a.NormalizedKey).IsRequired();
         builder.HasIndex(a => a.NormalizedKey).IsUnique();
@@ -114,7 +110,6 @@ public class HospitalAliasConfiguration : IEntityTypeConfiguration<HospitalAlias
         builder.ToTable("HospitalAlias");
 
         builder.HasKey(a => a.Id);
-        builder.Property(a => a.Id).ValueGeneratedNever();
 
         builder.Property(a => a.NormalizedKey).IsRequired();
         builder.HasIndex(a => a.NormalizedKey).IsUnique();
@@ -145,7 +140,6 @@ public class HospitalNameReviewConfiguration : IEntityTypeConfiguration<Hospital
         builder.ToTable("HospitalNameReview");
 
         builder.HasKey(r => r.Id);
-        builder.Property(r => r.Id).ValueGeneratedNever();
 
         builder.Property(r => r.NormalizedKeyA).IsRequired();
         builder.Property(r => r.NormalizedKeyB).IsRequired();
@@ -177,7 +171,6 @@ public class SalesmanNameReviewConfiguration : IEntityTypeConfiguration<Salesman
         builder.ToTable("SalesmanNameReview");
 
         builder.HasKey(r => r.Id);
-        builder.Property(r => r.Id).ValueGeneratedNever();
 
         builder.Property(r => r.PersonKey).IsRequired();
         builder.HasIndex(r => r.PersonKey).IsUnique();
@@ -213,7 +206,6 @@ public class SalesmanNameRuleConfiguration : IEntityTypeConfiguration<SalesmanNa
         builder.ToTable("SalesmanNameRule");
 
         builder.HasKey(r => r.Id);
-        builder.Property(r => r.Id).ValueGeneratedNever();
 
         builder.Property(r => r.NormalizedRaw).IsRequired();
         builder.HasIndex(r => r.NormalizedRaw).IsUnique();
@@ -235,7 +227,6 @@ public class SalesmanNameRuleMemberConfiguration : IEntityTypeConfiguration<Sale
         builder.ToTable("SalesmanNameRuleMember");
 
         builder.HasKey(m => m.Id);
-        builder.Property(m => m.Id).ValueGeneratedNever();
 
         builder.Property(m => m.RuleId).IsRequired();
         builder.Property(m => m.SalespersonId).IsRequired();

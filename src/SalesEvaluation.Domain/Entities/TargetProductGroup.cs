@@ -4,10 +4,10 @@ using SalesEvaluation.Domain.Common;
 
 public class TargetProductGroup : IDomainEntity
 {
-    public string Id { get; set; } = string.Empty;
-    public string TargetId { get; set; } = string.Empty;
+    public int Id { get; set; }
+    public int TargetId { get; set; }
     public Target Target { get; set; } = null!;
-    public string ProductTypeId { get; set; } = string.Empty;
+    public int ProductTypeId { get; set; }
     public ProductType ProductType { get; set; } = null!;
     public decimal RevenueTarget { get; set; }
 }

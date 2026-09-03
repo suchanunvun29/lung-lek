@@ -5,8 +5,8 @@ using SalesEvaluation.Domain.Enums;
 
 public class CoachingInsight : IDomainEntity
 {
-    public string Id { get; set; } = string.Empty;
-    public string SalespersonId { get; set; } = string.Empty;
+    public int Id { get; set; }
+    public int SalespersonId { get; set; }
     public Salesperson Salesperson { get; set; } = null!;
     public PeriodType PeriodType { get; set; }
     public int Year { get; set; }
@@ -18,7 +18,7 @@ public class CoachingInsight : IDomainEntity
     public string? Model { get; set; }
     public string? ErrorMessage { get; set; }
     public bool IsStale { get; set; } = false;
-    public string? GeneratedById { get; set; }
+    public int? GeneratedById { get; set; }
     public User? GeneratedBy { get; set; }
     public DateTime GeneratedAt { get; set; } = DateTime.UtcNow;
 }

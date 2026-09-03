@@ -101,7 +101,7 @@ public class TerritoryGroupEndpointsTests : IClassFixture<CustomWebApplicationFa
     {
         SetBearerToken(_factory.CreateToken(_factory.ManagerUserId, UserRole.MANAGER));
 
-        var response = await _client.PatchAsync("/territory-groups/nope", JsonBody(new { name = "X" }));
+        var response = await _client.PatchAsync("/territory-groups/99999", JsonBody(new { name = "X" }));
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
@@ -133,7 +133,7 @@ public class TerritoryGroupEndpointsTests : IClassFixture<CustomWebApplicationFa
         Assert.Contains("เป็นสมาชิกของกลุ่มเขตอื่นในช่วง", await overlap.Content.ReadAsStringAsync());
 
         // Group not found → 404
-        var missing = await _client.PostAsync("/territory-groups/nope/members", JsonBody(new
+        var missing = await _client.PostAsync("/territory-groups/99999/members", JsonBody(new
         {
             territoryId = _factory.TerritoryId2,
             effectiveFrom = "2026-01-01"
@@ -223,7 +223,7 @@ public class TerritoryGroupEndpointsTests : IClassFixture<CustomWebApplicationFa
         Assert.Contains("effectiveTo ต้องไม่ก่อน effectiveFrom", await inverted.Content.ReadAsStringAsync());
 
         // Member not found → 404
-        var missing = await _client.PatchAsync($"/territory-groups/{groupB.Id}/members/nope", JsonBody(new
+        var missing = await _client.PatchAsync($"/territory-groups/{groupB.Id}/members/99999", JsonBody(new
         {
             effectiveTo = "2027-12-31"
         }));

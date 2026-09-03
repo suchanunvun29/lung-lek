@@ -5,14 +5,14 @@ using SalesEvaluation.Domain.Enums;
 public class ViewerTerritoryScope
 {
     public bool CanSeeAllTerritories { get; init; }
-    public string? SelfSalespersonId { get; init; }
-    public List<string> SupervisedTerritoryIds { get; init; } = new();
-    public List<string> MemberTerritoryIds { get; init; } = new();
+    public int? SelfSalespersonId { get; init; }
+    public List<int> SupervisedTerritoryIds { get; init; } = new();
+    public List<int> MemberTerritoryIds { get; init; } = new();
 }
 
 public class CurrentUserRef
 {
-    public string Id { get; init; } = string.Empty;
+    public int Id { get; init; }
     public UserRole Role { get; init; }
 }
 
@@ -26,10 +26,10 @@ public interface ITerritoryScopeResolver
     Task<ViewerTerritoryScope> ResolveViewerTerritoryScopeAsync(CurrentUserRef user, CancellationToken cancellationToken = default);
 
     /// <summary>Salesperson ids the viewer may see; null = sees everyone (MANAGER).</summary>
-    Task<List<string>?> VisibleSalespersonIdsAsync(ViewerTerritoryScope scope, CancellationToken cancellationToken = default);
+    Task<List<int>?> VisibleSalespersonIdsAsync(ViewerTerritoryScope scope, CancellationToken cancellationToken = default);
 
-    Task<bool> CanViewSalespersonAsync(CurrentUserRef user, string salespersonId, CancellationToken cancellationToken = default);
+    Task<bool> CanViewSalespersonAsync(CurrentUserRef user, int salespersonId, CancellationToken cancellationToken = default);
 
     /// <summary>Territories the viewer sees TERRITORY_FULL on; null = MANAGER (all territories).</summary>
-    Task<HashSet<string>?> ResolveViewerTerritoryIdsAsync(CurrentUserRef user, CancellationToken cancellationToken = default);
+    Task<HashSet<int>?> ResolveViewerTerritoryIdsAsync(CurrentUserRef user, CancellationToken cancellationToken = default);
 }

@@ -42,7 +42,7 @@ public static class TerritoryGroupEndpoints
     }
 
     private static async Task<IResult> HandleUpdateGroup(
-        string id,
+        int id,
         HttpContext httpContext,
         ITerritoryService territoryService,
         ICurrentUserService currentUserService,
@@ -101,7 +101,7 @@ public static class TerritoryGroupEndpoints
     }
 
     private static async Task<IResult> HandleAddGroupMember(
-        string id,
+        int id,
         HttpContext httpContext,
         ITerritoryService territoryService,
         ICurrentUserService currentUserService,
@@ -126,12 +126,26 @@ public static class TerritoryGroupEndpoints
                 return TerritoryEndpoints.Invalid("Payload must be a JSON object");
             }
 
-            if (!root.TryGetProperty("territoryId", out var terrProp) || terrProp.ValueKind != JsonValueKind.String || string.IsNullOrEmpty(terrProp.GetString()))
+            int territoryId;
+            if (root.TryGetProperty("territoryId", out var terrProp))
+            {
+                if (terrProp.ValueKind == JsonValueKind.Number)
+                {
+                    territoryId = terrProp.GetInt32();
+                }
+                else if (terrProp.ValueKind == JsonValueKind.String && int.TryParse(terrProp.GetString(), out var tId))
+                {
+                    territoryId = tId;
+                }
+                else
+                {
+                    return TerritoryEndpoints.Invalid("territoryId is required and must be an integer");
+                }
+            }
+            else
             {
                 return TerritoryEndpoints.Invalid("territoryId is required");
             }
-
-            var territoryId = terrProp.GetString()!;
 
             if (!root.TryGetProperty("effectiveFrom", out var fromProp) || !TerritoryEndpoints.TryParseDateOnly(fromProp, out var effectiveFrom))
             {
@@ -180,8 +194,8 @@ public static class TerritoryGroupEndpoints
     }
 
     private static async Task<IResult> HandleUpdateGroupMember(
-        string id,
-        string memberId,
+        int id,
+        int memberId,
         HttpContext httpContext,
         ITerritoryService territoryService,
         ICurrentUserService currentUserService,

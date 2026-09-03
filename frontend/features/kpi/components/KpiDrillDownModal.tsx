@@ -10,10 +10,10 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { Modal } from "@/components/ui/modal";
 
 export interface KpiDrillDownModalProps {
-  salespersonId: string;
+  salespersonId: number;
   metric: DrillDownMetric;
   period: PeriodKey;
-  hospitalId?: string;
+  hospitalId?: number;
   onClose: () => void;
 }
 

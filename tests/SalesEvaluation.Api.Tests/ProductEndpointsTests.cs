@@ -190,7 +190,7 @@ public class ProductEndpointsTests : IClassFixture<CustomWebApplicationFactory>
         SetBearerToken(token);
 
         var content = new StringContent(JsonSerializer.Serialize(new { displayName = "New Name" }), Encoding.UTF8, "application/json");
-        var response = await _client.PatchAsync("/products/non-existent-id-9999", content);
+        var response = await _client.PatchAsync("/products/9999", content);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         var json = await response.Content.ReadFromJsonAsync<JsonElement>();

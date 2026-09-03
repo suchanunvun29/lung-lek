@@ -61,7 +61,7 @@ public static class UserEndpoints
     }
 
     private static async Task<IResult> HandleUpdateUser(
-        string id,
+        int id,
         HttpContext httpContext,
         IUserService userService,
         ICurrentUserService currentUserService,
@@ -121,9 +121,13 @@ public static class UserEndpoints
                 {
                     request.SalespersonId = null;
                 }
-                else if (spProp.ValueKind == JsonValueKind.String)
+                else if (spProp.ValueKind == JsonValueKind.Number)
                 {
-                    request.SalespersonId = spProp.GetString();
+                    request.SalespersonId = spProp.GetInt32();
+                }
+                else if (spProp.ValueKind == JsonValueKind.String && int.TryParse(spProp.GetString(), out var spId))
+                {
+                    request.SalespersonId = spId;
                 }
             }
 
@@ -133,7 +137,7 @@ public static class UserEndpoints
     }
 
     private static async Task<IResult> HandleResetPassword(
-        string id,
+        int id,
         ResetPasswordRequest request,
         IUserService userService,
         ICurrentUserService currentUserService,

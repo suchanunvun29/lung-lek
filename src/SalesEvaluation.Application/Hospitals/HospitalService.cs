@@ -33,13 +33,8 @@ public class HospitalService : IHospitalService
         };
     }
 
-    public async Task<HospitalResponse> UpdateHospitalAsync(string id, UpdateHospitalRequest request, CancellationToken cancellationToken = default)
+    public async Task<HospitalResponse> UpdateHospitalAsync(int id, UpdateHospitalRequest request, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(id))
-        {
-            throw new ValidationException("Validation failed", "Hospital ID is required");
-        }
-
         var hospital = await _dbContext.Hospitals
             .Include(h => h.Territory)
             .Include(h => h.Aliases)
@@ -80,13 +75,8 @@ public class HospitalService : IHospitalService
         };
     }
 
-    public async Task<CreateHospitalAliasResponse> AddHospitalAliasAsync(string hospitalId, CreateHospitalAliasRequest request, string userId, CancellationToken cancellationToken = default)
+    public async Task<CreateHospitalAliasResponse> AddHospitalAliasAsync(int hospitalId, CreateHospitalAliasRequest request, int userId, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(hospitalId))
-        {
-            throw new ValidationException("Validation failed", "Hospital ID is required");
-        }
-
         if (string.IsNullOrWhiteSpace(request.SampleRaw))
         {
             throw new ValidationException("Validation failed", "SampleRaw is required");
@@ -120,7 +110,6 @@ public class HospitalService : IHospitalService
 
         var alias = new HospitalAlias
         {
-            Id = Guid.NewGuid().ToString(),
             NormalizedKey = normalizedKey,
             SampleRaw = sampleRaw,
             HospitalId = hospitalId,
@@ -149,13 +138,8 @@ public class HospitalService : IHospitalService
         };
     }
 
-    public async Task<HospitalResponse> PatchHospitalTerritoryAsync(string id, PatchHospitalTerritoryRequest request, string userId, CancellationToken cancellationToken = default)
+    public async Task<HospitalResponse> PatchHospitalTerritoryAsync(int id, PatchHospitalTerritoryRequest request, int userId, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(id))
-        {
-            throw new ValidationException("Validation failed", "Hospital ID is required");
-        }
-
         var hospital = await _dbContext.Hospitals
             .Include(h => h.Territory)
             .Include(h => h.Aliases)
@@ -169,7 +153,7 @@ public class HospitalService : IHospitalService
         if (request.TerritoryId != null)
         {
             var territoryExists = await _dbContext.Territories
-                .AnyAsync(t => t.Id == request.TerritoryId, cancellationToken);
+                .AnyAsync(t => t.Id == request.TerritoryId.Value, cancellationToken);
 
             if (!territoryExists)
             {
@@ -185,7 +169,6 @@ public class HospitalService : IHospitalService
 
         var changeLog = new HospitalTerritoryChange
         {
-            Id = Guid.NewGuid().ToString(),
             HospitalId = id,
             FromTerritoryId = fromTerritoryId,
             ToTerritoryId = request.TerritoryId,
@@ -199,7 +182,7 @@ public class HospitalService : IHospitalService
 
         if (hospital.TerritoryId != null)
         {
-            hospital.Territory = await _dbContext.Territories.AsNoTracking().FirstOrDefaultAsync(t => t.Id == hospital.TerritoryId, cancellationToken);
+            hospital.Territory = await _dbContext.Territories.AsNoTracking().FirstOrDefaultAsync(t => t.Id == hospital.TerritoryId.Value, cancellationToken);
         }
         else
         {
@@ -212,7 +195,7 @@ public class HospitalService : IHospitalService
         };
     }
 
-    public async Task<BulkMoveHospitalsResponse> BulkMoveHospitalsByProvinceAsync(BulkMoveHospitalsByProvinceRequest request, string userId, CancellationToken cancellationToken = default)
+    public async Task<BulkMoveHospitalsResponse> BulkMoveHospitalsByProvinceAsync(BulkMoveHospitalsByProvinceRequest request, int userId, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(request.Province))
         {
@@ -222,7 +205,7 @@ public class HospitalService : IHospitalService
         if (request.TerritoryId != null)
         {
             var territoryExists = await _dbContext.Territories
-                .AnyAsync(t => t.Id == request.TerritoryId, cancellationToken);
+                .AnyAsync(t => t.Id == request.TerritoryId.Value, cancellationToken);
 
             if (!territoryExists)
             {
@@ -243,7 +226,6 @@ public class HospitalService : IHospitalService
 
             var changeLog = new HospitalTerritoryChange
             {
-                Id = Guid.NewGuid().ToString(),
                 HospitalId = hospital.Id,
                 FromTerritoryId = fromTerritoryId,
                 ToTerritoryId = request.TerritoryId,
@@ -286,12 +268,12 @@ public class HospitalService : IHospitalService
             .ToListAsync(cancellationToken);
 
         // Group credits by hospitalId -> Map<salespersonId, sum(revenue)>
-        var revenueByHospitalPerson = new Dictionary<string, Dictionary<string, decimal>>();
+        var revenueByHospitalPerson = new Dictionary<int, Dictionary<int, decimal>>();
         foreach (var credit in credits)
         {
             if (!revenueByHospitalPerson.TryGetValue(credit.HospitalId, out var byPerson))
             {
-                byPerson = new Dictionary<string, decimal>();
+                byPerson = new Dictionary<int, decimal>();
                 revenueByHospitalPerson[credit.HospitalId] = byPerson;
             }
 
@@ -304,7 +286,7 @@ public class HospitalService : IHospitalService
 
         foreach (var hospital in hospitals)
         {
-            var byPerson = revenueByHospitalPerson.GetValueOrDefault(hospital.Id) ?? new Dictionary<string, decimal>();
+            var byPerson = revenueByHospitalPerson.GetValueOrDefault(hospital.Id) ?? new Dictionary<int, decimal>();
             var hospitalUnassignedBucket = byPerson.Values.Sum();
             totalUnassignedBucket += hospitalUnassignedBucket;
 

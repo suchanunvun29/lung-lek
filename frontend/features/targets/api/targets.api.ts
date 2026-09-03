@@ -11,7 +11,7 @@ export interface UpsertTargetInput {
 }
 
 export interface ProductGroupTargetInput {
-  productTypeId: string;
+  productTypeId: number;
   revenueTarget: number;
 }
 
@@ -25,9 +25,9 @@ export interface CopyTargetsInput {
 
 export interface CopyTargetsResult {
   sourceCount: number;
-  created: string[];
-  updated: string[];
-  skipped: string[];
+  created: number[];
+  updated: number[];
+  skipped: number[];
 }
 
 export function listTargets(token: string, year: number, scope: TargetScope = "SALESPERSON") {
@@ -36,7 +36,7 @@ export function listTargets(token: string, year: number, scope: TargetScope = "S
 
 export function upsertTarget(
   token: string,
-  salespersonId: string,
+  salespersonId: number,
   year: number,
   month: number,
   input: UpsertTargetInput
@@ -50,7 +50,7 @@ export function upsertTarget(
 
 export function updateTargetProductGroups(
   token: string,
-  targetId: string,
+  targetId: number,
   productGroups: ProductGroupTargetInput[]
 ) {
   return request<{ target: Target }>(
@@ -64,7 +64,7 @@ export const upsertProductGroupTargets = updateTargetProductGroups;
 
 export function upsertTerritoryTarget(
   token: string,
-  territoryId: string,
+  territoryId: number,
   year: number,
   month: number,
   input: UpsertTargetInput
@@ -78,7 +78,7 @@ export function upsertTerritoryTarget(
 
 export function upsertTerritoryGroupTarget(
   token: string,
-  territoryGroupId: string,
+  territoryGroupId: number,
   year: number,
   month: number,
   input: UpsertTargetInput
@@ -90,7 +90,7 @@ export function upsertTerritoryGroupTarget(
   );
 }
 
-export function listTargetRevisions(token: string, targetId: string) {
+export function listTargetRevisions(token: string, targetId: number) {
   return request<{ revisions: TargetRevision[] }>(`/targets/${targetId}/revisions`, { method: "GET" }, token);
 }
 

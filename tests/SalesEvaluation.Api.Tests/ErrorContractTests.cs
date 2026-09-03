@@ -113,7 +113,7 @@ public class ErrorContractTests : IClassFixture<CustomWebApplicationFactory>
     public async Task HospitalNotFound_ReturnsExactErrorMessage()
     {
         var token = _factory.CreateToken(_factory.ManagerUserId, UserRole.MANAGER);
-        using var request = new HttpRequestMessage(HttpMethod.Patch, "/hospitals/non-existent-id");
+        using var request = new HttpRequestMessage(HttpMethod.Patch, "/hospitals/999999");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         request.Content = JsonContent.Create(new { displayName = "New Name" });
 
@@ -130,7 +130,7 @@ public class ErrorContractTests : IClassFixture<CustomWebApplicationFactory>
     public async Task SalespersonNotFound_ReturnsExactErrorMessage()
     {
         var token = _factory.CreateToken(_factory.ManagerUserId, UserRole.MANAGER);
-        using var request = new HttpRequestMessage(HttpMethod.Patch, "/salespeople/non-existent-id");
+        using var request = new HttpRequestMessage(HttpMethod.Patch, "/salespeople/999999");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         request.Content = JsonContent.Create(new { displayName = "New Name" });
 

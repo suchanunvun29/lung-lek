@@ -46,8 +46,8 @@ public partial class TerritoryKpiService : ITerritoryKpiService
     /// hospital.territoryId = T, salesperson NOT excludedFromTerritoryTotals, period matches.
     /// Always through SalesLineCredit — never through SalesLine.salespersonId.
     /// </summary>
-    private async Task<List<(string HospitalId, string ProductTypeId, double Total)>> GetTerritoryLinesAsync(
-        string territoryId,
+    private async Task<List<(int HospitalId, int ProductTypeId, double Total)>> GetTerritoryLinesAsync(
+        int territoryId,
         AppPeriodKey period,
         CancellationToken cancellationToken)
     {
@@ -63,7 +63,7 @@ public partial class TerritoryKpiService : ITerritoryKpiService
         return rows.Select(r => (r.HospitalId, r.ProductTypeId, (double)r.Total * ((double)r.SharePercent / 100.0))).ToList();
     }
 
-    private async Task<TerritoryKpiRowData> ComputeTerritoryKpiAsync(string territoryId, Territory territory, AppPeriodKey period, CancellationToken cancellationToken)
+    private async Task<TerritoryKpiRowData> ComputeTerritoryKpiAsync(int territoryId, Territory territory, AppPeriodKey period, CancellationToken cancellationToken)
     {
         var monthKeys = PeriodUtils.MonthKeys(PeriodUtils.MonthsInPeriod(period));
         var targetRows = await _dbContext.Targets
@@ -169,7 +169,7 @@ public partial class TerritoryKpiService : ITerritoryKpiService
             }
             else
             {
-                var actualByType = new Dictionary<string, double>();
+                var actualByType = new Dictionary<int, double>();
                 foreach (var line in periodLines)
                 {
                     actualByType[line.ProductTypeId] = actualByType.GetValueOrDefault(line.ProductTypeId) + line.Total;
@@ -218,7 +218,7 @@ public partial class TerritoryKpiService : ITerritoryKpiService
         };
     }
 
-    private async Task<MetricResultDto> ComputeTerritoryRetentionAsync(string territoryId, AppPeriodKey period, CancellationToken cancellationToken)
+    private async Task<MetricResultDto> ComputeTerritoryRetentionAsync(int territoryId, AppPeriodKey period, CancellationToken cancellationToken)
     {
         var prev = await GetTerritoryLinesAsync(territoryId, PeriodUtils.PreviousPeriod(period), cancellationToken);
         var current = await GetTerritoryLinesAsync(territoryId, period, cancellationToken);
@@ -244,7 +244,7 @@ public partial class TerritoryKpiService : ITerritoryKpiService
         };
     }
 
-    private async Task<MetricResultDto> ComputeTerritoryConsistencyAsync(string territoryId, AppPeriodKey period, int count, CancellationToken cancellationToken)
+    private async Task<MetricResultDto> ComputeTerritoryConsistencyAsync(int territoryId, AppPeriodKey period, int count, CancellationToken cancellationToken)
     {
         var (endYear, endMonth) = PeriodUtils.LastMonthOfPeriod(period);
         var months = PeriodUtils.TrailingMonths(endYear, endMonth, count);
@@ -312,8 +312,8 @@ public partial class TerritoryKpiService : ITerritoryKpiService
 
         double personalBucket = 0;
         double unassignedBucket = 0;
-        var unassignedHospitalIds = new HashSet<string>();
-        var revenueByTerritory = new Dictionary<string, double>();
+        var unassignedHospitalIds = new HashSet<int>();
+        var revenueByTerritory = new Dictionary<int, double>();
         foreach (var credit in credits)
         {
             var amount = (double)credit.Total * ((double)credit.SharePercent / 100.0);
@@ -321,14 +321,14 @@ public partial class TerritoryKpiService : ITerritoryKpiService
             {
                 personalBucket += amount;
             }
-            else if (credit.TerritoryId == null)
+            else if (!credit.TerritoryId.HasValue)
             {
                 unassignedBucket += amount;
                 unassignedHospitalIds.Add(credit.HospitalId);
             }
             else
             {
-                revenueByTerritory[credit.TerritoryId] = revenueByTerritory.GetValueOrDefault(credit.TerritoryId) + amount;
+                revenueByTerritory[credit.TerritoryId.Value] = revenueByTerritory.GetValueOrDefault(credit.TerritoryId.Value) + amount;
             }
         }
 
@@ -359,7 +359,7 @@ public partial class TerritoryKpiService : ITerritoryKpiService
             return new List<TerritoryPersonalBucketEntryDto>();
         }
 
-        var bySalesperson = new Dictionary<string, (string DisplayName, double Revenue)>();
+        var bySalesperson = new Dictionary<int, (string DisplayName, double Revenue)>();
         foreach (var credit in credits)
         {
             var entry = bySalesperson.GetValueOrDefault(credit.SalespersonId);
@@ -372,11 +372,11 @@ public partial class TerritoryKpiService : ITerritoryKpiService
         var targetRows = await _dbContext.Targets
             .AsNoTracking()
             .Where(t => t.Scope == TargetScope.SALESPERSON && t.SalespersonId != null &&
-                        salespersonIds.Contains(t.SalespersonId) &&
+                        salespersonIds.Contains(t.SalespersonId.Value) &&
                         monthKeys.Contains(PeriodUtils.MonthKey(t.Year, t.Month)))
             .Select(t => new { t.SalespersonId, t.RevenueTarget })
             .ToListAsync(cancellationToken);
-        var targetBySalesperson = new Dictionary<string, double>();
+        var targetBySalesperson = new Dictionary<int, double>();
         foreach (var row in targetRows)
         {
             if (row.SalespersonId == null)
@@ -384,7 +384,7 @@ public partial class TerritoryKpiService : ITerritoryKpiService
                 continue;
             }
 
-            targetBySalesperson[row.SalespersonId] = targetBySalesperson.GetValueOrDefault(row.SalespersonId) + (double)row.RevenueTarget;
+            targetBySalesperson[row.SalespersonId.Value] = targetBySalesperson.GetValueOrDefault(row.SalespersonId.Value) + (double)row.RevenueTarget;
         }
 
         return bySalesperson.Select(kvp =>
@@ -403,7 +403,7 @@ public partial class TerritoryKpiService : ITerritoryKpiService
 
     // Owner display follows the same period-effective window as activeOwnerCount
     // (Territory KPI Rules ข้อ 6). Shared with Module O's ranking so both show the same names.
-    public async Task<List<string>> OwnerNamesForAsync(string territoryId, AppPeriodKey period, CancellationToken cancellationToken = default)
+    public async Task<List<string>> OwnerNamesForAsync(int territoryId, AppPeriodKey period, CancellationToken cancellationToken = default)
     {
         var firstDay = PeriodUtils.FirstDayOfPeriod(period);
         var lastDay = PeriodUtils.LastDayOfPeriod(period);
@@ -538,7 +538,7 @@ public partial class TerritoryKpiService : ITerritoryKpiService
 
     // Data Visibility Rules ข้อ 6: everything is always computed (rank comes from all territories),
     // then fields are stripped before sending — never sent in full for the frontend to hide.
-    public object SerializeRow(TerritoryKpiRowData row, HashSet<string>? visibleTerritoryIds)
+    public object SerializeRow(TerritoryKpiRowData row, HashSet<int>? visibleTerritoryIds)
     {
         if (visibleTerritoryIds == null || visibleTerritoryIds.Contains(row.TerritoryId))
         {
@@ -573,7 +573,7 @@ public partial class TerritoryKpiService : ITerritoryKpiService
     // Strictest reading of Data Visibility Rules ข้อ 6 for group units: money fields of the group
     // aggregate every member territory's figures, so the group is TERRITORY_FULL only when the
     // viewer has FULL on all of its members.
-    public object SerializeGroupRow(TerritoryGroupKpiRowData row, HashSet<string>? visibleTerritoryIds)
+    public object SerializeGroupRow(TerritoryGroupKpiRowData row, HashSet<int>? visibleTerritoryIds)
     {
         if (visibleTerritoryIds == null || row.MemberTerritoryIds.All(id => visibleTerritoryIds.Contains(id)))
         {
@@ -604,9 +604,9 @@ public partial class TerritoryKpiService : ITerritoryKpiService
     }
 
     public async Task<TerritoryKpiSingleResponse?> GetTerritoryKpiAsync(
-        string territoryId,
+        int territoryId,
         AppPeriodKey period,
-        HashSet<string>? visibleTerritoryIds,
+        HashSet<int>? visibleTerritoryIds,
         CancellationToken cancellationToken = default)
     {
         var territory = await _dbContext.Territories
@@ -635,7 +635,7 @@ public partial class TerritoryKpiService : ITerritoryKpiService
     // Territory KPI Rules ข้อ 7 drill-down — product types sold and hospitals sold to with
     // amounts, through SalesLineCredit only.
     public async Task<TerritoryKpiDrillDownResponse?> GetTerritoryDrillDownAsync(
-        string territoryId,
+        int territoryId,
         string metric,
         AppPeriodKey period,
         CancellationToken cancellationToken = default)
@@ -665,8 +665,8 @@ public partial class TerritoryKpiService : ITerritoryKpiService
             })
             .ToListAsync(cancellationToken);
 
-        var totalsByType = new Dictionary<string, (string Name, double Revenue)>();
-        var totalsByHospital = new Dictionary<string, (string Name, double Revenue)>();
+        var totalsByType = new Dictionary<int, (string Name, double Revenue)>();
+        var totalsByHospital = new Dictionary<int, (string Name, double Revenue)>();
         foreach (var credit in credits)
         {
             var revenue = (double)credit.Total * ((double)credit.SharePercent / 100.0);
@@ -698,12 +698,12 @@ public partial class TerritoryKpiService : ITerritoryKpiService
 
 public partial class TerritoryKpiService
 {
-    // Product Master & Ranking Rules ��� 4 � mandatory first-phase warning, verbatim.
+    // Product Master & Ranking Rules ข้อ 4 — mandatory first-phase warning, verbatim.
     public const string ZeroSaleWarning =
-        "����¹�Թ��һѨ�غѹ���ҧ�ҡ����ѵԡ�â�� ��¡�ù��֧���¶֧�Թ��ҷ��ࢵ��蹢������ࢵ����ѧ������� �������ᤵ����͡�ͧ����ѷ";
+        "ทะเบียนสินค้าปัจจุบันสร้างจากประวัติการขาย รายการนี้จึงหมายถึงสินค้าที่เขตอื่นขายได้แต่เขตนี้ยังไม่เคยขาย ไม่ใช่แคตตาล็อกของบริษัท";
 
     public async Task<TerritoryProductRankingResponse?> GetTerritoryProductRankingAsync(
-        string territoryId,
+        int territoryId,
         AppPeriodKey period,
         CancellationToken cancellationToken = default)
     {
@@ -724,7 +724,7 @@ public partial class TerritoryKpiService
             .ThenBy(p => p.Name)
             .ToListAsync(cancellationToken);
 
-        // revenue(T)'s Territory KPI Rules ���-2 math at product grain � SalesLineCredit only,
+        // revenue(T)'s Territory KPI Rules ข้อ 2 math at product grain — SalesLineCredit only,
         // excluded personnel never count toward the territory.
         var currentTask = _dbContext.SalesLineCredits
             .AsNoTracking()
@@ -752,9 +752,9 @@ public partial class TerritoryKpiService
         var products = productsTask.Result;
         var historical = historicTask.Result.ToHashSet();
 
-        static Dictionary<string, (double Revenue, double Quantity)> Reduce(IEnumerable<(string ProductId, decimal Qty, decimal Total, decimal Share)> rows)
+        static Dictionary<int, (double Revenue, double Quantity)> Reduce(IEnumerable<(int ProductId, decimal Qty, decimal Total, decimal Share)> rows)
         {
-            var totals = new Dictionary<string, (double Revenue, double Quantity)>();
+            var totals = new Dictionary<int, (double Revenue, double Quantity)>();
             foreach (var row in rows)
             {
                 var item = totals.GetValueOrDefault(row.ProductId);
@@ -771,14 +771,14 @@ public partial class TerritoryKpiService
         var totals = Reduce(currentRows);
         var personalTotals = Reduce(personalRows);
 
-        TerritoryProductRankingItemDto Serialize(Product product, Dictionary<string, (double Revenue, double Quantity)> values)
+        TerritoryProductRankingItemDto Serialize(Product product, Dictionary<int, (double Revenue, double Quantity)> values)
         {
             var item = values.GetValueOrDefault(product.Id);
             return new TerritoryProductRankingItemDto
             {
                 ProductId = product.Id,
-                // Product.code null serializes as "�" here � never null/raw id to the frontend (��� 3).
-                Code = product.Code ?? "�",
+                // Product.code null serializes as "-" here — never null/raw id to the frontend (ข้อ 3).
+                Code = product.Code ?? "-",
                 Name = product.DisplayName ?? product.Name,
                 ProductType = new ProductTypeSummaryDto { Id = product.ProductType.Id, Name = product.ProductType.Name },
                 Revenue = item.Revenue,
@@ -788,8 +788,8 @@ public partial class TerritoryKpiService
 
         var thaiComparer = StringComparer.Create(new System.Globalization.CultureInfo("th-TH"), ignoreCase: false);
 
-        // ��� 3: grouped by Product type, bestworst by Total inside each group; zero-revenue
-        // products sink to the end of their group sorted by name with one of two explicit labels �
+        // ข้อ 3: grouped by Product type, best worst by Total inside each group; zero-revenue
+        // products sink to the end of their group sorted by name with one of two explicit labels —
         // never hidden.
         var items = products
             .Select(product =>
@@ -806,7 +806,7 @@ public partial class TerritoryKpiService
             .ToList();
 
         var ownerNames = await OwnerNamesForAsync(territoryId, period, cancellationToken);
-        var territoryOwners = ownerNames.Count > 0 ? ownerNames : new List<string> { "�ѧ����ռ�����" };
+        var territoryOwners = ownerNames.Count > 0 ? ownerNames : new List<string> { "ยังไม่มีผู้ดูแล" };
 
         return new TerritoryProductRankingResponse
         {

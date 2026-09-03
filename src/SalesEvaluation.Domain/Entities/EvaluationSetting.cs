@@ -5,7 +5,7 @@ using SalesEvaluation.Domain.Enums;
 
 public class EvaluationSetting : IDomainEntity
 {
-    public string Id { get; set; } = "singleton";
+    public int Id { get; set; }
     public int ChurnMonths { get; set; } = 6;
     public int MinMonthsForChurn { get; set; } = 6;
     public int MinMonthsForConsistency { get; set; } = 6;
@@ -17,7 +17,7 @@ public class EvaluationSetting : IDomainEntity
     public int TargetLookbackMonths { get; set; } = 3;
     public decimal TargetOutlierThreshold { get; set; } = 0.40m;
     public decimal TargetGrowthRate { get; set; } = 1.000m;
-    public string? UpdatedById { get; set; }
+    public int? UpdatedById { get; set; }
     public User? UpdatedBy { get; set; }
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }

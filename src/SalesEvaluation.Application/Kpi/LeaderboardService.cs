@@ -38,7 +38,7 @@ public class LeaderboardService : ILeaderboardService
     private sealed class LeaderboardUnit
     {
         public string UnitType { get; init; } = string.Empty;
-        public string Id { get; init; } = string.Empty;
+        public int Id { get; init; }
         public string Name { get; init; } = string.Empty;
         public List<string> OwnerNames { get; init; } = new();
         public CriterionValue Criterion { get; init; } = new();
@@ -232,7 +232,7 @@ public class LeaderboardService : ILeaderboardService
         // Territories effective in a group during P appear as details under the group row, never
         // as their own ranked rows (หน่วยเป้า definition, Territory KPI Rules ข้อ 6).
         var groupedTerritoryIds = groupRows.SelectMany(g => g.MemberTerritoryIds).ToHashSet();
-        var serializedByTerritoryId = new Dictionary<string, object>();
+        var serializedByTerritoryId = new Dictionary<int, object>();
         foreach (var row in fullRows)
         {
             serializedByTerritoryId[row.TerritoryId] = _territoryKpiService.SerializeRow(row, visible);
@@ -304,7 +304,7 @@ public class LeaderboardService : ILeaderboardService
 
     public async Task<object?> GetTerritoryPeopleAsync(
         CurrentUserRef user,
-        string territoryId,
+        int territoryId,
         AppPeriodKey period,
         string criteria,
         CancellationToken cancellationToken = default)
@@ -338,7 +338,7 @@ public class LeaderboardService : ILeaderboardService
         }
 
         var todayOnly = DateOnly.FromDateTime(DateTime.UtcNow);
-        var hasSelfAssignment = await HasActiveAssignmentAsync(territoryId, selfSalespersonId, todayOnly, cancellationToken);
+        var hasSelfAssignment = await HasActiveAssignmentAsync(territoryId, selfSalespersonId.Value, todayOnly, cancellationToken);
         if (!hasSelfAssignment)
         {
             return null;
@@ -350,7 +350,7 @@ public class LeaderboardService : ILeaderboardService
         var values = entries.ToDictionary(
             entry => entry.SalespersonId,
             entry => PersonCriterion(entry.Result, criteria));
-        var myCriterion = values[selfSalespersonId];
+        var myCriterion = values[selfSalespersonId.Value];
         var computableValues = values.Values.Where(c => c.Computable).Select(c => c.Value!.Value).ToList();
         var betterCount = myCriterion.Computable
             ? values.Values.Count(c => c.Computable && (c.Value ?? 0) > (myCriterion.Value ?? 0))
@@ -368,7 +368,7 @@ public class LeaderboardService : ILeaderboardService
         };
     }
 
-    private async Task<List<TerritoryAssignment>> GetActiveAssignmentsAsync(string territoryId, DateOnly today, CancellationToken cancellationToken)
+    private async Task<List<TerritoryAssignment>> GetActiveAssignmentsAsync(int territoryId, DateOnly today, CancellationToken cancellationToken)
     {
         var assignments = await _dbContext.TerritoryAssignments
             .AsNoTracking()
@@ -381,7 +381,7 @@ public class LeaderboardService : ILeaderboardService
             .ToList();
     }
 
-    private async Task<bool> HasActiveAssignmentAsync(string territoryId, string salespersonId, DateOnly today, CancellationToken cancellationToken)
+    private async Task<bool> HasActiveAssignmentAsync(int territoryId, int salespersonId, DateOnly today, CancellationToken cancellationToken)
     {
         var assignments = await _dbContext.TerritoryAssignments
             .AsNoTracking()

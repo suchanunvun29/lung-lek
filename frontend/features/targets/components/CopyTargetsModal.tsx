@@ -33,7 +33,7 @@ export function CopyTargetsModal({ year, salespeople, onClose, onCopied }: CopyT
 
   const nameById = new Map(salespeople.map((sp) => [sp.id, sp.displayName]));
 
-  function describe(ids: string[]) {
+  function describe(ids: number[]) {
     return ids.map((id) => nameById.get(id) ?? id).join(", ");
   }
 

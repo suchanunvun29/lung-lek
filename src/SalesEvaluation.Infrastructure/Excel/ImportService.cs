@@ -14,7 +14,7 @@ using SalesEvaluation.Infrastructure.Persistence;
 /// Ports backend/src/services/import.service.ts — ClosedXML-based .xlsx ingestion.
 /// All business rules (header detection, row parsing, advisory lock, credit split, archive)
 /// are faithful ports. Key differences: EF Core transactions instead of Prisma, ClosedXML
-/// instead of ExcelJS, cuid() via Guid.NewGuid() for IDs.
+/// instead of ExcelJS, database identity generation for IDs.
 /// </summary>
 public class ImportService : IImportService
 {
@@ -66,7 +66,7 @@ public class ImportService : IImportService
         byte[] fileBuffer,
         string fileName,
         int fileSizeBytes,
-        string uploadedById,
+        int uploadedById,
         ImportMode mode,
         List<Period>? targetPeriods,
         bool confirm,
@@ -130,7 +130,7 @@ public class ImportService : IImportService
     }
 
     public async Task<ImportResult> DeleteSalesPeriodsAsync(
-        string uploadedById,
+        int uploadedById,
         List<Period> targetPeriods,
         bool confirm,
         CancellationToken cancellationToken = default)
@@ -176,7 +176,7 @@ public class ImportService : IImportService
         return batches.Select(b => MapBatch(b, false)).ToList();
     }
 
-    public async Task<ImportBatchDto?> GetImportBatchAsync(string id, CancellationToken cancellationToken = default)
+    public async Task<ImportBatchDto?> GetImportBatchAsync(int id, CancellationToken cancellationToken = default)
     {
         var batch = await _db.ImportBatches
             .AsNoTracking()
@@ -188,9 +188,9 @@ public class ImportService : IImportService
     }
 
     public async Task<SalesLinesPageDto> ListSalesLinesAsync(
-        string? salespersonId,
-        string? hospitalId,
-        string? productTypeId,
+        int? salespersonId,
+        int? hospitalId,
+        int? productTypeId,
         int? year,
         int? month,
         int page,
@@ -204,9 +204,9 @@ public class ImportService : IImportService
             .Include(s => s.ProductType)
             .AsQueryable();
 
-        if (!string.IsNullOrEmpty(salespersonId)) query = query.Where(s => s.SalespersonId == salespersonId);
-        if (!string.IsNullOrEmpty(hospitalId)) query = query.Where(s => s.HospitalId == hospitalId);
-        if (!string.IsNullOrEmpty(productTypeId)) query = query.Where(s => s.ProductTypeId == productTypeId);
+        if (salespersonId.HasValue) query = query.Where(s => s.SalespersonId == salespersonId.Value);
+        if (hospitalId.HasValue) query = query.Where(s => s.HospitalId == hospitalId.Value);
+        if (productTypeId.HasValue) query = query.Where(s => s.ProductTypeId == productTypeId.Value);
         if (year.HasValue) query = query.Where(s => s.Year == year.Value);
         if (month.HasValue) query = query.Where(s => s.Month == month.Value);
 
@@ -429,7 +429,6 @@ public class ImportService : IImportService
     private static string CellToDisplayString(IXLCell cell)
     {
         if (cell.IsEmpty()) return string.Empty;
-        // Handle formula result
         if (cell.HasFormula)
         {
             try { return cell.CachedValue.ToString() ?? string.Empty; }
@@ -462,7 +461,6 @@ public class ImportService : IImportService
             var d = cell.GetDateTime();
             return d == DateTime.MinValue ? null : d;
         }
-        // Numeric serial (Excel date serial)
         if (cell.DataType == XLDataType.Number)
         {
             var serial = cell.GetDouble();
@@ -488,19 +486,18 @@ public class ImportService : IImportService
     // -----------------------------------------------------------------------
 
     private async Task<ImportBatchDto> ImportSalesFileLegacyAsync(
-        byte[] fileBuffer, string fileName, int fileSizeBytes, string uploadedById,
+        byte[] fileBuffer, string fileName, int fileSizeBytes, int uploadedById,
         CancellationToken cancellationToken)
     {
         var inProgress = await _db.ImportBatches
             .Where(b => b.Status == ImportStatus.PROCESSING)
             .Select(b => b.Id)
             .FirstOrDefaultAsync(cancellationToken);
-        if (inProgress != null)
+        if (inProgress != 0)
             throw new ImportInProgressException();
 
         var batch = new ImportBatch
         {
-            Id = NewId(),
             FileName = fileName,
             FileSizeBytes = fileSizeBytes,
             UploadedById = uploadedById,
@@ -535,7 +532,6 @@ public class ImportService : IImportService
             totalRows = parsed.TotalRows;
             errorRows = parsed.ErrorRows;
 
-            // Run advisory-locked transaction
             using var tx = await _db.Database.BeginTransactionAsync(cancellationToken);
 
             var locked = await _lockService.TryAcquireTransactionLockAsync(ImportAdvisoryLockKey, cancellationToken);
@@ -552,7 +548,7 @@ public class ImportService : IImportService
             var existingByRowKey = rowKeys.Count > 0
                 ? (await _db.SalesLines.Where(s => rowKeys.Contains(s.RowKey)).Select(s => new { s.Id, s.RowKey }).ToListAsync(cancellationToken))
                     .ToDictionary(s => s.RowKey, s => s.Id)
-                : new Dictionary<string, string>();
+                : new Dictionary<string, int>();
 
             int inserted = 0, updated = 0;
             var creditErrorRows = 0;
@@ -569,12 +565,11 @@ public class ImportService : IImportService
                 if (product.ProductTypeId != productTypeId)
                 {
                     issues.Add(new IssueInput("WARNING", "PRODUCT_TYPE_ALIAS_MISMATCH",
-                        $"สินค้า \"{row.ProductName}\" ถูกจับคู่กับทะเบียนที่ Product type = {productTypeNames.GetValueOrDefault(product.ProductTypeId, product.ProductTypeId)} แต่ไฟล์ระบุ \"{row.ProductTypeName}\" — ระบบใช้ type ตามทะเบียน",
+                        $"สินค้า \"{row.ProductName}\" ถูกจับคู่กับทะเบียนที่ Product type = {productTypeNames.GetValueOrDefault(product.ProductTypeId, product.ProductTypeId.ToString())} แต่ไฟล์ระบุ \"{row.ProductTypeName}\" — ระบบใช้ type ตามทะเบียน",
                         SheetName: parsed.FirstSheetName, RowNumber: row.RowNumber));
                 }
 
                 var primaryCredit = credits.FirstOrDefault(c => c.IsPrimary) ?? credits[0];
-                string salesLineId;
 
                 if (existingByRowKey.TryGetValue(row.RowKey, out var existingId))
                 {
@@ -585,28 +580,34 @@ public class ImportService : IImportService
                         _db.SalesLines.Update(existing);
                         var oldCredits = await _db.SalesLineCredits.Where(c => c.SalesLineId == existingId).ToListAsync(cancellationToken);
                         _db.SalesLineCredits.RemoveRange(oldCredits);
+
+                        _db.SalesLineCredits.AddRange(credits.Select(c => new SalesLineCredit
+                        {
+                            SalesLineId = existingId,
+                            SalespersonId = c.SalespersonId,
+                            SharePercent = c.SharePercent,
+                            IsPrimary = c.IsPrimary,
+                        }));
                     }
-                    salesLineId = existingId;
                     updated++;
                 }
                 else
                 {
-                    var sl = new SalesLine { Id = NewId() };
+                    var sl = new SalesLine();
                     UpdateSalesLineFields(sl, row, hospitalId, primaryCredit.SalespersonId, product, batch.Id, parsed.FirstSheetName);
                     sl.RowKey = row.RowKey;
+                    foreach (var c in credits)
+                    {
+                        sl.Credits.Add(new SalesLineCredit
+                        {
+                            SalespersonId = c.SalespersonId,
+                            SharePercent = c.SharePercent,
+                            IsPrimary = c.IsPrimary,
+                        });
+                    }
                     _db.SalesLines.Add(sl);
-                    salesLineId = sl.Id;
                     inserted++;
                 }
-
-                _db.SalesLineCredits.AddRange(credits.Select(c => new SalesLineCredit
-                {
-                    Id = NewId(),
-                    SalesLineId = salesLineId,
-                    SalespersonId = c.SalespersonId,
-                    SharePercent = c.SharePercent,
-                    IsPrimary = c.IsPrimary,
-                }));
 
                 periodsTouched.Add(PeriodKey(row.Year, row.Month));
             }
@@ -659,7 +660,7 @@ public class ImportService : IImportService
         ParsedWorkbook parsed,
         string fileName,
         int fileSizeBytes,
-        string uploadedById,
+        int uploadedById,
         List<Period> targetPeriods,
         bool confirm,
         CancellationToken cancellationToken)
@@ -680,14 +681,13 @@ public class ImportService : IImportService
 
         var batch = new ImportBatch
         {
-            Id = NewId(),
             FileName = fileName,
             FileSizeBytes = fileSizeBytes,
             UploadedById = uploadedById,
             Status = ImportStatus.PROCESSING,
             Mode = ImportMode.REPLACE_PERIOD,
             TargetPeriods = JsonSerializer.Serialize(targetPeriods),
-            ConfirmedById = confirm ? uploadedById : null,
+            ConfirmedById = confirm ? uploadedById : (int?)null,
         };
         _db.ImportBatches.Add(batch);
         await _db.SaveChangesAsync(cancellationToken);
@@ -699,7 +699,7 @@ public class ImportService : IImportService
         var existingByRowKey = rowKeys.Count > 0
             ? (await _db.SalesLines.Where(s => rowKeys.Contains(s.RowKey)).Select(s => new { s.Id, s.RowKey }).ToListAsync(cancellationToken))
                 .ToDictionary(s => s.RowKey, s => s.Id)
-            : new Dictionary<string, string>();
+            : new Dictionary<string, int>();
 
         var successfulRowKeys = new List<string>();
         var periodsTouched = new HashSet<string>();
@@ -718,11 +718,10 @@ public class ImportService : IImportService
 
             if (product.ProductTypeId != productTypeId)
                 issues.Add(new IssueInput("WARNING", "PRODUCT_TYPE_ALIAS_MISMATCH",
-                    $"สินค้า \"{row.ProductName}\" ถูกจับคู่กับทะเบียนที่ Product type = {productTypeNames.GetValueOrDefault(product.ProductTypeId, product.ProductTypeId)} แต่ไฟล์ระบุ \"{row.ProductTypeName}\" — ระบบใช้ type ตามทะเบียน",
+                    $"สินค้า \"{row.ProductName}\" ถูกจับคู่กับทะเบียนที่ Product type = {productTypeNames.GetValueOrDefault(product.ProductTypeId, product.ProductTypeId.ToString())} แต่ไฟล์ระบุ \"{row.ProductTypeName}\" — ระบบใช้ type ตามทะเบียน",
                     SheetName: parsed.FirstSheetName, RowNumber: row.RowNumber));
 
             var primaryCredit = credits.FirstOrDefault(c => c.IsPrimary) ?? credits[0];
-            string salesLineId;
 
             if (existingByRowKey.TryGetValue(row.RowKey, out var existingId))
             {
@@ -733,28 +732,34 @@ public class ImportService : IImportService
                     _db.SalesLines.Update(existing);
                     var oldCredits = await _db.SalesLineCredits.Where(c => c.SalesLineId == existingId).ToListAsync(cancellationToken);
                     _db.SalesLineCredits.RemoveRange(oldCredits);
+
+                    _db.SalesLineCredits.AddRange(credits.Select(c => new SalesLineCredit
+                    {
+                        SalesLineId = existingId,
+                        SalespersonId = c.SalespersonId,
+                        SharePercent = c.SharePercent,
+                        IsPrimary = c.IsPrimary,
+                    }));
                 }
-                salesLineId = existingId;
                 updated++;
             }
             else
             {
-                var sl = new SalesLine { Id = NewId() };
+                var sl = new SalesLine();
                 UpdateSalesLineFields(sl, row, hospitalId, primaryCredit.SalespersonId, product, batch.Id, parsed.FirstSheetName);
                 sl.RowKey = row.RowKey;
+                foreach (var c in credits)
+                {
+                    sl.Credits.Add(new SalesLineCredit
+                    {
+                        SalespersonId = c.SalespersonId,
+                        SharePercent = c.SharePercent,
+                        IsPrimary = c.IsPrimary,
+                    });
+                }
                 _db.SalesLines.Add(sl);
-                salesLineId = sl.Id;
                 inserted++;
             }
-
-            _db.SalesLineCredits.AddRange(credits.Select(c => new SalesLineCredit
-            {
-                Id = NewId(),
-                SalesLineId = salesLineId,
-                SalespersonId = c.SalespersonId,
-                SharePercent = c.SharePercent,
-                IsPrimary = c.IsPrimary,
-            }));
 
             successfulRowKeys.Add(row.RowKey);
             periodsTouched.Add(PeriodKey(row.Year, row.Month));
@@ -762,7 +767,6 @@ public class ImportService : IImportService
 
         await _db.SaveChangesAsync(cancellationToken);
 
-        // Collect removal preview — rows in target periods that are NOT in successfulRowKeys
         var targetPeriodKeys = targetPeriods.Select(p => PeriodKey(p.Year, p.Month)).ToHashSet();
         var removalLines = await _db.SalesLines
             .Include(s => s.Hospital)
@@ -777,7 +781,6 @@ public class ImportService : IImportService
             return new ImportResult(DryRun: true, ImportBatch: null, Preview: preview);
         }
 
-        // Archive and delete removal lines
         await ArchiveAndDeleteSalesLinesAsync(removalLines, batch.Id, ArchiveReason.SUPERSEDED_BY_REIMPORT, cancellationToken);
         await SaveIssuesAsync(batch.Id, issues, cancellationToken);
 
@@ -805,7 +808,7 @@ public class ImportService : IImportService
     // -----------------------------------------------------------------------
 
     private async Task<ImportResult> RunPeriodDeleteAsync(
-        string uploadedById,
+        int uploadedById,
         List<Period> targetPeriods,
         bool confirm,
         CancellationToken cancellationToken)
@@ -831,7 +834,6 @@ public class ImportService : IImportService
 
         var batch = new ImportBatch
         {
-            Id = NewId(),
             FileName = "(ลบข้อมูลตามงวด)",
             FileSizeBytes = 0,
             UploadedById = uploadedById,
@@ -864,17 +866,17 @@ public class ImportService : IImportService
     // -----------------------------------------------------------------------
 
     // In-memory indexes built once per import transaction
-    private record SalespersonIndex(Dictionary<string, string> ByPersonCore);
+    private record SalespersonIndex(Dictionary<string, int> ByPersonCore);
     private record HospitalIndex(
-        Dictionary<string, string> ByLatinAlias,
-        Dictionary<string, string> ByLatinFallback,
-        Dictionary<string, (string HospitalId, string NameInFile)> ByThaiCore,
-        Dictionary<string, string?> ProvinceById);
+        Dictionary<string, int> ByLatinAlias,
+        Dictionary<string, int> ByLatinFallback,
+        Dictionary<string, (int HospitalId, string NameInFile)> ByThaiCore,
+        Dictionary<int, string?> ProvinceById);
     private record ProductIndex(
-        Dictionary<string, string> ByLatinAlias, // normalizedKey -> Product.Id
-        Dictionary<string, string> ByLatinFallback); // latinCore(name) -> Product.Id
+        Dictionary<string, int> ByLatinAlias, // normalizedKey -> Product.Id
+        Dictionary<string, int> ByLatinFallback); // latinCore(name) -> Product.Id
 
-    private async Task<(HospitalIndex, SalespersonIndex, Dictionary<string, string>, ProductIndex, Dictionary<string, string>)>
+    private async Task<(HospitalIndex, SalespersonIndex, Dictionary<string, int>, ProductIndex, Dictionary<int, string>)>
         BuildIndexesAsync(CancellationToken cancellationToken)
     {
         var salespeople = await _db.Salespeople
@@ -894,9 +896,9 @@ public class ImportService : IImportService
             .ToListAsync(cancellationToken);
 
         var byLatinAlias = aliases.ToDictionary(a => a.NormalizedKey, a => a.HospitalId);
-        var byLatinFallback = new Dictionary<string, string>();
-        var byThaiCore = new Dictionary<string, (string, string)>();
-        var provinceById = new Dictionary<string, string?>();
+        var byLatinFallback = new Dictionary<string, int>();
+        var byThaiCore = new Dictionary<string, (int, string)>();
+        var provinceById = new Dictionary<int, string?>();
         foreach (var h in hospitals)
         {
             byLatinFallback[NameNormalizer.LatinCore(h.NameInFile)] = h.Id;
@@ -924,12 +926,12 @@ public class ImportService : IImportService
             .Select(pt => new { pt.Id, pt.Name })
             .ToListAsync(cancellationToken);
         var productTypeNames = productTypes.ToDictionary(pt => pt.Id, pt => pt.Name);
-        var productTypeCache = new Dictionary<string, string>(); // lowercase name -> id
+        var productTypeCache = new Dictionary<string, int>(); // lowercase name -> id
 
         return (hospitalIdx, salespersonIdx, productTypeCache, productIdx, productTypeNames);
     }
 
-    private record ResolvedCredit(string SalespersonId, decimal SharePercent, bool IsPrimary);
+    private record ResolvedCredit(int SalespersonId, decimal SharePercent, bool IsPrimary);
 
     private async Task<List<ResolvedCredit>?> ResolveSalesmanCreditsAsync(
         SalespersonIndex index,
@@ -956,11 +958,11 @@ public class ImportService : IImportService
         {
             var primaryId = LookupByPersonCore(index, subNames[0]);
             return existingRule.Members.Select(m => new ResolvedCredit(
-                m.SalespersonId, m.SharePercent, m.SalespersonId == primaryId)).ToList();
+                m.SalespersonId, m.SharePercent, primaryId.HasValue && m.SalespersonId == primaryId.Value)).ToList();
         }
 
         var resolvedIds = subNames.Select(n => LookupByPersonCore(index, n)).ToList();
-        var unresolved = subNames.Where((n, i) => resolvedIds[i] == null).ToList();
+        var unresolved = subNames.Where((n, i) => !resolvedIds[i].HasValue).ToList();
         if (unresolved.Count > 0)
         {
             issues.Add(new IssueInput("ERROR", "UNKNOWN_SALESMAN_IN_SHARED_DEAL",
@@ -969,32 +971,33 @@ public class ImportService : IImportService
             return null;
         }
 
-        var ids = resolvedIds!;
+        var ids = resolvedIds.Select(x => x!.Value).ToList();
         var shares = SplitEqualShares(ids.Count);
 
         var rule = new SalesmanNameRule
         {
-            Id = NewId(),
             NormalizedRaw = normalizedRaw,
             SampleRaw = rawSalesmanCell,
         };
-        _db.SalesmanNameRules.Add(rule);
-        _db.SalesmanNameRuleMembers.AddRange(ids.Select((id, i) => new SalesmanNameRuleMember
+        foreach (var (id, i) in ids.Select((id, i) => (id, i)))
         {
-            Id = NewId(),
-            RuleId = rule.Id,
-            SalespersonId = id!,
-            SharePercent = shares[i],
-        }));
+            rule.Members.Add(new SalesmanNameRuleMember
+            {
+                SalespersonId = id,
+                SharePercent = shares[i],
+            });
+        }
+        _db.SalesmanNameRules.Add(rule);
+        await _db.SaveChangesAsync(cancellationToken);
 
         issues.Add(new IssueInput("WARNING", "SHARED_CREDIT_RULE_CREATED",
             $"พบดีลแบ่งเครดิตรูปแบบใหม่ \"{rawSalesmanCell}\" — สร้างกฎแบ่งเท่ากันทุกคน ({ids.Count} คน) รหัสกฎ {rule.Id} รอผู้จัดการยืนยัน/แก้สัดส่วน",
             SheetName: sheetName, RowNumber: rowNumber));
 
-        return ids.Select((id, i) => new ResolvedCredit(id!, shares[i], i == 0)).ToList();
+        return ids.Select((id, i) => new ResolvedCredit(id, shares[i], i == 0)).ToList();
     }
 
-    private async Task<string> ResolveOrCreateSalespersonAsync(
+    private async Task<int> ResolveOrCreateSalespersonAsync(
         SalespersonIndex index, string rawName, List<IssueInput> issues,
         string sheetName, int rowNumber, CancellationToken cancellationToken)
     {
@@ -1003,25 +1006,26 @@ public class ImportService : IImportService
             return existingId;
 
         var review = await _db.SalesmanNameReviews.FirstOrDefaultAsync(r => r.PersonKey == key, cancellationToken);
-        if (review?.Status == NameReviewStatus.MERGED && review.MergedIntoId != null)
+        if (review?.Status == NameReviewStatus.MERGED && review.MergedIntoId.HasValue)
         {
-            index.ByPersonCore[key] = review.MergedIntoId;
-            return review.MergedIntoId;
+            index.ByPersonCore[key] = review.MergedIntoId.Value;
+            return review.MergedIntoId.Value;
         }
 
-        var created = new Salesperson { Id = NewId(), NameInFile = rawName, DisplayName = rawName };
+        var created = new Salesperson { NameInFile = rawName, DisplayName = rawName };
         _db.Salespeople.Add(created);
+        await _db.SaveChangesAsync(cancellationToken);
         index.ByPersonCore[key] = created.Id;
 
         if (review == null)
         {
             _db.SalesmanNameReviews.Add(new SalesmanNameReview
             {
-                Id = NewId(),
                 PersonKey = key,
                 SampleRaw = rawName,
                 CreatedSalespersonId = created.Id,
             });
+            await _db.SaveChangesAsync(cancellationToken);
         }
 
         issues.Add(new IssueInput("WARNING", "UNKNOWN_SALESMAN",
@@ -1030,13 +1034,13 @@ public class ImportService : IImportService
         return created.Id;
     }
 
-    private static string? LookupByPersonCore(SalespersonIndex index, string rawName)
+    private static int? LookupByPersonCore(SalespersonIndex index, string rawName)
     {
         var key = NameNormalizer.PersonCore(rawName);
         return index.ByPersonCore.TryGetValue(key, out var id) ? id : null;
     }
 
-    private async Task<string> ResolveHospitalViaAliasAsync(
+    private async Task<int> ResolveHospitalViaAliasAsync(
         HospitalIndex index, string rawName, string? province,
         List<IssueInput> issues, string sheetName, int rowNumber,
         CancellationToken cancellationToken)
@@ -1052,7 +1056,8 @@ public class ImportService : IImportService
 
         if (index.ByLatinFallback.TryGetValue(latin, out var fallbackId))
         {
-            _db.HospitalAliases.Add(new HospitalAlias { Id = NewId(), NormalizedKey = latin, SampleRaw = rawName, HospitalId = fallbackId, Source = NameDecisionSource.AUTO });
+            _db.HospitalAliases.Add(new HospitalAlias { NormalizedKey = latin, SampleRaw = rawName, HospitalId = fallbackId, Source = NameDecisionSource.AUTO });
+            await _db.SaveChangesAsync(cancellationToken);
             index.ByLatinAlias[latin] = fallbackId;
             await SyncHospitalProvinceAsync(index, fallbackId, province, cancellationToken);
             return fallbackId;
@@ -1063,9 +1068,12 @@ public class ImportService : IImportService
             await EnsureHospitalReviewQueuedAsync(rawName, latin, thaiCollision, cancellationToken);
         }
 
-        var created = new Hospital { Id = NewId(), NameInFile = rawName, DisplayName = rawName, Province = province };
+        var created = new Hospital { NameInFile = rawName, DisplayName = rawName, Province = province };
         _db.Hospitals.Add(created);
-        _db.HospitalAliases.Add(new HospitalAlias { Id = NewId(), NormalizedKey = latin, SampleRaw = rawName, HospitalId = created.Id, Source = NameDecisionSource.AUTO });
+        await _db.SaveChangesAsync(cancellationToken);
+
+        _db.HospitalAliases.Add(new HospitalAlias { NormalizedKey = latin, SampleRaw = rawName, HospitalId = created.Id, Source = NameDecisionSource.AUTO });
+        await _db.SaveChangesAsync(cancellationToken);
 
         index.ByLatinAlias[latin] = created.Id;
         index.ByLatinFallback[latin] = created.Id;
@@ -1078,7 +1086,7 @@ public class ImportService : IImportService
         return created.Id;
     }
 
-    private async Task SyncHospitalProvinceAsync(HospitalIndex index, string hospitalId, string? province, CancellationToken cancellationToken)
+    private async Task SyncHospitalProvinceAsync(HospitalIndex index, int hospitalId, string? province, CancellationToken cancellationToken)
     {
         if (string.IsNullOrEmpty(province)) return;
         if (index.ProvinceById.TryGetValue(hospitalId, out var current) && current == province) return;
@@ -1092,7 +1100,7 @@ public class ImportService : IImportService
 
     private async Task EnsureHospitalReviewQueuedAsync(
         string rawName, string rawLatin,
-        (string HospitalId, string NameInFile) existing,
+        (int HospitalId, string NameInFile) existing,
         CancellationToken cancellationToken)
     {
         var existingLatin = NameNormalizer.LatinCore(existing.NameInFile);
@@ -1111,18 +1119,18 @@ public class ImportService : IImportService
 
         _db.HospitalNameReviews.Add(new HospitalNameReview
         {
-            Id = NewId(),
             NormalizedKeyA = keyA,
             NormalizedKeyB = keyB,
             SampleRawA = sampleA,
             SampleRawB = sampleB,
         });
+        await _db.SaveChangesAsync(cancellationToken);
     }
 
-    private record ProductRef(string Id, string ProductTypeId);
+    private record ProductRef(int Id, int ProductTypeId);
 
     private async Task<ProductRef> ResolveProductViaAliasAsync(
-        ProductIndex index, string rawName, string productTypeId, CancellationToken cancellationToken)
+        ProductIndex index, string rawName, int productTypeId, CancellationToken cancellationToken)
     {
         var latin = NameNormalizer.LatinCore(rawName);
         if (index.ByLatinAlias.TryGetValue(latin, out var aliasedId))
@@ -1133,22 +1141,27 @@ public class ImportService : IImportService
 
         if (index.ByLatinFallback.TryGetValue(latin, out var fallbackId))
         {
-            _db.ProductAliases.Add(new ProductAlias { Id = NewId(), NormalizedKey = latin, SampleRaw = rawName, ProductId = fallbackId });
+            _db.ProductAliases.Add(new ProductAlias { NormalizedKey = latin, SampleRaw = rawName, ProductId = fallbackId });
+            await _db.SaveChangesAsync(cancellationToken);
             index.ByLatinAlias[latin] = fallbackId;
             var p = await _db.Products.AsNoTracking().Select(x => new { x.Id, x.ProductTypeId }).FirstOrDefaultAsync(x => x.Id == fallbackId, cancellationToken);
             if (p != null) return new ProductRef(p.Id, p.ProductTypeId);
         }
 
-        var created = new Product { Id = NewId(), Name = rawName, ProductTypeId = productTypeId };
+        var created = new Product { Name = rawName, ProductTypeId = productTypeId };
         _db.Products.Add(created);
-        _db.ProductAliases.Add(new ProductAlias { Id = NewId(), NormalizedKey = latin, SampleRaw = rawName, ProductId = created.Id });
+        await _db.SaveChangesAsync(cancellationToken);
+
+        _db.ProductAliases.Add(new ProductAlias { NormalizedKey = latin, SampleRaw = rawName, ProductId = created.Id });
+        await _db.SaveChangesAsync(cancellationToken);
+
         index.ByLatinAlias[latin] = created.Id;
         index.ByLatinFallback[latin] = created.Id;
         return new ProductRef(created.Id, productTypeId);
     }
 
-    private async Task<string> ResolveProductTypeAsync(
-        Dictionary<string, string> cache, string name, CancellationToken cancellationToken)
+    private async Task<int> ResolveProductTypeAsync(
+        Dictionary<string, int> cache, string name, CancellationToken cancellationToken)
     {
         var key = name.ToLowerInvariant();
         if (cache.TryGetValue(key, out var cached)) return cached;
@@ -1157,7 +1170,7 @@ public class ImportService : IImportService
             .FirstOrDefaultAsync(pt => pt.Name.ToLower() == key, cancellationToken);
         if (existing == null)
         {
-            existing = new ProductType { Id = NewId(), Name = name };
+            existing = new ProductType { Name = name };
             _db.ProductTypes.Add(existing);
             await _db.SaveChangesAsync(cancellationToken);
         }
@@ -1170,13 +1183,12 @@ public class ImportService : IImportService
     // -----------------------------------------------------------------------
 
     private async Task ArchiveAndDeleteSalesLinesAsync(
-        List<SalesLine> salesLines, string batchId, ArchiveReason reason, CancellationToken cancellationToken)
+        List<SalesLine> salesLines, int batchId, ArchiveReason reason, CancellationToken cancellationToken)
     {
         if (salesLines.Count == 0) return;
 
         _db.SalesLineArchives.AddRange(salesLines.Select(sl => new SalesLineArchive
         {
-            Id = NewId(),
             SalesLineId = sl.Id,
             RowKey = sl.RowKey,
             Year = sl.Year,
@@ -1260,7 +1272,7 @@ public class ImportService : IImportService
 
     private static decimal[] SplitEqualShares(int count)
     {
-        const int total = 100_000; // 100.000 * 10^3
+        const int total = 100_000;
         var baseVal = total / count;
         var shares = Enumerable.Repeat(baseVal, count).ToArray();
         var remainder = total - baseVal * count;
@@ -1289,8 +1301,8 @@ public class ImportService : IImportService
             WillDeletePeriodWithoutReplacement: !hasReplacement);
     }
 
-    private static void UpdateSalesLineFields(SalesLine sl, ParsedRow row, string hospitalId,
-        string salespersonId, ProductRef product, string batchId, string sheetName)
+    private static void UpdateSalesLineFields(SalesLine sl, ParsedRow row, int hospitalId,
+        int salespersonId, ProductRef product, int batchId, string sheetName)
     {
         sl.InvoiceNo = row.InvoiceNo;
         sl.PoNo = row.PoNo;
@@ -1321,16 +1333,15 @@ public class ImportService : IImportService
             .Where(b => b.Status == ImportStatus.PROCESSING)
             .Select(b => b.Id)
             .FirstOrDefaultAsync(cancellationToken);
-        if (existing != null)
+        if (existing != 0)
             throw new ImportInProgressException();
     }
 
-    private async Task SaveIssuesAsync(string batchId, List<IssueInput> issues, CancellationToken cancellationToken)
+    private async Task SaveIssuesAsync(int batchId, List<IssueInput> issues, CancellationToken cancellationToken)
     {
         if (issues.Count == 0) return;
         _db.ImportIssues.AddRange(issues.Select(i => new ImportIssue
         {
-            Id = NewId(),
             ImportBatchId = batchId,
             SheetName = i.SheetName,
             RowNumber = i.RowNumber,
@@ -1343,7 +1354,7 @@ public class ImportService : IImportService
     }
 
     private async Task UpdateBatchFailedAsync(
-        string batchId, string errorMessage, List<string> sheetNames,
+        int batchId, string errorMessage, List<string> sheetNames,
         int totalRows, int insertedRows, int updatedRows, int errorRows,
         HashSet<string> periodsTouched, CancellationToken cancellationToken)
     {
@@ -1361,12 +1372,11 @@ public class ImportService : IImportService
     }
 
     private async Task<ImportBatchDto> PersistFailedBatchAsync(
-        string fileName, int fileSizeBytes, string uploadedById, ImportMode mode,
+        string fileName, int fileSizeBytes, int uploadedById, ImportMode mode,
         List<Period> targetPeriods, string errorMessage, CancellationToken cancellationToken)
     {
         var batch = new ImportBatch
         {
-            Id = NewId(),
             FileName = fileName,
             FileSizeBytes = fileSizeBytes,
             UploadedById = uploadedById,
@@ -1381,7 +1391,7 @@ public class ImportService : IImportService
         return await LoadBatchAsync(batch.Id, includeIssues: false, cancellationToken);
     }
 
-    private async Task<ImportBatchDto> LoadBatchAsync(string id, bool includeIssues, CancellationToken cancellationToken)
+    private async Task<ImportBatchDto> LoadBatchAsync(int id, bool includeIssues, CancellationToken cancellationToken)
     {
         var q = _db.ImportBatches.AsNoTracking().Include(b => b.UploadedBy).AsQueryable();
         if (includeIssues) q = q.Include(b => b.Issues);
@@ -1462,8 +1472,6 @@ public class ImportService : IImportService
         CreatedAt = s.CreatedAt,
         UpdatedAt = s.UpdatedAt,
     };
-
-    private static string NewId() => Guid.NewGuid().ToString("N")[..20];
 
     // -----------------------------------------------------------------------
     //  Internal record types

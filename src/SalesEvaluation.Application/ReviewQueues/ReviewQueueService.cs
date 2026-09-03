@@ -33,13 +33,8 @@ public class ReviewQueueService : IReviewQueueService
         };
     }
 
-    public async Task<HospitalNameReviewResponse> DecideHospitalNameReviewAsync(string id, DecideHospitalNameReviewRequest request, string userId, CancellationToken cancellationToken = default)
+    public async Task<HospitalNameReviewResponse> DecideHospitalNameReviewAsync(int id, DecideHospitalNameReviewRequest request, int userId, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(id))
-        {
-            throw new ValidationException("Validation failed", "Review ID is required");
-        }
-
         var review = await _dbContext.HospitalNameReviews
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
 
@@ -103,8 +98,8 @@ public class ReviewQueueService : IReviewQueueService
             };
         }
 
-        var canonicalId = !string.IsNullOrWhiteSpace(request.MergedIntoId)
-            ? request.MergedIntoId
+        var canonicalId = request.MergedIntoId.HasValue
+            ? request.MergedIntoId.Value
             : aliasA.HospitalId;
 
         if (canonicalId != aliasA.HospitalId && canonicalId != aliasB.HospitalId)
@@ -174,13 +169,8 @@ public class ReviewQueueService : IReviewQueueService
         };
     }
 
-    public async Task<SalesmanNameReviewResponse> DecideSalesmanNameReviewAsync(string id, DecideSalesmanNameReviewRequest request, string userId, CancellationToken cancellationToken = default)
+    public async Task<SalesmanNameReviewResponse> DecideSalesmanNameReviewAsync(int id, DecideSalesmanNameReviewRequest request, int userId, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(id))
-        {
-            throw new ValidationException("Validation failed", "Review ID is required");
-        }
-
         var review = await _dbContext.SalesmanNameReviews
             .Include(r => r.CreatedSalesperson)
             .Include(r => r.MergedInto)
@@ -220,23 +210,23 @@ public class ReviewQueueService : IReviewQueueService
         }
 
         var fromId = review.CreatedSalespersonId;
-        if (string.IsNullOrWhiteSpace(fromId) || review.CreatedSalesperson == null)
+        if (!fromId.HasValue || review.CreatedSalesperson == null)
         {
             throw new ConflictException("แถวพนักงานขายที่ถูกสร้างจากชื่อนี้ไม่มีอยู่แล้ว จึงรวมไม่ได้ — กรุณาตัดสินใหม่หรือลบคิวนี้");
         }
 
-        if (string.IsNullOrWhiteSpace(request.MergedIntoId))
+        if (!request.MergedIntoId.HasValue)
         {
             throw new ValidationException("Validation failed", "mergedIntoId is required for MERGED decision");
         }
 
-        if (request.MergedIntoId == fromId)
+        if (request.MergedIntoId.Value == fromId.Value)
         {
             throw new ValidationException("Validation failed", "mergedIntoId ต้องไม่ชี้ตัวเดิมที่ถูกสร้างซ้ำ");
         }
 
         var targetSalesperson = await _dbContext.Salespeople
-            .FirstOrDefaultAsync(s => s.Id == request.MergedIntoId, cancellationToken);
+            .FirstOrDefaultAsync(s => s.Id == request.MergedIntoId.Value, cancellationToken);
 
         if (targetSalesperson == null)
         {
@@ -245,48 +235,48 @@ public class ReviewQueueService : IReviewQueueService
 
         // Repoint all related records
         var salesLines = await _dbContext.SalesLines
-            .Where(sl => sl.SalespersonId == fromId)
+            .Where(sl => sl.SalespersonId == fromId.Value)
             .ToListAsync(cancellationToken);
         foreach (var sl in salesLines)
         {
-            sl.SalespersonId = request.MergedIntoId;
+            sl.SalespersonId = request.MergedIntoId.Value;
         }
 
         var credits = await _dbContext.SalesLineCredits
-            .Where(c => c.SalespersonId == fromId)
+            .Where(c => c.SalespersonId == fromId.Value)
             .ToListAsync(cancellationToken);
         foreach (var c in credits)
         {
-            c.SalespersonId = request.MergedIntoId;
+            c.SalespersonId = request.MergedIntoId.Value;
         }
 
         var targets = await _dbContext.Targets
-            .Where(t => t.SalespersonId == fromId)
+            .Where(t => t.SalespersonId == fromId.Value)
             .ToListAsync(cancellationToken);
         foreach (var t in targets)
         {
-            t.SalespersonId = request.MergedIntoId;
+            t.SalespersonId = request.MergedIntoId.Value;
         }
 
         var insights = await _dbContext.CoachingInsights
-            .Where(ci => ci.SalespersonId == fromId)
+            .Where(ci => ci.SalespersonId == fromId.Value)
             .ToListAsync(cancellationToken);
         foreach (var ci in insights)
         {
-            ci.SalespersonId = request.MergedIntoId;
+            ci.SalespersonId = request.MergedIntoId.Value;
         }
 
         var assignments = await _dbContext.TerritoryAssignments
-            .Where(ta => ta.SalespersonId == fromId)
+            .Where(ta => ta.SalespersonId == fromId.Value)
             .ToListAsync(cancellationToken);
         foreach (var ta in assignments)
         {
-            ta.SalespersonId = request.MergedIntoId;
+            ta.SalespersonId = request.MergedIntoId.Value;
         }
 
         // Update review record
         review.Status = NameReviewStatus.MERGED;
-        review.MergedIntoId = request.MergedIntoId;
+        review.MergedIntoId = request.MergedIntoId.Value;
         review.DecidedById = decidedById;
         review.DecidedAt = decidedAt;
         review.Note = request.Note;
@@ -294,7 +284,7 @@ public class ReviewQueueService : IReviewQueueService
 
         // Delete duplicate salesperson row
         var duplicateSalesperson = await _dbContext.Salespeople
-            .FirstOrDefaultAsync(s => s.Id == fromId, cancellationToken);
+            .FirstOrDefaultAsync(s => s.Id == fromId.Value, cancellationToken);
 
         if (duplicateSalesperson != null)
         {
@@ -325,7 +315,7 @@ public class ReviewQueueService : IReviewQueueService
         };
     }
 
-    public async Task<SalesmanNameRuleResponse> CreateSalesmanNameRuleAsync(CreateSalesmanNameRuleRequest request, string userId, CancellationToken cancellationToken = default)
+    public async Task<SalesmanNameRuleResponse> CreateSalesmanNameRuleAsync(CreateSalesmanNameRuleRequest request, int userId, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(request.SampleRaw))
         {
@@ -362,7 +352,6 @@ public class ReviewQueueService : IReviewQueueService
 
         var rule = new SalesmanNameRule
         {
-            Id = Guid.NewGuid().ToString(),
             NormalizedRaw = normalizedRaw,
             SampleRaw = request.SampleRaw.Trim(),
             DecidedById = userId,
@@ -374,8 +363,6 @@ public class ReviewQueueService : IReviewQueueService
         {
             rule.Members.Add(new SalesmanNameRuleMember
             {
-                Id = Guid.NewGuid().ToString(),
-                RuleId = rule.Id,
                 SalespersonId = m.SalespersonId,
                 SharePercent = m.SharePercent
             });
@@ -398,13 +385,8 @@ public class ReviewQueueService : IReviewQueueService
         };
     }
 
-    public async Task<SalesmanNameRuleResponse> UpdateSalesmanNameRuleAsync(string id, UpdateSalesmanNameRuleRequest request, string userId, CancellationToken cancellationToken = default)
+    public async Task<SalesmanNameRuleResponse> UpdateSalesmanNameRuleAsync(int id, UpdateSalesmanNameRuleRequest request, int userId, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(id))
-        {
-            throw new ValidationException("Validation failed", "Rule ID is required");
-        }
-
         if (request.Members == null || request.Members.Count == 0)
         {
             throw new ValidationException("Validation failed", "Members list must not be empty");

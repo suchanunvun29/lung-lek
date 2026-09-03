@@ -4,7 +4,7 @@ import { TargetCell } from "./TargetCell";
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 
-export function targetKey(salespersonId: string, month: number) {
+export function targetKey(salespersonId: number, month: number) {
   return `${salespersonId}-${month}`;
 }
 
@@ -14,7 +14,7 @@ export interface TargetsGridProps {
   canEdit: boolean;
   savingKey: string | null;
   onSave: (
-    salespersonId: string,
+    salespersonId: number,
     month: number,
     input: { revenueTarget: number; newCustomerTarget: number }
   ) => Promise<boolean>;

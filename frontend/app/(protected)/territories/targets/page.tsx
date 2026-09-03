@@ -38,7 +38,7 @@ export default function TerritoryTargetsPage() {
     void load();
   }, [load]);
 
-  async function save(territoryId: string, month: number, _current: Target | undefined, revenueRaw: string, customersRaw: string) {
+  async function save(territoryId: number, month: number, _current: Target | undefined, revenueRaw: string, customersRaw: string) {
     if (!token || !canEdit) return;
     const revenueTarget = Number(revenueRaw);
     const newCustomerTarget = Number(customersRaw);

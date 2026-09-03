@@ -5,7 +5,7 @@ import {
   PeriodKey,
 } from "@/lib/types";
 
-export function getCoachingInsight(token: string, salespersonId: string, period: PeriodKey) {
+export function getCoachingInsight(token: string, salespersonId: number, period: PeriodKey) {
   return request<CoachingInsightGetResponse>(
     `/coaching-insights/${salespersonId}?${periodQueryParams(period)}`,
     { method: "GET" },
@@ -13,7 +13,7 @@ export function getCoachingInsight(token: string, salespersonId: string, period:
   );
 }
 
-export function generateCoachingInsight(token: string, salespersonId: string, period: PeriodKey) {
+export function generateCoachingInsight(token: string, salespersonId: number, period: PeriodKey) {
   return request<CoachingInsightGenerateResponse>(
     `/coaching-insights/${salespersonId}/generate`,
     { method: "POST", body: JSON.stringify(period) },

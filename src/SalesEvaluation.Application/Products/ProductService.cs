@@ -48,13 +48,8 @@ public class ProductService : IProductService
         };
     }
 
-    public async Task<ProductResponse> UpdateProductAsync(string id, UpdateProductInputDto input, CancellationToken cancellationToken = default)
+    public async Task<ProductResponse> UpdateProductAsync(int id, UpdateProductInputDto input, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(id))
-        {
-            throw new ValidationException("Validation failed", "Product ID is required");
-        }
-
         if (!input.HasCode && !input.HasDisplayName && !input.HasIsActive)
         {
             throw new ValidationException("Validation failed", "ต้องระบุอย่างน้อยหนึ่งฟิลด์ (code / displayName / isActive)");

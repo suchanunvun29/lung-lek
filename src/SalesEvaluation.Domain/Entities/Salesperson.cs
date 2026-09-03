@@ -4,11 +4,11 @@ using SalesEvaluation.Domain.Common;
 
 public class Salesperson : IDomainEntity
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public string NameInFile { get; set; } = string.Empty;
     public string DisplayName { get; set; } = string.Empty;
     public bool IsActive { get; set; } = true;
-    public string? UserId { get; set; }
+    public int? UserId { get; set; }
     public User? User { get; set; }
     public bool ExcludedFromTerritoryTotals { get; set; } = false;
     public DateOnly? EmploymentEndedAt { get; set; }

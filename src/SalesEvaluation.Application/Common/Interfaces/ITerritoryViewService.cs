@@ -13,7 +13,7 @@ public class TerritoryViewPeriod
 public class TerritoryViewQuery
 {
     public TerritoryViewPeriod Period { get; init; } = new();
-    public string? ProductTypeId { get; init; }
+    public int? ProductTypeId { get; init; }
     public bool CreditOnly { get; init; }
 }
 
@@ -21,9 +21,9 @@ public class NeverSoldQuery
 {
     public TerritoryViewPeriod Period { get; init; } = new();
     public int TopN { get; init; } = 20;
-    public string? ProvinceMappingId { get; init; }
+    public int? ProvinceMappingId { get; init; }
     public PotentialMetricKey PotentialMetric { get; init; } = PotentialMetricKey.BEDS;
-    public string? ProductTypeId { get; init; }
+    public int? ProductTypeId { get; init; }
 }
 
 /// <summary>
@@ -34,7 +34,7 @@ public class NeverSoldQuery
 /// </summary>
 public interface ITerritoryViewService
 {
-    Task<MyTerritoryViewResponse?> GetTerritoryViewAsync(string salespersonId, TerritoryViewQuery query, CancellationToken cancellationToken = default);
+    Task<MyTerritoryViewResponse?> GetTerritoryViewAsync(int salespersonId, TerritoryViewQuery query, CancellationToken cancellationToken = default);
 
-    Task<NeverSoldHospitalsResponse?> GetNeverSoldHospitalsAsync(string salespersonId, NeverSoldQuery query, CancellationToken cancellationToken = default);
+    Task<NeverSoldHospitalsResponse?> GetNeverSoldHospitalsAsync(int salespersonId, NeverSoldQuery query, CancellationToken cancellationToken = default);
 }

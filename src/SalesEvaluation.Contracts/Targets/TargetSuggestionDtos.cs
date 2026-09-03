@@ -33,7 +33,7 @@ public class YearMonthDto
 
 public class TerritorySuggestionRowDto
 {
-    public string TerritoryId { get; set; } = string.Empty;
+    public int TerritoryId { get; set; }
     public string TerritoryName { get; set; } = string.Empty;
     public double Potential { get; set; }
     public double PotentialShare { get; set; }
@@ -53,7 +53,7 @@ public class TerritorySuggestionRowDto
 
 public class RegionSuggestionGroupDto
 {
-    public string RegionId { get; set; } = string.Empty;
+    public int RegionId { get; set; }
     public string RegionName { get; set; } = string.Empty;
     public bool CoveragePass { get; set; }
 
@@ -67,7 +67,7 @@ public class RegionSuggestionGroupDto
 
 public class UnmappedBaseEntryDto
 {
-    public string TerritoryId { get; set; } = string.Empty;
+    public int TerritoryId { get; set; }
     public string TerritoryName { get; set; } = string.Empty;
     public double UnmappedBase { get; set; }
     public int UnmappedHospitalCount { get; set; }
@@ -76,14 +76,14 @@ public class UnmappedBaseEntryDto
 /// <summary>Σ suggested over every region + unmappedBase — the number "รับข้อเสนอ" writes into Target.</summary>
 public class TerritorySuggestedTotalDto
 {
-    public string TerritoryId { get; set; } = string.Empty;
+    public int TerritoryId { get; set; }
     public string TerritoryName { get; set; } = string.Empty;
     public double SuggestedTotal { get; set; }
 }
 
 public class CutDealEntryDto
 {
-    public string TerritoryId { get; set; } = string.Empty;
+    public int TerritoryId { get; set; }
     public string TerritoryName { get; set; } = string.Empty;
     public string InvoiceNo { get; set; } = string.Empty;
     public double DealValue { get; set; }

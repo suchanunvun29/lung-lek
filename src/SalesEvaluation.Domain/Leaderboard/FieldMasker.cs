@@ -11,7 +11,7 @@ public enum VisibilityLevel
 public sealed class SerializedTerritoryRow
 {
     public required VisibilityLevel Visibility { get; init; }
-    public required string TerritoryId { get; init; }
+    public required int TerritoryId { get; init; }
     public required string Name { get; init; }
     public required List<string> OwnerNames { get; init; }
     public decimal? CompositeScore { get; init; }
@@ -26,7 +26,7 @@ public sealed class LeaderboardRow<T>
 {
     public required VisibilityLevel Visibility { get; init; }
     public required string UnitType { get; init; }
-    public required string TerritoryId { get; init; }
+    public required int TerritoryId { get; init; }
     public required string Name { get; init; }
     public required List<string> OwnerNames { get; init; }
     public int? Rank { get; init; }

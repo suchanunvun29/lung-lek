@@ -57,8 +57,8 @@ export function listHospitalRegistries(
   );
 }
 
-export function updatePotentialAdjustment(token: string, id: string, potentialAdjustment: number) {
-  return request<{ hospitalRegistry: { id: string; displayName: string; tier: string | null; potentialAdjustment: string; updatedAt: string } }>(
+export function updatePotentialAdjustment(token: string, id: number, potentialAdjustment: number) {
+  return request<{ hospitalRegistry: { id: number; displayName: string; tier: string | null; potentialAdjustment: string; updatedAt: string } }>(
     `/hospital-registry/${id}/potential-adjustment`,
     { method: "PATCH", body: JSON.stringify({ potentialAdjustment }) },
     token

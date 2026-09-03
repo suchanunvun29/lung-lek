@@ -4,7 +4,7 @@ using SalesEvaluation.Domain.Common;
 
 public class TerritoryGroup : IDomainEntity
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public bool IsActive { get; set; } = true;
     public string? Note { get; set; }

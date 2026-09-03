@@ -9,7 +9,7 @@ public class FieldMaskerTests
         => new SerializedTerritoryRow
         {
             Visibility = VisibilityLevel.TerritoryFull,
-            TerritoryId = "T1",
+            TerritoryId = 1,
             Name = "Territory 1",
             OwnerNames = new List<string> { "Owner 1" },
             CompositeScore = 85.5m,
@@ -24,7 +24,7 @@ public class FieldMaskerTests
         => new SerializedTerritoryRow
         {
             Visibility = VisibilityLevel.TerritoryRestricted,
-            TerritoryId = "T1",
+            TerritoryId = 1,
             Name = "Territory 1",
             OwnerNames = new List<string> { "Owner 1" },
             CompositeScore = 85.5m,
@@ -43,7 +43,7 @@ public class FieldMaskerTests
 
         Assert.Equal(VisibilityLevel.TerritoryFull, result.Visibility);
         Assert.Equal("TERRITORY", result.UnitType);
-        Assert.Equal("T1", result.TerritoryId);
+        Assert.Equal(1, result.TerritoryId);
         Assert.Equal("Territory 1", result.Name);
         Assert.Single(result.OwnerNames);
         Assert.Equal(1, result.Rank);
@@ -63,7 +63,7 @@ public class FieldMaskerTests
 
         Assert.Equal(VisibilityLevel.TerritoryRestricted, result.Visibility);
         Assert.Equal("TERRITORY", result.UnitType);
-        Assert.Equal("T1", result.TerritoryId);
+        Assert.Equal(1, result.TerritoryId);
         Assert.Equal("Territory 1", result.Name);
         Assert.Single(result.OwnerNames);
         Assert.Equal(1, result.Rank);
@@ -96,7 +96,7 @@ public class FieldMaskerTests
             {
                 Visibility = VisibilityLevel.TerritoryFull,
                 UnitType = "TERRITORY",
-                TerritoryId = "TM1",
+                TerritoryId = 2,
                 Name = "Member 1",
                 OwnerNames = new List<string> { "Owner" }
             }

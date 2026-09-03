@@ -28,12 +28,12 @@ public class TargetAssistService : ITargetAssistService
     {
         public string InvoiceNo { get; set; } = string.Empty;
         public decimal Total { get; set; }
-        public Dictionary<string, decimal> ByRegion { get; set; } = new();
+        public Dictionary<int, decimal> ByRegion { get; set; } = new();
         public decimal Unmapped { get; set; }
     }
 
-    private static bool IsLinked(RegistryLinkStatus? status, string? registryId) =>
-        status == RegistryLinkStatus.LINKED && registryId != null;
+    private static bool IsLinked(RegistryLinkStatus? status, int? registryId) =>
+        status == RegistryLinkStatus.LINKED && registryId.HasValue;
 
     public async Task<TargetSuggestionPreviewDto> BuildPreviewAsync(
         int year,
@@ -45,7 +45,7 @@ public class TargetAssistService : ITargetAssistService
     {
         var settings = await _dbContext.EvaluationSettings
             .AsNoTracking()
-            .FirstOrDefaultAsync(s => s.Id == "singleton", cancellationToken)
+            .FirstOrDefaultAsync(cancellationToken)
             ?? throw new InvalidOperationException(MissingSettingsMessage);
 
         var growthRate = growthRateOverride ?? (double)settings.TargetGrowthRate;
@@ -82,7 +82,7 @@ public class TargetAssistService : ITargetAssistService
                 TerritoryId = c.SalesLine.Hospital != null ? c.SalesLine.Hospital.TerritoryId : null,
                 RegionId = c.SalesLine.Hospital != null && c.SalesLine.Hospital.ProvinceMapping != null
                     ? c.SalesLine.Hospital.ProvinceMapping.RegionId
-                    : null
+                    : (int?)null
             })
             .ToListAsync(cancellationToken);
 
@@ -96,7 +96,7 @@ public class TargetAssistService : ITargetAssistService
                 TerritoryId = c.SalesLine.Hospital != null ? c.SalesLine.Hospital.TerritoryId : null,
                 RegionId = c.SalesLine.Hospital != null && c.SalesLine.Hospital.ProvinceMapping != null
                     ? c.SalesLine.Hospital.ProvinceMapping.RegionId
-                    : null,
+                    : (int?)null,
                 Linked = c.SalesLine.Hospital != null &&
                          c.SalesLine.Hospital.RegistryLink != null &&
                          c.SalesLine.Hospital.RegistryLink.Status == RegistryLinkStatus.LINKED &&
@@ -127,7 +127,7 @@ public class TargetAssistService : ITargetAssistService
             {
                 h.Id,
                 h.TerritoryId,
-                RegionId = h.ProvinceMapping != null ? h.ProvinceMapping.RegionId : null,
+                RegionId = h.ProvinceMapping != null ? (int?)h.ProvinceMapping.RegionId : null,
                 Linked = h.RegistryLink != null &&
                          h.RegistryLink.Status == RegistryLinkStatus.LINKED &&
                          h.RegistryLink.HospitalRegistryId != null,
@@ -157,20 +157,20 @@ public class TargetAssistService : ITargetAssistService
             r => r.Id,
             r => (Tier: r.Tier, Adjustment: (double)r.PotentialAdjustment, HasMetric: metricValueByRegistry.ContainsKey(r.Id), MetricValue: metricValueByRegistry.GetValueOrDefault(r.Id)));
 
-        var potentialByUnitRegion = new Dictionary<string, Dictionary<string, double>>();
-        var unitRegions = new Dictionary<string, HashSet<string>>(); // presence: any assigned hospital mapped to the region
+        var potentialByUnitRegion = new Dictionary<int, Dictionary<int, double>>();
+        var unitRegions = new Dictionary<int, HashSet<int>>(); // presence: any assigned hospital mapped to the region
         foreach (var hospital in hospitals)
         {
-            var territoryId = hospital.TerritoryId!;
+            var territoryId = hospital.TerritoryId!.Value;
             if (hospital.RegionId != null)
             {
                 if (!unitRegions.TryGetValue(territoryId, out var regionSet))
                 {
-                    regionSet = new HashSet<string>();
+                    regionSet = new HashSet<int>();
                     unitRegions[territoryId] = regionSet;
                 }
 
-                regionSet.Add(hospital.RegionId);
+                regionSet.Add(hospital.RegionId.Value);
             }
 
             if (hospital.RegionId == null || !hospital.Linked || hospital.LinkedRegistryId == null)
@@ -178,7 +178,7 @@ public class TargetAssistService : ITargetAssistService
                 continue;
             }
 
-            if (!registryByLinkedId.TryGetValue(hospital.LinkedRegistryId, out var registryEntry) || !registryEntry.HasMetric)
+            if (!registryByLinkedId.TryGetValue(hospital.LinkedRegistryId.Value, out var registryEntry) || !registryEntry.HasMetric)
             {
                 continue;
             }
@@ -187,77 +187,77 @@ public class TargetAssistService : ITargetAssistService
             var potential = registryEntry.MetricValue * weightByTier.GetValueOrDefault(tierKey, DefaultTierWeight) * registryEntry.Adjustment;
             if (!potentialByUnitRegion.TryGetValue(territoryId, out var byRegion))
             {
-                byRegion = new Dictionary<string, double>();
+                byRegion = new Dictionary<int, double>();
                 potentialByUnitRegion[territoryId] = byRegion;
             }
 
-            byRegion[hospital.RegionId] = byRegion.GetValueOrDefault(hospital.RegionId) + potential;
+            byRegion[hospital.RegionId.Value] = byRegion.GetValueOrDefault(hospital.RegionId.Value) + potential;
         }
 
         // Coverage (ข้อ 3) — all-time, matching how the contract's own baseline numbers were
         // computed. Region level counts everyone (registry quality vs all real money in the
         // geography); unit level applies the Territory KPI Rules ข้อ 2 pool on both sides so the
         // ratio stays consistent.
-        var regionSales = new Dictionary<string, double>();
-        var regionLinkedSales = new Dictionary<string, double>();
-        var unitSales = new Dictionary<string, double>();
-        var unitLinkedSales = new Dictionary<string, double>();
-        var unitRegionLinkedSales = new Dictionary<string, Dictionary<string, double>>();
+        var regionSales = new Dictionary<int, double>();
+        var regionLinkedSales = new Dictionary<int, double>();
+        var unitSales = new Dictionary<int, double>();
+        var unitLinkedSales = new Dictionary<int, double>();
+        var unitRegionLinkedSales = new Dictionary<int, Dictionary<int, double>>();
         foreach (var credit in allTimeCredits)
         {
             var amount = (double)credit.Total * ((double)credit.SharePercent / 100.0);
             var regionId = credit.RegionId;
             var territoryId = credit.TerritoryId;
-            if (regionId != null)
+            if (regionId.HasValue)
             {
-                regionSales[regionId] = regionSales.GetValueOrDefault(regionId) + amount;
+                regionSales[regionId.Value] = regionSales.GetValueOrDefault(regionId.Value) + amount;
                 if (credit.Linked)
                 {
-                    regionLinkedSales[regionId] = regionLinkedSales.GetValueOrDefault(regionId) + amount;
+                    regionLinkedSales[regionId.Value] = regionLinkedSales.GetValueOrDefault(regionId.Value) + amount;
                 }
             }
 
-            if (territoryId == null || credit.Excluded)
+            if (!territoryId.HasValue || credit.Excluded)
             {
                 continue;
             }
 
-            unitSales[territoryId] = unitSales.GetValueOrDefault(territoryId) + amount;
+            unitSales[territoryId.Value] = unitSales.GetValueOrDefault(territoryId.Value) + amount;
             if (!credit.Linked)
             {
                 continue;
             }
 
-            unitLinkedSales[territoryId] = unitLinkedSales.GetValueOrDefault(territoryId) + amount;
-            if (regionId != null)
+            unitLinkedSales[territoryId.Value] = unitLinkedSales.GetValueOrDefault(territoryId.Value) + amount;
+            if (regionId.HasValue)
             {
-                if (!unitRegionLinkedSales.TryGetValue(territoryId, out var byRegionSales))
+                if (!unitRegionLinkedSales.TryGetValue(territoryId.Value, out var byRegionSales))
                 {
-                    byRegionSales = new Dictionary<string, double>();
-                    unitRegionLinkedSales[territoryId] = byRegionSales;
+                    byRegionSales = new Dictionary<int, double>();
+                    unitRegionLinkedSales[territoryId.Value] = byRegionSales;
                 }
 
-                byRegionSales[regionId] = byRegionSales.GetValueOrDefault(regionId) + amount;
+                byRegionSales[regionId.Value] = byRegionSales.GetValueOrDefault(regionId.Value) + amount;
             }
         }
 
         // History deals per unit (ข้อ 5.1): group window credits by invoiceNo within the unit,
         // split into mapped-region buckets and the unmapped bucket. Unassigned hospitals belong
         // to no unit.
-        var invoicesByUnit = new Dictionary<string, Dictionary<string, InvoiceAccumulator>>();
-        var unmappedHospitalIdsByUnit = new Dictionary<string, HashSet<string>>();
+        var invoicesByUnit = new Dictionary<int, Dictionary<string, InvoiceAccumulator>>();
+        var unmappedHospitalIdsByUnit = new Dictionary<int, HashSet<int>>();
         foreach (var credit in windowCredits)
         {
             var territoryId = credit.TerritoryId;
-            if (territoryId == null)
+            if (!territoryId.HasValue)
             {
                 continue;
             }
 
-            if (!invoicesByUnit.TryGetValue(territoryId, out var invoices))
+            if (!invoicesByUnit.TryGetValue(territoryId.Value, out var invoices))
             {
                 invoices = new Dictionary<string, InvoiceAccumulator>();
-                invoicesByUnit[territoryId] = invoices;
+                invoicesByUnit[territoryId.Value] = invoices;
             }
 
             var invoiceNo = credit.InvoiceNo;
@@ -267,7 +267,7 @@ public class TargetAssistService : ITargetAssistService
                 {
                     InvoiceNo = invoiceNo,
                     Total = 0m,
-                    ByRegion = new Dictionary<string, decimal>(),
+                    ByRegion = new Dictionary<int, decimal>(),
                     Unmapped = 0m
                 };
                 invoices[invoiceNo] = invoice;
@@ -275,17 +275,17 @@ public class TargetAssistService : ITargetAssistService
 
             var amount = credit.Total * (credit.SharePercent / 100.0m);
             invoice.Total += amount;
-            if (credit.RegionId != null)
+            if (credit.RegionId.HasValue)
             {
-                invoice.ByRegion[credit.RegionId] = invoice.ByRegion.GetValueOrDefault(credit.RegionId) + amount;
+                invoice.ByRegion[credit.RegionId.Value] = invoice.ByRegion.GetValueOrDefault(credit.RegionId.Value) + amount;
             }
             else
             {
                 invoice.Unmapped += amount;
-                if (!unmappedHospitalIdsByUnit.TryGetValue(territoryId, out var hospitalIds))
+                if (!unmappedHospitalIdsByUnit.TryGetValue(territoryId.Value, out var hospitalIds))
                 {
-                    hospitalIds = new HashSet<string>();
-                    unmappedHospitalIdsByUnit[territoryId] = hospitalIds;
+                    hospitalIds = new HashSet<int>();
+                    unmappedHospitalIdsByUnit[territoryId.Value] = hospitalIds;
                 }
 
                 hospitalIds.Add(credit.HospitalId);
@@ -293,7 +293,7 @@ public class TargetAssistService : ITargetAssistService
         }
 
         var reinstated = reinstatedInvoiceNos ?? new HashSet<string>();
-        var cutsByUnit = new Dictionary<string, OutlierCutResult>();
+        var cutsByUnit = new Dictionary<int, OutlierCutResult>();
         foreach (var (territoryId, invoices) in invoicesByUnit)
         {
             var unitInvoices = invoices.Values.Select(inv => new UnitInvoice
@@ -308,7 +308,7 @@ public class TargetAssistService : ITargetAssistService
 
         // Regions to render: any region with coverage data, unit presence, or unit history
         // (before-cut membership so a fully-cut unit keeps its row — cutting must stay visible).
-        var activeRegionIds = new HashSet<string>(regionSales.Keys);
+        var activeRegionIds = new HashSet<int>(regionSales.Keys);
         foreach (var regionIds in unitRegions.Values)
         {
             activeRegionIds.UnionWith(regionIds);
@@ -335,15 +335,15 @@ public class TargetAssistService : ITargetAssistService
             .ToListAsync(cancellationToken);
         var territoryNameById = territoryRows.ToDictionary(t => t.Id, t => t.Name);
         var targetByTerritory = targets
-            .Where(t => t.TerritoryId != null)
-            .ToDictionary(t => t.TerritoryId!, t => (double)t.RevenueTarget);
+            .Where(t => t.TerritoryId.HasValue)
+            .ToDictionary(t => t.TerritoryId!.Value, t => (double)t.RevenueTarget);
 
         var missingByRegionName = new Dictionary<string, List<string>>();
         var regionResults = new List<RegionSuggestionGroupDto>();
         foreach (var region in sortedRegions)
         {
             var regionId = region.Id;
-            var unitIds = new HashSet<string>(potentialByUnitRegion.GetValueOrDefault(regionId)?.Keys ?? Enumerable.Empty<string>());
+            var unitIds = new HashSet<int>(potentialByUnitRegion.GetValueOrDefault(regionId)?.Keys ?? Enumerable.Empty<int>());
             if (unitRegions.TryGetValue(regionId, out var presence))
             {
                 unitIds.UnionWith(presence);
@@ -362,11 +362,11 @@ public class TargetAssistService : ITargetAssistService
                 var lacking = unitIds.Where(territoryId => !targetByTerritory.ContainsKey(territoryId)).ToList();
                 if (lacking.Count > 0)
                 {
-                    missingByRegionName[region.Name] = lacking.Select(territoryId => territoryNameById.GetValueOrDefault(territoryId, territoryId)).ToList();
+                    missingByRegionName[region.Name] = lacking.Select(territoryId => territoryNameById.GetValueOrDefault(territoryId, territoryId.ToString())).ToList();
                 }
             }
 
-            Dictionary<string, decimal>? rebalanceTargets = null;
+            Dictionary<int, decimal>? rebalanceTargets = null;
             if (mode == "REBALANCE")
             {
                 rebalanceTargets = unitIds.ToDictionary(territoryId => territoryId, territoryId => (decimal)targetByTerritory.GetValueOrDefault(territoryId));
@@ -414,7 +414,7 @@ public class TargetAssistService : ITargetAssistService
                     return new TerritorySuggestionRowDto
                     {
                         TerritoryId = row.TerritoryId,
-                        TerritoryName = territoryNameById.GetValueOrDefault(row.TerritoryId, row.TerritoryId),
+                        TerritoryName = territoryNameById.GetValueOrDefault(row.TerritoryId, row.TerritoryId.ToString()),
                         Potential = (double)row.Potential,
                         PotentialShare = (double)row.PotentialShare,
                         TerritoryCoverage = (double?)row.TerritoryCoverage,
@@ -439,7 +439,7 @@ public class TargetAssistService : ITargetAssistService
                 return new UnmappedBaseEntryDto
                 {
                     TerritoryId = territoryId,
-                    TerritoryName = territoryNameById.GetValueOrDefault(territoryId, territoryId),
+                    TerritoryName = territoryNameById.GetValueOrDefault(territoryId, territoryId.ToString()),
                     UnmappedBase = (double)RegionSuggestionCalculator.MonthlyHistoryValue(cut.AfterUnmapped, monthsUsed, (decimal)growthRate),
                     UnmappedHospitalCount = unmappedHospitalIdsByUnit.GetValueOrDefault(territoryId)?.Count ?? 0
                 };
@@ -468,7 +468,7 @@ public class TargetAssistService : ITargetAssistService
             .SelectMany(kvp => kvp.Value.CutDeals.Select(deal => new CutDealEntryDto
             {
                 TerritoryId = kvp.Key,
-                TerritoryName = territoryNameById.GetValueOrDefault(kvp.Key, kvp.Key),
+                TerritoryName = territoryNameById.GetValueOrDefault(kvp.Key, kvp.Key.ToString()),
                 InvoiceNo = deal.InvoiceNo,
                 DealValue = (double)deal.Value,
                 Ratio = (double)deal.Ratio

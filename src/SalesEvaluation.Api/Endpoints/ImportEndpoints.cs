@@ -23,7 +23,7 @@ public static class ImportEndpoints
             Results.Ok(new { importBatches = await importService.ListImportBatchesAsync(ct) }));
 
         // GET /import-batches/{id}
-        app.MapGet("/import-batches/{id}", async (string id, IImportService importService, CancellationToken ct) =>
+        app.MapGet("/import-batches/{id}", async (int id, IImportService importService, CancellationToken ct) =>
         {
             var batch = await importService.GetImportBatchAsync(id, ct);
             return batch == null
@@ -167,9 +167,9 @@ public static class ImportEndpoints
     }
 
     private static async Task<IResult> HandleListSalesLines(
-        string? salespersonId,
-        string? hospitalId,
-        string? productTypeId,
+        int? salespersonId,
+        int? hospitalId,
+        int? productTypeId,
         string? year,
         string? month,
         string? page,

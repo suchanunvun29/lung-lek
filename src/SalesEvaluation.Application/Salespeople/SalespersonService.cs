@@ -54,7 +54,7 @@ public class SalespersonService : ISalespersonService
                 .Distinct()
                 .ToListAsync(cancellationToken);
 
-            var visibleSalespersonIds = new HashSet<string> { selfId };
+            var visibleSalespersonIds = new HashSet<int> { selfId };
 
             if (supervisedTerritoryIds.Count > 0)
             {
@@ -67,9 +67,9 @@ public class SalespersonService : ISalespersonService
                     .Distinct()
                     .ToListAsync(cancellationToken);
 
-                foreach (var id in subordinateIds)
+                foreach (var sId in subordinateIds)
                 {
-                    visibleSalespersonIds.Add(id);
+                    visibleSalespersonIds.Add(sId);
                 }
             }
 
@@ -87,13 +87,8 @@ public class SalespersonService : ISalespersonService
         };
     }
 
-    public async Task<SalespersonResponse> UpdateSalespersonAsync(string id, UpdateSalespersonRequest request, CancellationToken cancellationToken = default)
+    public async Task<SalespersonResponse> UpdateSalespersonAsync(int id, UpdateSalespersonRequest request, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(id))
-        {
-            throw new ValidationException("Validation failed", "Salesperson ID is required");
-        }
-
         if (!request.HasUserId && !request.HasDisplayName && !request.HasIsActive && !request.HasExcludedFromTerritoryTotals && !request.HasEmploymentEndedAt)
         {
             throw new ValidationException("Validation failed", "ต้องระบุอย่างน้อยหนึ่งฟิลด์");
@@ -110,10 +105,10 @@ public class SalespersonService : ISalespersonService
 
         if (request.HasUserId)
         {
-            if (request.UserId != null)
+            if (request.UserId.HasValue)
             {
                 var userExists = await _dbContext.Users
-                    .AnyAsync(u => u.Id == request.UserId, cancellationToken);
+                    .AnyAsync(u => u.Id == request.UserId.Value, cancellationToken);
 
                 if (!userExists)
                 {
@@ -121,7 +116,7 @@ public class SalespersonService : ISalespersonService
                 }
 
                 var isAlreadyLinked = await _dbContext.Salespeople
-                    .AnyAsync(s => s.UserId == request.UserId && s.Id != id, cancellationToken);
+                    .AnyAsync(s => s.UserId == request.UserId.Value && s.Id != id, cancellationToken);
 
                 if (isAlreadyLinked)
                 {
@@ -173,9 +168,9 @@ public class SalespersonService : ISalespersonService
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         // Reload user relation if userId changed
-        if (salesperson.UserId != null && (salesperson.User == null || salesperson.User.Id != salesperson.UserId))
+        if (salesperson.UserId != null && (salesperson.User == null || salesperson.User.Id != salesperson.UserId.Value))
         {
-            salesperson.User = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == salesperson.UserId, cancellationToken);
+            salesperson.User = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == salesperson.UserId.Value, cancellationToken);
         }
         else if (salesperson.UserId == null)
         {

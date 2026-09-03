@@ -5,15 +5,15 @@ using SalesEvaluation.Domain.Enums;
 
 public class Hospital : IDomainEntity
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public string NameInFile { get; set; } = string.Empty;
     public string DisplayName { get; set; } = string.Empty;
     public string? Province { get; set; }
     public bool IsPreExistingCustomer { get; set; } = false;
-    public string? TerritoryId { get; set; }
+    public int? TerritoryId { get; set; }
     public Territory? Territory { get; set; }
     public TerritoryLinkSource TerritorySource { get; set; } = TerritoryLinkSource.INFERRED;
-    public string? ProvinceMappingId { get; set; }
+    public int? ProvinceMappingId { get; set; }
     public ProvinceMapping? ProvinceMapping { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

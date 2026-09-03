@@ -28,7 +28,7 @@ public interface IImportService
         byte[] fileBuffer,
         string fileName,
         int fileSizeBytes,
-        string uploadedById,
+        int uploadedById,
         ImportMode mode,
         List<Period>? targetPeriods,
         bool confirm,
@@ -38,19 +38,19 @@ public interface IImportService
     /// POST /import/period-delete — delete sales data for given periods, protected by advisory lock.
     /// </summary>
     Task<ImportResult> DeleteSalesPeriodsAsync(
-        string uploadedById,
+        int uploadedById,
         List<Period> targetPeriods,
         bool confirm,
         CancellationToken cancellationToken = default);
 
     Task<List<ImportBatchDto>> ListImportBatchesAsync(CancellationToken cancellationToken = default);
 
-    Task<ImportBatchDto?> GetImportBatchAsync(string id, CancellationToken cancellationToken = default);
+    Task<ImportBatchDto?> GetImportBatchAsync(int id, CancellationToken cancellationToken = default);
 
     Task<SalesLinesPageDto> ListSalesLinesAsync(
-        string? salespersonId,
-        string? hospitalId,
-        string? productTypeId,
+        int? salespersonId,
+        int? hospitalId,
+        int? productTypeId,
         int? year,
         int? month,
         int page,
@@ -60,10 +60,10 @@ public interface IImportService
 
 public class ImportBatchDto
 {
-    public string Id { get; init; } = string.Empty;
+    public int Id { get; init; }
     public string FileName { get; init; } = string.Empty;
     public int FileSizeBytes { get; init; }
-    public string UploadedById { get; init; } = string.Empty;
+    public int UploadedById { get; init; }
     public UserRef? UploadedBy { get; init; }
     public DateTime StartedAt { get; init; }
     public DateTime? FinishedAt { get; init; }
@@ -80,21 +80,21 @@ public class ImportBatchDto
     public string Mode { get; init; } = string.Empty;
     public object? TargetPeriods { get; init; }
     public int RemovedRows { get; init; }
-    public string? ConfirmedById { get; init; }
+    public int? ConfirmedById { get; init; }
     public List<ImportIssueDto>? Issues { get; init; }
 }
 
 public class UserRef
 {
-    public string Id { get; init; } = string.Empty;
+    public int Id { get; init; }
     public string DisplayName { get; init; } = string.Empty;
     public string Email { get; init; } = string.Empty;
 }
 
 public class ImportIssueDto
 {
-    public string Id { get; init; } = string.Empty;
-    public string ImportBatchId { get; init; } = string.Empty;
+    public int Id { get; init; }
+    public int ImportBatchId { get; init; }
     public string? SheetName { get; init; }
     public int? RowNumber { get; init; }
     public string? ColumnName { get; init; }
@@ -106,19 +106,19 @@ public class ImportIssueDto
 
 public class SalesLineDto
 {
-    public string Id { get; init; } = string.Empty;
+    public int Id { get; init; }
     public string InvoiceNo { get; init; } = string.Empty;
     public string? PoNo { get; init; }
     public DateOnly InvoiceDate { get; init; }
     public int Year { get; init; }
     public int Month { get; init; }
-    public string HospitalId { get; init; } = string.Empty;
+    public int HospitalId { get; init; }
     public object? Hospital { get; init; }
-    public string SalespersonId { get; init; } = string.Empty;
+    public int SalespersonId { get; init; }
     public object? Salesperson { get; init; }
-    public string ProductId { get; init; } = string.Empty;
+    public int ProductId { get; init; }
     public object? Product { get; init; }
-    public string ProductTypeId { get; init; } = string.Empty;
+    public int ProductTypeId { get; init; }
     public object? ProductType { get; init; }
     public string? Lot { get; init; }
     public DateOnly? ExpiryDate { get; init; }
@@ -131,7 +131,7 @@ public class SalesLineDto
     public string RowKey { get; init; } = string.Empty;
     public string SourceSheetName { get; init; } = string.Empty;
     public int SourceRowNumber { get; init; }
-    public string ImportBatchId { get; init; } = string.Empty;
+    public int ImportBatchId { get; init; }
     public DateTime CreatedAt { get; init; }
     public DateTime UpdatedAt { get; init; }
 }

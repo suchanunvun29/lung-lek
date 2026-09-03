@@ -68,7 +68,6 @@ public class TierWeightService : ITierWeightService
             {
                 _dbContext.TierWeights.Add(new TierWeight
                 {
-                    Id = Guid.NewGuid().ToString(),
                     Tier = entry.Tier,
                     Weight = entry.Weight,
                     UpdatedAt = DateTime.UtcNow

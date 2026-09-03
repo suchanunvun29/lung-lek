@@ -63,7 +63,7 @@ public class AuthService : IAuthService
         };
     }
 
-    public async Task<ChangePasswordResponse> ChangePasswordAsync(string userId, ChangePasswordRequest request, CancellationToken cancellationToken = default)
+    public async Task<ChangePasswordResponse> ChangePasswordAsync(int userId, ChangePasswordRequest request, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(request.CurrentPassword) || string.IsNullOrWhiteSpace(request.NewPassword))
         {
@@ -96,7 +96,7 @@ public class AuthService : IAuthService
         };
     }
 
-    public async Task<GetMeResponse> GetMeAsync(string userId, CancellationToken cancellationToken = default)
+    public async Task<GetMeResponse> GetMeAsync(int userId, CancellationToken cancellationToken = default)
     {
         var user = await _dbContext.Users
             .AsNoTracking()

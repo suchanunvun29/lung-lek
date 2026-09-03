@@ -5,13 +5,13 @@ using SalesEvaluation.Domain.Enums;
 
 public class Target : IDomainEntity
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public TargetScope Scope { get; set; } = TargetScope.SALESPERSON;
-    public string? TerritoryId { get; set; }
+    public int? TerritoryId { get; set; }
     public Territory? Territory { get; set; }
-    public string? TerritoryGroupId { get; set; }
+    public int? TerritoryGroupId { get; set; }
     public TerritoryGroup? TerritoryGroup { get; set; }
-    public string? SalespersonId { get; set; }
+    public int? SalespersonId { get; set; }
     public Salesperson? Salesperson { get; set; }
     public int Year { get; set; }
     public int Month { get; set; }

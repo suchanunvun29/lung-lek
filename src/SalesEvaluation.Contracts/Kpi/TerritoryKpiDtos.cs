@@ -9,7 +9,7 @@ using SalesEvaluation.Contracts.Targets;
 
 public class TerritoryKpiFullRowDto
 {
-    public string TerritoryId { get; set; } = string.Empty;
+    public int TerritoryId { get; set; }
     public string Name { get; set; } = string.Empty;
     public List<string> OwnerNames { get; set; } = new();
     public double Revenue { get; set; }
@@ -30,7 +30,7 @@ public class TerritoryKpiFullRowDto
 
 public class TerritoryKpiRankOnlyRowDto
 {
-    public string TerritoryId { get; set; } = string.Empty;
+    public int TerritoryId { get; set; }
     public string Name { get; set; } = string.Empty;
     public List<string> OwnerNames { get; set; } = new();
     public double? CompositeScore { get; set; }
@@ -41,7 +41,7 @@ public class TerritoryKpiRankOnlyRowDto
 
 public class TerritoryPersonalBucketEntryDto
 {
-    public string SalespersonId { get; set; } = string.Empty;
+    public int SalespersonId { get; set; }
     public string DisplayName { get; set; } = string.Empty;
     public double Revenue { get; set; }
     public double PersonalTarget { get; set; }
@@ -74,10 +74,10 @@ public class TerritoryKpiSingleResponse
 
 public class TerritoryGroupKpiFullRowDto
 {
-    public string TerritoryId { get; set; } = string.Empty;
+    public int TerritoryId { get; set; }
     public string Name { get; set; } = string.Empty;
     public List<string> OwnerNames { get; set; } = new();
-    public List<string> MemberTerritoryIds { get; set; } = new();
+    public List<int> MemberTerritoryIds { get; set; } = new();
     public int Rank { get; set; }
     public double Revenue { get; set; }
     public double? RevenueTarget { get; set; }
@@ -89,7 +89,7 @@ public class TerritoryGroupKpiFullRowDto
 
 public class TerritoryGroupKpiRankOnlyRowDto
 {
-    public string TerritoryId { get; set; } = string.Empty;
+    public int TerritoryId { get; set; }
     public string Name { get; set; } = string.Empty;
     public List<string> OwnerNames { get; set; } = new();
     public double? CompositeScore { get; set; }
@@ -100,13 +100,13 @@ public class TerritoryGroupKpiRankOnlyRowDto
 
 public class TerritoryDrillDownTerritoryDto
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
 }
 
 public class TerritoryDrillDownEntryDto
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public double Revenue { get; set; }
 }

@@ -8,9 +8,9 @@ import { Input } from "@/components/ui/input";
 
 export interface AcceptOffersPanelProps {
   totals: TerritorySuggestedTotal[];
-  existingByTerritoryId: Map<string, Target>;
-  savingTerritoryId: string | null;
-  onSave: (territoryId: string, revenueTarget: number) => Promise<boolean>;
+  existingByTerritoryId: Map<number, Target>;
+  savingTerritoryId: number | null;
+  onSave: (territoryId: number, revenueTarget: number) => Promise<boolean>;
 }
 
 function OfferRow({
@@ -22,7 +22,7 @@ function OfferRow({
   total: TerritorySuggestedTotal;
   existing?: Target;
   saving: boolean;
-  onSave: (territoryId: string, revenueTarget: number) => Promise<boolean>;
+  onSave: (territoryId: number, revenueTarget: number) => Promise<boolean>;
 }) {
   const [revenueRaw, setRevenueRaw] = useState(String(total.suggestedTotal));
   const [saved, setSaved] = useState(false);

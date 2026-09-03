@@ -21,7 +21,7 @@ public static class TerritoryProductRankingEndpoints
     }
 
     private async static Task<(bool Allowed, IResult? Error)> AllowedAsync(
-        string territoryId,
+        int territoryId,
         ITerritoryScopeResolver scopeResolver,
         ICurrentUserService currentUserService,
         CancellationToken ct)
@@ -37,7 +37,7 @@ public static class TerritoryProductRankingEndpoints
     }
 
     private static async Task<IResult> HandleGetRanking(
-        string territoryId,
+        int territoryId,
         HttpContext httpContext,
         ITerritoryKpiService territoryKpiService,
         ITerritoryScopeResolver scopeResolver,
@@ -71,7 +71,7 @@ public static class TerritoryProductRankingEndpoints
     }
 
     private static async Task<IResult> HandleExportRanking(
-        string territoryId,
+        int territoryId,
         HttpContext httpContext,
         ITerritoryKpiService territoryKpiService,
         ITerritoryScopeResolver scopeResolver,

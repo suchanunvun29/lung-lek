@@ -12,8 +12,8 @@ export interface ProductMasterTableProps {
 }
 
 export function ProductMasterTable({ products, canEdit, onSave }: ProductMasterTableProps) {
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [busyId, setBusyId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [busyId, setBusyId] = useState<number | null>(null);
   const [code, setCode] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [isActive, setIsActive] = useState(true);

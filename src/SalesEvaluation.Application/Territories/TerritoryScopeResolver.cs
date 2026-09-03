@@ -33,8 +33,8 @@ public class TerritoryScopeResolver : ITerritoryScopeResolver
             {
                 CanSeeAllTerritories = true,
                 SelfSalespersonId = salesperson?.Id,
-                SupervisedTerritoryIds = new List<string>(),
-                MemberTerritoryIds = new List<string>()
+                SupervisedTerritoryIds = new List<int>(),
+                MemberTerritoryIds = new List<int>()
             };
         }
 
@@ -44,8 +44,8 @@ public class TerritoryScopeResolver : ITerritoryScopeResolver
             {
                 CanSeeAllTerritories = false,
                 SelfSalespersonId = null,
-                SupervisedTerritoryIds = new List<string>(),
-                MemberTerritoryIds = new List<string>()
+                SupervisedTerritoryIds = new List<int>(),
+                MemberTerritoryIds = new List<int>()
             };
         }
 
@@ -66,17 +66,17 @@ public class TerritoryScopeResolver : ITerritoryScopeResolver
         };
     }
 
-    public async Task<List<string>?> VisibleSalespersonIdsAsync(ViewerTerritoryScope scope, CancellationToken cancellationToken = default)
+    public async Task<List<int>?> VisibleSalespersonIdsAsync(ViewerTerritoryScope scope, CancellationToken cancellationToken = default)
     {
         if (scope.CanSeeAllTerritories)
         {
             return null;
         }
 
-        var ids = new List<string>();
+        var ids = new List<int>();
         if (scope.SelfSalespersonId != null)
         {
-            ids.Add(scope.SelfSalespersonId);
+            ids.Add(scope.SelfSalespersonId.Value);
         }
 
         if (scope.SupervisedTerritoryIds.Count > 0)
@@ -92,17 +92,17 @@ public class TerritoryScopeResolver : ITerritoryScopeResolver
                     .Select(a => a.SalespersonId));
         }
 
-        return ids.Distinct().Where(id => !string.IsNullOrEmpty(id)).ToList();
+        return ids.Distinct().ToList();
     }
 
-    public async Task<bool> CanViewSalespersonAsync(CurrentUserRef user, string salespersonId, CancellationToken cancellationToken = default)
+    public async Task<bool> CanViewSalespersonAsync(CurrentUserRef user, int salespersonId, CancellationToken cancellationToken = default)
     {
         var scope = await ResolveViewerTerritoryScopeAsync(user, cancellationToken);
         var ids = await VisibleSalespersonIdsAsync(scope, cancellationToken);
         return ids == null || ids.Contains(salespersonId);
     }
 
-    public async Task<HashSet<string>?> ResolveViewerTerritoryIdsAsync(CurrentUserRef user, CancellationToken cancellationToken = default)
+    public async Task<HashSet<int>?> ResolveViewerTerritoryIdsAsync(CurrentUserRef user, CancellationToken cancellationToken = default)
     {
         var scope = await ResolveViewerTerritoryScopeAsync(user, cancellationToken);
         if (scope.CanSeeAllTerritories)
@@ -110,6 +110,6 @@ public class TerritoryScopeResolver : ITerritoryScopeResolver
             return null;
         }
 
-        return new HashSet<string>(scope.MemberTerritoryIds.Concat(scope.SupervisedTerritoryIds));
+        return new HashSet<int>(scope.MemberTerritoryIds.Concat(scope.SupervisedTerritoryIds));
     }
 }

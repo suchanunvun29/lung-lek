@@ -67,7 +67,7 @@ export default function MasterDataPage() {
     }
   }
 
-  async function handleSalespersonLink(salesperson: Salesperson, userId: string | null) {
+  async function handleSalespersonLink(salesperson: Salesperson, userId: number | null) {
     if (!token) return;
     setActionError(null);
     try {

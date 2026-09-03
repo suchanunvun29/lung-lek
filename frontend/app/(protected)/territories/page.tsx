@@ -85,7 +85,11 @@ export default function TerritoriesPage() {
     event.preventDefault();
     if (!token || !assignment.territoryId || !assignment.salespersonId) return;
     try {
-      await saveTerritoryAssignment(token, assignment);
+      await saveTerritoryAssignment(token, {
+        ...assignment,
+        territoryId: Number(assignment.territoryId),
+        salespersonId: Number(assignment.salespersonId),
+      });
       setAssignment({ territoryId: "", salespersonId: "", effectiveFrom: TODAY, isSupervisor: false });
       await load();
     } catch (err) {

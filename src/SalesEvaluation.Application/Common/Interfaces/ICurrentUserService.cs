@@ -4,7 +4,7 @@ using SalesEvaluation.Domain.Enums;
 
 public class CurrentUser
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public string Email { get; set; } = string.Empty;
     public string DisplayName { get; set; } = string.Empty;
     public UserRole Role { get; set; }

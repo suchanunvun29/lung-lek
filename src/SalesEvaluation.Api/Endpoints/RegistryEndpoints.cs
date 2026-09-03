@@ -59,7 +59,7 @@ public static class RegistryEndpoints
     }
 
     private static async Task<IResult> HandleUpdateProvince(
-        string id,
+        int id,
         HttpContext httpContext,
         IHospitalRegistryService registryService,
         ICurrentUserService currentUserService,
@@ -98,12 +98,23 @@ public static class RegistryEndpoints
 
             if (root.TryGetProperty("regionId", out var regionProp))
             {
-                if (regionProp.ValueKind != JsonValueKind.String || string.IsNullOrEmpty(regionProp.GetString()))
-                {
-                    return TerritoryEndpoints.Invalid("regionId must be a non-empty string");
-                }
-                request.RegionId = regionProp.GetString();
                 request.HasRegionId = true;
+                if (regionProp.ValueKind == JsonValueKind.Null)
+                {
+                    request.RegionId = null;
+                }
+                else if (regionProp.ValueKind == JsonValueKind.Number)
+                {
+                    request.RegionId = regionProp.GetInt32();
+                }
+                else if (regionProp.ValueKind == JsonValueKind.String && int.TryParse(regionProp.GetString(), out var rId))
+                {
+                    request.RegionId = rId;
+                }
+                else
+                {
+                    return TerritoryEndpoints.Invalid("regionId must be a valid integer");
+                }
             }
 
             if (!request.HasAnyField)
@@ -118,8 +129,8 @@ public static class RegistryEndpoints
 
     private static async Task<IResult> HandleListHospitalRegistries(
         string? q,
-        string? provinceMappingId,
-        string? territoryId,
+        int? provinceMappingId,
+        int? territoryId,
         string? page,
         string? pageSize,
         IHospitalRegistryService registryService,
@@ -154,7 +165,7 @@ public static class RegistryEndpoints
     }
 
     private static async Task<IResult> HandleUpdatePotentialAdjustment(
-        string id,
+        int id,
         HttpContext httpContext,
         IHospitalRegistryService registryService,
         ICurrentUserService currentUserService,
@@ -196,7 +207,7 @@ public static class RegistryEndpoints
     }
 
     private static async Task<IResult> HandleUpdateRegistryLink(
-        string hospitalId,
+        int hospitalId,
         HttpContext httpContext,
         IHospitalRegistryService registryService,
         ICurrentUserService currentUserService,
@@ -238,7 +249,18 @@ public static class RegistryEndpoints
             if (root.TryGetProperty("hospitalRegistryId", out var registryProp))
             {
                 request.HasHospitalRegistryId = true;
-                request.HospitalRegistryId = registryProp.ValueKind == JsonValueKind.Null ? null : registryProp.GetString();
+                if (registryProp.ValueKind == JsonValueKind.Null)
+                {
+                    request.HospitalRegistryId = null;
+                }
+                else if (registryProp.ValueKind == JsonValueKind.Number)
+                {
+                    request.HospitalRegistryId = registryProp.GetInt32();
+                }
+                else if (registryProp.ValueKind == JsonValueKind.String && int.TryParse(registryProp.GetString(), out var regId))
+                {
+                    request.HospitalRegistryId = regId;
+                }
             }
 
             if (root.TryGetProperty("note", out var noteProp))

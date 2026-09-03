@@ -44,7 +44,7 @@ function isMemberActiveInMonth(member: TerritoryGroupMember, month: string) {
   return member.effectiveFrom.slice(0, 10) <= periodEnd && (!member.effectiveTo || member.effectiveTo.slice(0, 10) >= periodStart);
 }
 
-function groupTargetKey(groupId: string, month: number) {
+function groupTargetKey(groupId: number, month: number) {
   return `${groupId}-${month}`;
 }
 
@@ -52,7 +52,7 @@ export function TerritoryGroupManager({ canEdit, groups, territories, token, onC
   const [groupName, setGroupName] = useState("");
   const [selectedMonth, setSelectedMonth] = useState(CURRENT_MONTH);
   const [memberForm, setMemberForm] = useState({ territoryId: "", effectiveFrom: CURRENT_MONTH, effectiveTo: "" });
-  const [endingMemberId, setEndingMemberId] = useState<string | null>(null);
+  const [endingMemberId, setEndingMemberId] = useState<number | null>(null);
   const [endingMonth, setEndingMonth] = useState("");
   const [groupTargetsByYear, setGroupTargetsByYear] = useState<ReadonlyMap<number, ReadonlyMap<string, Target>>>(new Map());
 
@@ -91,7 +91,7 @@ export function TerritoryGroupManager({ canEdit, groups, territories, token, onC
     }
   }
 
-  async function submitMember(event: FormEvent<HTMLFormElement>, groupId: string) {
+  async function submitMember(event: FormEvent<HTMLFormElement>, groupId: number) {
     event.preventDefault();
     if (!token || !memberForm.territoryId || !memberForm.effectiveFrom) return;
     if (memberForm.effectiveTo && memberForm.effectiveTo < memberForm.effectiveFrom) {
@@ -100,7 +100,7 @@ export function TerritoryGroupManager({ canEdit, groups, territories, token, onC
     }
     try {
       await addTerritoryGroupMember(token, groupId, {
-        territoryId: memberForm.territoryId,
+        territoryId: Number(memberForm.territoryId),
         effectiveFrom: firstDayOfMonth(memberForm.effectiveFrom),
         effectiveTo: memberForm.effectiveTo ? lastDayOfMonth(memberForm.effectiveTo) : null,
       });
@@ -111,7 +111,7 @@ export function TerritoryGroupManager({ canEdit, groups, territories, token, onC
     }
   }
 
-  async function endMembership(groupId: string, member: TerritoryGroupMember) {
+  async function endMembership(groupId: number, member: TerritoryGroupMember) {
     if (!token || !endingMonth) return;
     if (endingMonth < monthFromDate(member.effectiveFrom)) {
       onError("เดือนสิ้นสุดต้องไม่ก่อนเดือนเริ่ม");

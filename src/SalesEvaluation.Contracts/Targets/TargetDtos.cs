@@ -4,21 +4,21 @@ using SalesEvaluation.Contracts.Common;
 
 public class ProductTypeSummaryDto
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
 }
 
 public class SalespersonSummaryDto
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public string DisplayName { get; set; } = string.Empty;
 }
 
 public class TargetProductGroupDto
 {
-    public string Id { get; set; } = string.Empty;
-    public string TargetId { get; set; } = string.Empty;
-    public string ProductTypeId { get; set; } = string.Empty;
+    public int Id { get; set; }
+    public int TargetId { get; set; }
+    public int ProductTypeId { get; set; }
 
     /// <summary>Prisma Decimal → JSON string ("150000.00"), same as Express + Prisma.</summary>
     public string RevenueTarget { get; set; } = string.Empty;
@@ -29,13 +29,13 @@ public class TargetProductGroupDto
 
 public class TargetDto
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
 
     /// <summary>"SALESPERSON" | "TERRITORY" | "TERRITORY_GROUP".</summary>
     public string Scope { get; set; } = string.Empty;
-    public string? TerritoryId { get; set; }
-    public string? TerritoryGroupId { get; set; }
-    public string? SalespersonId { get; set; }
+    public int? TerritoryId { get; set; }
+    public int? TerritoryGroupId { get; set; }
+    public int? SalespersonId { get; set; }
     public int Year { get; set; }
     public int Month { get; set; }
 
@@ -63,7 +63,7 @@ public class TargetResponse
 
 public class ProductGroupInputDto
 {
-    public string ProductTypeId { get; set; } = string.Empty;
+    public int ProductTypeId { get; set; }
     public decimal RevenueTarget { get; set; }
 }
 
@@ -84,20 +84,20 @@ public class CopyTargetsBody
 public class CopyTargetsResult
 {
     public int SourceCount { get; set; }
-    public List<string> Created { get; set; } = new();
-    public List<string> Updated { get; set; } = new();
-    public List<string> Skipped { get; set; } = new();
+    public List<int> Created { get; set; } = new();
+    public List<int> Updated { get; set; } = new();
+    public List<int> Skipped { get; set; } = new();
 }
 
 /// <summary>TargetRevision.before/after — plain-number JSON snapshot written by toTargetSnapshot.</summary>
 public class TargetRevisionDto
 {
-    public string Id { get; set; } = string.Empty;
-    public string TargetId { get; set; } = string.Empty;
+    public int Id { get; set; }
+    public int TargetId { get; set; }
     public string ChangeType { get; set; } = string.Empty;
     public System.Text.Json.JsonElement? Before { get; set; }
     public System.Text.Json.JsonElement? After { get; set; }
-    public string ChangedById { get; set; } = string.Empty;
+    public int ChangedById { get; set; }
     public UserSummaryDto ChangedBy { get; set; } = null!;
     public DateTime ChangedAt { get; set; }
     public string? Note { get; set; }
@@ -111,8 +111,8 @@ public class TargetRevisionsResponse
 /// <summary>One contribution line of GET /targets/derived — a TERRITORY or TERRITORY_GROUP target split by active owners.</summary>
 public class DerivedTargetContributionDto
 {
-    public string? TerritoryId { get; set; }
-    public string? TerritoryGroupId { get; set; }
+    public int? TerritoryId { get; set; }
+    public int? TerritoryGroupId { get; set; }
     public double RevenueTarget { get; set; }
     public bool? Unassigned { get; set; }
 }

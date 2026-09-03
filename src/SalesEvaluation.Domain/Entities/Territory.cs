@@ -4,10 +4,10 @@ using SalesEvaluation.Domain.Common;
 
 public class Territory : IDomainEntity
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? Code { get; set; }
-    public string? RegionId { get; set; }
+    public int? RegionId { get; set; }
     public Region? Region { get; set; }
     public int SortOrder { get; set; } = 0;
     public bool IsActive { get; set; } = true;

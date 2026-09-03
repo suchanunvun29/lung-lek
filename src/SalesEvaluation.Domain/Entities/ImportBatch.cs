@@ -5,10 +5,10 @@ using SalesEvaluation.Domain.Enums;
 
 public class ImportBatch : IDomainEntity
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public string FileName { get; set; } = string.Empty;
     public int FileSizeBytes { get; set; }
-    public string UploadedById { get; set; } = string.Empty;
+    public int UploadedById { get; set; }
     public User UploadedBy { get; set; } = null!;
     public DateTime StartedAt { get; set; } = DateTime.UtcNow;
     public DateTime? FinishedAt { get; set; }
@@ -25,7 +25,7 @@ public class ImportBatch : IDomainEntity
     public ImportMode Mode { get; set; } = ImportMode.APPEND;
     public string? TargetPeriods { get; set; }
     public int RemovedRows { get; set; } = 0;
-    public string? ConfirmedById { get; set; }
+    public int? ConfirmedById { get; set; }
 
     public ICollection<SalesLine> SalesLines { get; set; } = new List<SalesLine>();
     public ICollection<ImportIssue> Issues { get; set; } = new List<ImportIssue>();

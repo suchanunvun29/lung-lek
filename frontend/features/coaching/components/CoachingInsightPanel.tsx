@@ -20,7 +20,7 @@ import { Card } from "@/components/ui/card";
 const DEFAULT_DRILL_DOWN_METRIC: ScoredKpiMetric = "REVENUE_VS_TARGET";
 
 export interface CoachingInsightPanelProps {
-  salespersonId: string;
+  salespersonId: number;
   period: PeriodKey;
   onDrillDown: (metric: ScoredKpiMetric) => void;
 }

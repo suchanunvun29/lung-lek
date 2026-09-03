@@ -49,7 +49,7 @@ public class CoachingInsightService : ICoachingInsightService
     }
 
     public async Task<CoachingInsightResponse> GetInsightAsync(
-        string salespersonId,
+        int salespersonId,
         AppPeriodKey period,
         CurrentUserRef viewer,
         CancellationToken cancellationToken = default)
@@ -110,9 +110,9 @@ public class CoachingInsightService : ICoachingInsightService
     }
 
     public async Task<CoachingInsightDto> GenerateInsightAsync(
-        string salespersonId,
+        int salespersonId,
         AppPeriodKey period,
-        string generatedById,
+        int generatedById,
         CancellationToken cancellationToken = default)
     {
         var settings = await _kpiService.GetEvaluationSettingsAsync(cancellationToken);
@@ -163,7 +163,6 @@ public class CoachingInsightService : ICoachingInsightService
         {
             existing = new CoachingInsight
             {
-                Id = NewId(),
                 SalespersonId = salespersonId,
                 PeriodType = period.PeriodType,
                 Year = period.Year,
@@ -202,7 +201,7 @@ public class CoachingInsightService : ICoachingInsightService
     // -----------------------------------------------------------------------
 
     internal async Task<KpiSummaryPayload> BuildKpiSummaryPayloadAsync(
-        string salespersonId, AppPeriodKey period, CancellationToken cancellationToken)
+        int salespersonId, AppPeriodKey period, CancellationToken cancellationToken)
     {
         var salesperson = await _dbContext.Salespeople
             .AsNoTracking()
@@ -403,8 +402,6 @@ public class CoachingInsightService : ICoachingInsightService
         GeneratedById = ci.GeneratedById,
         GeneratedAt = ci.GeneratedAt,
     };
-
-    private static string NewId() => Guid.NewGuid().ToString("N")[..20];
 
     // -----------------------------------------------------------------------
     //  Payload records (mirroring TS KpiSummaryPayload interface)

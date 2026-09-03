@@ -78,7 +78,7 @@ export default function TargetsPage() {
   }, [targets]);
 
   async function handleSaveTarget(
-    salespersonId: string,
+    salespersonId: number,
     month: number,
     input: { revenueTarget: number; newCustomerTarget: number }
   ): Promise<boolean> {

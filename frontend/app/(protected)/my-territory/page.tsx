@@ -42,7 +42,7 @@ export default function MyTerritoryPage() {
   const [period, setPeriod] = useState<PeriodKey>(defaultPeriod());
   const [people, setPeople] = useState<TeamKpiResultRow[]>([]);
   const [salespersonId, setSalespersonId] = useState("");
-  const [productTypes, setProductTypes] = useState<{ id: string; name: string }[]>([]);
+  const [productTypes, setProductTypes] = useState<{ id: number; name: string }[]>([]);
   const [productTypeId, setProductTypeId] = useState("");
   const [creditOnly, setCreditOnly] = useState(false);
   const [provinces, setProvinces] = useState<ProvinceMapping[]>([]);
@@ -63,7 +63,7 @@ export default function MyTerritoryPage() {
     void Promise.all([getTeamKpi(token, period), listProductTypes(token), listProvinces(token)])
       .then(([team, types, provRes]) => {
         setPeople(team.results);
-        setSalespersonId((current) => current || team.results[0]?.salesperson.id || "");
+        setSalespersonId((current) => current || String(team.results[0]?.salesperson.id ?? ""));
         setAccountNotLinked(team.reason === "ACCOUNT_NOT_LINKED");
         setProductTypes(types.productTypes);
         setProvinces(provRes.provinces);

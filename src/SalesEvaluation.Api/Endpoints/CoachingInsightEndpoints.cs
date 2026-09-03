@@ -23,7 +23,7 @@ public static class CoachingInsightEndpoints
     }
 
     private static async Task<IResult> HandleGetInsight(
-        string salespersonId,
+        int salespersonId,
         string? periodType,
         string? year,
         string? periodNumber,
@@ -56,7 +56,7 @@ public static class CoachingInsightEndpoints
     }
 
     private static async Task<IResult> HandleGenerateInsight(
-        string salespersonId,
+        int salespersonId,
         HttpContext httpContext,
         ICoachingInsightService coachingInsightService,
         ICurrentUserService currentUserService,

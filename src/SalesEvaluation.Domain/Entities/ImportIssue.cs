@@ -5,8 +5,8 @@ using SalesEvaluation.Domain.Enums;
 
 public class ImportIssue : IDomainEntity
 {
-    public string Id { get; set; } = string.Empty;
-    public string ImportBatchId { get; set; } = string.Empty;
+    public int Id { get; set; }
+    public int ImportBatchId { get; set; }
     public ImportBatch ImportBatch { get; set; } = null!;
     public string? SheetName { get; set; }
     public int? RowNumber { get; set; }

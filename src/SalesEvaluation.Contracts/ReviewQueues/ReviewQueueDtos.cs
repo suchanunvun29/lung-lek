@@ -2,13 +2,13 @@ namespace SalesEvaluation.Contracts.ReviewQueues;
 
 public class DeciderSummaryDto
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public string DisplayName { get; set; } = string.Empty;
 }
 
 public class SalespersonSummaryDto
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public string NameInFile { get; set; } = string.Empty;
     public string DisplayName { get; set; } = string.Empty;
     public bool? IsActive { get; set; }
@@ -16,15 +16,15 @@ public class SalespersonSummaryDto
 
 public class HospitalNameReviewDto
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public string NormalizedKeyA { get; set; } = string.Empty;
     public string NormalizedKeyB { get; set; } = string.Empty;
     public string SampleRawA { get; set; } = string.Empty;
     public string SampleRawB { get; set; } = string.Empty;
     public decimal? Similarity { get; set; }
     public string Status { get; set; } = string.Empty;
-    public string? MergedIntoId { get; set; }
-    public string? DecidedById { get; set; }
+    public int? MergedIntoId { get; set; }
+    public int? DecidedById { get; set; }
     public DateTime? DecidedAt { get; set; }
     public string? Note { get; set; }
     public DateTime CreatedAt { get; set; }
@@ -43,21 +43,21 @@ public class HospitalNameReviewResponse
 public class DecideHospitalNameReviewRequest
 {
     public string Decision { get; set; } = string.Empty; // "MERGED" or "KEPT_SEPARATE"
-    public string? MergedIntoId { get; set; }
+    public int? MergedIntoId { get; set; }
     public string? Note { get; set; }
 }
 
 public class SalesmanNameReviewDto
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public string PersonKey { get; set; } = string.Empty;
     public string SampleRaw { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
-    public string? CreatedSalespersonId { get; set; }
+    public int? CreatedSalespersonId { get; set; }
     public SalespersonSummaryDto? CreatedSalesperson { get; set; }
-    public string? MergedIntoId { get; set; }
+    public int? MergedIntoId { get; set; }
     public SalespersonSummaryDto? MergedInto { get; set; }
-    public string? DecidedById { get; set; }
+    public int? DecidedById { get; set; }
     public DateTime? DecidedAt { get; set; }
     public string? Note { get; set; }
     public DateTime CreatedAt { get; set; }
@@ -76,25 +76,25 @@ public class SalesmanNameReviewResponse
 public class DecideSalesmanNameReviewRequest
 {
     public string Decision { get; set; } = string.Empty; // "MERGED" or "KEPT_SEPARATE"
-    public string? MergedIntoId { get; set; }
+    public int? MergedIntoId { get; set; }
     public string? Note { get; set; }
 }
 
 public class SalesmanNameRuleMemberDto
 {
-    public string Id { get; set; } = string.Empty;
-    public string RuleId { get; set; } = string.Empty;
-    public string SalespersonId { get; set; } = string.Empty;
+    public int Id { get; set; }
+    public int RuleId { get; set; }
+    public int SalespersonId { get; set; }
     public decimal SharePercent { get; set; }
     public SalespersonSummaryDto Salesperson { get; set; } = null!;
 }
 
 public class SalesmanNameRuleDto
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public string NormalizedRaw { get; set; } = string.Empty;
     public string SampleRaw { get; set; } = string.Empty;
-    public string? DecidedById { get; set; }
+    public int? DecidedById { get; set; }
     public DeciderSummaryDto? DecidedBy { get; set; }
     public DateTime? DecidedAt { get; set; }
     public DateTime CreatedAt { get; set; }
@@ -113,7 +113,7 @@ public class SalesmanNameRuleResponse
 
 public class SalesmanNameRuleMemberInputDto
 {
-    public string SalespersonId { get; set; } = string.Empty;
+    public int SalespersonId { get; set; }
     public decimal SharePercent { get; set; }
 }
 

@@ -50,7 +50,7 @@ public static class HospitalEndpoints
     }
 
     private static async Task<IResult> HandleUpdateHospital(
-        string id,
+        int id,
         HttpContext httpContext,
         IHospitalService hospitalService,
         ICurrentUserService currentUserService,
@@ -135,7 +135,7 @@ public static class HospitalEndpoints
     }
 
     private static async Task<IResult> HandleCreateHospitalAlias(
-        string id,
+        int id,
         HttpContext httpContext,
         IHospitalService hospitalService,
         ICurrentUserService currentUserService,
@@ -195,7 +195,7 @@ public static class HospitalEndpoints
     }
 
     private static async Task<IResult> HandlePatchHospitalTerritory(
-        string id,
+        int id,
         HttpContext httpContext,
         IHospitalService hospitalService,
         ICurrentUserService currentUserService,
@@ -233,13 +233,17 @@ public static class HospitalEndpoints
                 {
                     request.TerritoryId = null;
                 }
-                else if (terrProp.ValueKind == JsonValueKind.String)
+                else if (terrProp.ValueKind == JsonValueKind.Number)
                 {
-                    request.TerritoryId = terrProp.GetString();
+                    request.TerritoryId = terrProp.GetInt32();
+                }
+                else if (terrProp.ValueKind == JsonValueKind.String && int.TryParse(terrProp.GetString(), out var tId))
+                {
+                    request.TerritoryId = tId;
                 }
                 else
                 {
-                    return Results.Json(new { error = "Validation failed", details = "territoryId must be a string or null" }, statusCode: StatusCodes.Status400BadRequest);
+                    return Results.Json(new { error = "Validation failed", details = "territoryId must be a number or null" }, statusCode: StatusCodes.Status400BadRequest);
                 }
             }
 
@@ -307,13 +311,17 @@ public static class HospitalEndpoints
                 {
                     request.TerritoryId = null;
                 }
-                else if (terrProp.ValueKind == JsonValueKind.String)
+                else if (terrProp.ValueKind == JsonValueKind.Number)
                 {
-                    request.TerritoryId = terrProp.GetString();
+                    request.TerritoryId = terrProp.GetInt32();
+                }
+                else if (terrProp.ValueKind == JsonValueKind.String && int.TryParse(terrProp.GetString(), out var tId))
+                {
+                    request.TerritoryId = tId;
                 }
                 else
                 {
-                    return Results.Json(new { error = "Validation failed", details = "territoryId must be a string or null" }, statusCode: StatusCodes.Status400BadRequest);
+                    return Results.Json(new { error = "Validation failed", details = "territoryId must be a number or null" }, statusCode: StatusCodes.Status400BadRequest);
                 }
             }
 

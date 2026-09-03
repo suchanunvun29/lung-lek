@@ -10,16 +10,16 @@ public interface IHospitalRegistryService
 {
     Task<ProvincesResponse> ListProvincesAsync(CancellationToken cancellationToken = default);
 
-    Task<ProvinceResponse> UpdateProvinceAsync(string id, UpdateProvinceRequest request, CancellationToken cancellationToken = default);
+    Task<ProvinceResponse> UpdateProvinceAsync(int id, UpdateProvinceRequest request, CancellationToken cancellationToken = default);
 
     /// <summary>Paginated registry list with text search (`q`), province and territory filters.</summary>
-    Task<HospitalRegistriesResponse> ListHospitalRegistriesAsync(string? q, string? provinceMappingId, string? territoryId, int page, int pageSize, CancellationToken cancellationToken = default);
+    Task<HospitalRegistriesResponse> ListHospitalRegistriesAsync(string? q, int? provinceMappingId, int? territoryId, int page, int pageSize, CancellationToken cancellationToken = default);
 
-    Task<PotentialAdjustmentResponse> UpdatePotentialAdjustmentAsync(string id, decimal potentialAdjustment, CancellationToken cancellationToken = default);
+    Task<PotentialAdjustmentResponse> UpdatePotentialAdjustmentAsync(int id, decimal potentialAdjustment, CancellationToken cancellationToken = default);
 
     Task<HospitalRegistryLinksResponse> ListRegistryLinksAsync(string? status, CancellationToken cancellationToken = default);
 
-    Task<HospitalRegistryLinkResponse> UpdateRegistryLinkAsync(string hospitalId, UpdateRegistryLinkRequest request, string reviewedById, CancellationToken cancellationToken = default);
+    Task<HospitalRegistryLinkResponse> UpdateRegistryLinkAsync(int hospitalId, UpdateRegistryLinkRequest request, int reviewedById, CancellationToken cancellationToken = default);
 }
 
 public interface ITierWeightService

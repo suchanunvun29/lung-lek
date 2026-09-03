@@ -26,7 +26,7 @@ export default function NameReviewsPage() {
   const [hospitalReviews, setHospitalReviews] = useState<HospitalNameReview[]>([]);
   const [salesmanRules, setSalesmanRules] = useState<SalesmanNameRule[]>([]);
   const [salesmanReviews, setSalesmanReviews] = useState<SalesmanNameReview[]>([]);
-  const [mergeTargets, setMergeTargets] = useState<{ id: string; displayName: string }[]>([]);
+  const [mergeTargets, setMergeTargets] = useState<{ id: number; displayName: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -86,7 +86,7 @@ export default function NameReviewsPage() {
 
   async function handleSalesmanReviewDecision(
     review: SalesmanNameReview,
-    decision: { decision: "MERGED"; mergedIntoId: string } | { decision: "KEPT_SEPARATE" }
+    decision: { decision: "MERGED"; mergedIntoId: number } | { decision: "KEPT_SEPARATE" }
   ) {
     if (!token) return;
     setError(null);

@@ -2,7 +2,7 @@ namespace SalesEvaluation.Contracts.Territories;
 
 public class RegionSummaryDto
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
 }
 
@@ -12,10 +12,10 @@ public class RegionSummaryDto
 /// </summary>
 public class TerritoryDto
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? Code { get; set; }
-    public string? RegionId { get; set; }
+    public int? RegionId { get; set; }
     public RegionSummaryDto? Region { get; set; }
     public int SortOrder { get; set; }
     public bool IsActive { get; set; }
@@ -40,7 +40,7 @@ public class CreateTerritoryRequest
 {
     public string Name { get; set; } = string.Empty;
     public string? Code { get; set; }
-    public string? RegionId { get; set; }
+    public int? RegionId { get; set; }
     public bool HasRegionId { get; set; }
     public int? SortOrder { get; set; }
     public bool? IsActive { get; set; }
@@ -54,7 +54,7 @@ public class UpdateTerritoryRequest
     public bool HasName { get; set; }
     public string? Code { get; set; }
     public bool HasCode { get; set; }
-    public string? RegionId { get; set; }
+    public int? RegionId { get; set; }
     public bool HasRegionId { get; set; }
     public int? SortOrder { get; set; }
     public bool HasSortOrder { get; set; }
@@ -69,27 +69,27 @@ public class UpdateTerritoryRequest
 
 public class UserSummaryDto
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public string DisplayName { get; set; } = string.Empty;
 }
 
 public class TerritoryRefDto
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
 }
 
 public class TerritoryAssignmentDto
 {
-    public string Id { get; set; } = string.Empty;
-    public string TerritoryId { get; set; } = string.Empty;
+    public int Id { get; set; }
+    public int TerritoryId { get; set; }
     public TerritoryRefDto Territory { get; set; } = null!;
-    public string SalespersonId { get; set; } = string.Empty;
+    public int SalespersonId { get; set; }
     public UserSummaryDto Salesperson { get; set; } = null!;
     public bool IsSupervisor { get; set; }
     public DateTime EffectiveFrom { get; set; }
     public DateTime? EffectiveTo { get; set; }
-    public string? AssignedById { get; set; }
+    public int? AssignedById { get; set; }
     public UserSummaryDto? AssignedBy { get; set; }
     public string? Note { get; set; }
     public DateTime CreatedAt { get; set; }
@@ -112,8 +112,8 @@ public class AssignmentResponse
 /// </summary>
 public class PutAssignmentRequest
 {
-    public string TerritoryId { get; set; } = string.Empty;
-    public string SalespersonId { get; set; } = string.Empty;
+    public int TerritoryId { get; set; }
+    public int SalespersonId { get; set; }
     public DateOnly? EffectiveFrom { get; set; }
     public bool HasEffectiveFrom { get; set; }
     public DateOnly? EffectiveTo { get; set; }
@@ -125,9 +125,9 @@ public class PutAssignmentRequest
 
 public class TerritoryGroupMemberDto
 {
-    public string Id { get; set; } = string.Empty;
-    public string GroupId { get; set; } = string.Empty;
-    public string TerritoryId { get; set; } = string.Empty;
+    public int Id { get; set; }
+    public int GroupId { get; set; }
+    public int TerritoryId { get; set; }
     public TerritoryRefDto Territory { get; set; } = null!;
     public DateTime EffectiveFrom { get; set; }
     public DateTime? EffectiveTo { get; set; }
@@ -136,7 +136,7 @@ public class TerritoryGroupMemberDto
 
 public class TerritoryGroupDto
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public bool IsActive { get; set; }
     public string? Note { get; set; }
@@ -177,7 +177,7 @@ public class UpdateTerritoryGroupRequest
 
 public class AddGroupMemberRequest
 {
-    public string TerritoryId { get; set; } = string.Empty;
+    public int TerritoryId { get; set; }
     public DateOnly EffectiveFrom { get; set; }
     public DateOnly? EffectiveTo { get; set; }
     public bool HasEffectiveTo { get; set; }

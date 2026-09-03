@@ -82,11 +82,11 @@ public class RegistryEndpointsTests : IClassFixture<CustomWebApplicationFactory>
         Assert.Equal(HttpStatusCode.BadRequest, empty.StatusCode);
         Assert.Contains("Provide canonicalName or regionId", await empty.Content.ReadAsStringAsync());
 
-        var missingRegion = await _client.PatchAsync($"/provinces/{_factory.ProvinceMappingId2}", JsonBody(new { regionId = "region-nope" }));
+        var missingRegion = await _client.PatchAsync($"/provinces/{_factory.ProvinceMappingId2}", JsonBody(new { regionId = 99999 }));
         Assert.Equal(HttpStatusCode.NotFound, missingRegion.StatusCode);
         Assert.Contains("Region not found", await missingRegion.Content.ReadAsStringAsync());
 
-        var missingProvince = await _client.PatchAsync("/provinces/nope", JsonBody(new { canonicalName = "X" }));
+        var missingProvince = await _client.PatchAsync("/provinces/99999", JsonBody(new { canonicalName = "X" }));
         Assert.Equal(HttpStatusCode.NotFound, missingProvince.StatusCode);
         Assert.Contains("Province not found", await missingProvince.Content.ReadAsStringAsync());
     }
@@ -170,7 +170,7 @@ public class RegistryEndpointsTests : IClassFixture<CustomWebApplicationFactory>
     {
         SetBearerToken(_factory.CreateToken(_factory.ManagerUserId, UserRole.MANAGER));
 
-        var missing = await _client.PatchAsync("/hospital-registry/nope/potential-adjustment", JsonBody(new { potentialAdjustment = 1 }));
+        var missing = await _client.PatchAsync("/hospital-registry/99999/potential-adjustment", JsonBody(new { potentialAdjustment = 1 }));
         Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
         Assert.Contains("Hospital registry not found", await missing.Content.ReadAsStringAsync());
 
@@ -264,11 +264,11 @@ public class RegistryEndpointsTests : IClassFixture<CustomWebApplicationFactory>
         Assert.Equal(HttpStatusCode.BadRequest, absentWithRegistry.StatusCode);
         Assert.Contains("Must be null when confirming absence", await absentWithRegistry.Content.ReadAsStringAsync());
 
-        var missingHospital = await _client.PatchAsync("/hospital-registry-links/nope", JsonBody(new { status = "LINKED", hospitalRegistryId = _factory.HospitalRegistryId1 }));
+        var missingHospital = await _client.PatchAsync("/hospital-registry-links/99999", JsonBody(new { status = "LINKED", hospitalRegistryId = _factory.HospitalRegistryId1 }));
         Assert.Equal(HttpStatusCode.NotFound, missingHospital.StatusCode);
         Assert.Contains("Hospital not found", await missingHospital.Content.ReadAsStringAsync());
 
-        var missingRegistry = await _client.PatchAsync($"/hospital-registry-links/{_factory.HospitalId2}", JsonBody(new { status = "LINKED", hospitalRegistryId = "hreg-nope" }));
+        var missingRegistry = await _client.PatchAsync($"/hospital-registry-links/{_factory.HospitalId2}", JsonBody(new { status = "LINKED", hospitalRegistryId = 99999 }));
         Assert.Equal(HttpStatusCode.NotFound, missingRegistry.StatusCode);
         Assert.Contains("Hospital registry not found", await missingRegistry.Content.ReadAsStringAsync());
     }
@@ -281,7 +281,7 @@ public class RegistryEndpointsTests : IClassFixture<CustomWebApplicationFactory>
         var response = await _client.PatchAsync($"/hospital-registry-links/{_factory.HospitalId3}", JsonBody(new
         {
             status = "CONFIRMED_ABSENT",
-            hospitalRegistryId = (string?)null
+            hospitalRegistryId = (int?)null
         }));
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
