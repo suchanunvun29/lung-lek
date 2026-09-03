@@ -1,19 +1,26 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getErrorMessage, getEvaluationSetting, getTargetSuggestions, listTargets, reinstateDeal, upsertTerritoryTarget } from "@/lib/api";
+import {
+  getTargetSuggestions,
+  reinstateDeal,
+  RegionSuggestionsTable,
+  CutDealsPanel,
+  AcceptOffersPanel,
+} from "@/features/target-assist";
+import { getEvaluationSetting } from "@/features/settings/api/settings.api";
+import { listTargets, upsertTerritoryTarget } from "@/features/targets/api/targets.api";
+import { getErrorMessage } from "@/lib/api-client";
 import { formatThaiMonth } from "@/lib/importLabels";
 import { POTENTIAL_METRIC_LABEL_TH, SUGGESTION_MODE_LABEL_TH, formatRatioPercent, formatTargetMoney } from "@/lib/targetLabels";
 import { SuggestionMode, Target, TargetSuggestionPreview } from "@/lib/types";
 import { useAuthStore } from "@/store/useAuthStore";
-import RegionSuggestionsTable from "@/components/targetAssist/RegionSuggestionsTable";
-import CutDealsPanel from "@/components/targetAssist/CutDealsPanel";
-import AcceptOffersPanel from "@/components/targetAssist/AcceptOffersPanel";
+import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 
 const YEAR_OFFSETS = [-1, 0, 1];
 const MONTHS = Array.from({ length: 12 }, (_, index) => index + 1);
-// Mirrors backend/src/validators/targetSuggestion.validators.ts — z.coerce.number().min(0).max(999.999)
-// (DECIMAL(6,3) in schema.prisma, hence the 0.001 step on the input).
 const TARGET_GROWTH_RATE_MIN = 0;
 const TARGET_GROWTH_RATE_MAX = 999.999;
 const TARGET_GROWTH_RATE_STEP = 0.001;
@@ -37,11 +44,8 @@ export default function TargetAssistPage() {
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  // Territory & Potential Rules ข้อ 5.1 — per-round growth override ("ใช้ครั้งนี้ ไม่บันทึกลงการตั้งค่า").
   const [growthRateInput, setGrowthRateInput] = useState("");
   const [growthRateError, setGrowthRateError] = useState<string | null>(null);
-  // A ref, not state: runFetch's identity feeds the period-change effect below, so an applied
-  // override must not re-enter that effect (it resets the mode to SUGGEST and fetches twice).
   const growthRateOverrideRef = useRef<number | undefined>(undefined);
   const growthRateTouchedRef = useRef(false);
 
@@ -63,8 +67,6 @@ export default function TargetAssistPage() {
     }
   }, [token, year]);
 
-  // Runs for the requested mode; on a REBALANCE precondition failure the previous mode's data
-  // stays on screen and the banner names what is missing — the mode is never swapped silently.
   const runFetch = useCallback(
     async (requestedMode: SuggestionMode) => {
       if (!token || !isManager) return;
@@ -91,7 +93,6 @@ export default function TargetAssistPage() {
   );
 
   useEffect(() => {
-    // Period changes always restart from SUGGEST; the timer keeps setState out of the effect body.
     const timer = window.setTimeout(() => {
       setMode("SUGGEST");
       void runFetch("SUGGEST");
@@ -106,8 +107,6 @@ export default function TargetAssistPage() {
     return () => window.clearTimeout(timer);
   }, [loadSavedTargets]);
 
-  // Prefill from EvaluationSetting so the input shows what an empty value means. Prefill only —
-  // a failed load is silent because an empty input already sends no override (= the saved setting).
   useEffect(() => {
     if (!token) return;
     const timer = window.setTimeout(async () => {
@@ -159,7 +158,6 @@ export default function TargetAssistPage() {
         month,
         mode: preview.mode,
         reinstateInvoiceNos: [...nextSet],
-        // Keep the per-round override — the rebuild would otherwise revert every number to the saved rate.
         targetGrowthRate: growthRateOverrideRef.current,
       });
       setPreview(data);
@@ -214,14 +212,14 @@ export default function TargetAssistPage() {
       <div className="mt-4 flex flex-wrap items-end gap-3 text-sm">
         <label className="flex items-center gap-2">
           <span className="font-medium text-zinc-600">งวด</span>
-          <select value={month} onChange={(e) => setMonth(Number(e.target.value))} className="rounded-md border border-zinc-300 px-3 py-2">
+          <Select value={String(month)} onChange={(e) => setMonth(Number(e.target.value))} className="w-auto">
             {MONTHS.map((m) => (
               <option key={m} value={m}>
                 {formatThaiMonth(m)}
               </option>
             ))}
-          </select>
-          <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="rounded-md border border-zinc-300 px-3 py-2">
+          </Select>
+          <Select value={String(year)} onChange={(e) => setYear(Number(e.target.value))} className="w-auto">
             {YEAR_OFFSETS.map((offset) => {
               const y = currentYear + offset;
               return (
@@ -230,21 +228,21 @@ export default function TargetAssistPage() {
                 </option>
               );
             })}
-          </select>
+          </Select>
         </label>
         <label className="flex items-center gap-2">
           <span className="font-medium text-zinc-600">โหมด</span>
-          <select value={mode} onChange={(e) => handleModeChange(e.target.value as SuggestionMode)} className="rounded-md border border-zinc-300 px-3 py-2">
+          <Select value={mode} onChange={(e) => handleModeChange(e.target.value as SuggestionMode)} className="w-auto">
             {(Object.keys(SUGGESTION_MODE_LABEL_TH) as SuggestionMode[]).map((value) => (
               <option key={value} value={value}>
                 {SUGGESTION_MODE_LABEL_TH[value]}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label className="flex items-center gap-2">
           <span className="font-medium text-zinc-600">อัตราเติบโต (ใช้ครั้งนี้ ไม่บันทึกลงการตั้งค่า)</span>
-          <input
+          <Input
             type="number"
             min={TARGET_GROWTH_RATE_MIN}
             max={TARGET_GROWTH_RATE_MAX}
@@ -255,16 +253,17 @@ export default function TargetAssistPage() {
               growthRateTouchedRef.current = true;
               setGrowthRateInput(e.target.value);
             }}
-            className="w-24 rounded-md border border-zinc-300 px-3 py-2 text-right"
+            className="w-24 text-right"
           />
         </label>
-        <button
+        <Button
           type="button"
           onClick={handleApplyGrowthRate}
-          className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+          className="bg-zinc-900 text-white hover:bg-zinc-800"
+          size="sm"
         >
           ใช้ค่านี้
-        </button>
+        </Button>
       </div>
 
       {growthRateError && <p className="mt-2 text-sm text-red-600">{growthRateError}</p>}

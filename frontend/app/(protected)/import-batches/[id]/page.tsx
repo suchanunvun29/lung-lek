@@ -2,11 +2,10 @@
 
 import Link from "next/link";
 import { use, useCallback, useEffect, useState } from "react";
-import { getErrorMessage, getImportBatch } from "@/lib/api";
+import { ImportBatchSummary, ImportIssueTable, getImportBatch } from "@/features/import";
+import { getErrorMessage } from "@/lib/api-client";
 import { ImportBatch } from "@/lib/types";
 import { useAuthStore } from "@/store/useAuthStore";
-import ImportBatchSummary from "@/components/import/ImportBatchSummary";
-import ImportIssueTable from "@/components/import/ImportIssueTable";
 
 interface ImportBatchDetailPageProps {
   params: Promise<{ id: string }>;

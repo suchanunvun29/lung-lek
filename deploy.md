@@ -1,16 +1,16 @@
-﻿# Sales Evaluation System — Deployment Guide & Runbook
+# Sales Evaluation System — Deployment Guide & Runbook
 
 ## Environments
 
 | Environment | Frontend | Backend | Database | Notes |
 |---|---|---|---|---|
-| **Production (Vercel + Cloud)** | Vercel (Next.js) | Render / Railway / Cloud Container / VPS | Supabase (PostgreSQL with Pooler) | Highly scalable, low maintenance |
-| **Production (Self-hosted)** | Docker Compose (Port 3000) | Docker Compose (Port 4000) | Supabase / RDS / Local Postgres | Behind reverse proxy (Nginx / Caddy with TLS) |
-| **Local Dev** | `npm run dev` (Port 3000) | `npm run dev` (Port 4000) | Supabase / Local Postgres | Local development with hot-reload |
+| **Production (Vercel + Cloud Container)** | Vercel (Next.js) | Render / Railway / Cloud Run / VPS (.NET 9) | Supabase (PostgreSQL with Pooler) | Highly scalable, low maintenance |
+| **Production (Self-hosted Docker)** | Docker Compose (Port 3000) | Docker Compose (Port 4000) | Supabase / RDS / Local Postgres | Behind reverse proxy (Nginx / Caddy with TLS) |
+| **Local Dev** | `npm run dev --prefix frontend` (Port 3000) | `dotnet watch run --project src/SalesEvaluation.Api` (Port 4000) | Supabase / Local Postgres | Local development with hot-reload |
 
 ---
 
-## Architecture: Vercel + Supabase + Backend
+## Architecture: Vercel + Supabase + .NET 9 Backend
 
 ```
 [ Client Browser ]
@@ -19,16 +19,16 @@
         │                                      │
         └─── (REST API Requests) ─────────────┼──────────────┐
                                                ▼              ▼
-                                     [ Backend API (Node.js/Express) ]
+                                     [ Backend API (.NET 9 / ASP.NET Core) ]
                                                │
-                                 ┌─────────────┴─────────────┐
+                                  ┌─────────────┴─────────────┐
                     (DATABASE_URL: Port 6543)    (DIRECT_URL: Port 5432)
-                                 │                           │
-                                 ▼                           ▼
-                        [ Supabase Pooler ]        [ Supabase Direct DB ]
-                                 └─────────────┬─────────────┘
-                                               ▼
-                                      [ PostgreSQL Engine ]
+                                  │                           │
+                                  ▼                           ▼
+                         [ Supabase Pooler ]        [ Supabase Direct DB ]
+                                  └─────────────┬─────────────┘
+                                                ▼
+                                       [ PostgreSQL Engine ]
 ```
 
 ---
@@ -42,32 +42,23 @@
      ตัวอย่าง: `postgresql://postgres.[PROJECT-REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres?pgbouncer=true`
    - **Session / Direct (Port 5432)**: คัดลอกค่าสำหรับ `DIRECT_URL`  
      ตัวอย่าง: `postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres`
-3. รัน Migration เพื่อสร้างตารางทั้งหมดขึ้น Supabase จากเครื่องคุณ:
-   ```bash
-   cd backend
-   # รัน migrate deploy ขึ้น Supabase
-   npx prisma migrate deploy
-   
-   # (ทางเลือก) ทำการ seed ข้อมูลเริ่มต้น เช่น user/master data
-   npm run prisma:seed
-   ```
 
 ---
 
-### ขั้นตอนที่ 2: Deploy Backend API (Render / Railway / VPS)
-*เนื่องจาก Express เป็นเซิร์ฟเวอร์แบบ long-running และมีการอัปโหลดไฟล์ Excel ขนาดใหญ่ (20MB) จึงแนะนำให้ deploy ขึ้น Render, Railway, Fly.io หรือ VPS:*
+### ขั้นตอนที่ 2: Deploy .NET 9 Backend API (Render / Railway / Docker / VPS)
+*Backend ถูกพัฒนาบน .NET 9 Modular Monolith ประสิทธิภาพสูง รองรับการประมวลผล Excel ขนาดใหญ่ (20MB) และ AI Coaching ด้วย Google Gemini:*
 
-1. **สร้าง Web Service ใหม่** (เช่น บน [Render](https://render.com) หรือ [Railway](https://railway.app))
-   - Root Directory: `backend`
-   - Build Command: `npm install && npx prisma generate && npm run build`
-   - Start Command: `npm run start`
+1. **สร้าง Web Service หรือ Container** (เช่น บน [Render](https://render.com), [Railway](https://railway.app), หรือ Docker Host)
+   - **Build Command**: `dotnet publish src/SalesEvaluation.Api/SalesEvaluation.Api.csproj -c Release -o out`
+   - **Start Command**: `dotnet out/SalesEvaluation.Api.dll`
+   - หรือใช้ Dockerfile: `Dockerfile.backend` (Multi-stage build)
 2. **กำหนด Environment Variables ใน Backend**:
-   - `DATABASE_URL`: Connection string (Port 6543 จาก Supabase)
-   - `DIRECT_URL`: Connection string (Port 5432 จาก Supabase)
-   - `JWT_SECRET`: รหัสสุ่มยาว (เช่น ความยาว 32–64 ตัวอักษร)
-   - `JWT_EXPIRES_IN`: `1d`
-   - `GEMINI_API_KEY`: API Key ของ Gemini
-   - `PORT`: `4000` (หรือ port ที่ platform กำหนด)
+   - `DATABASE_URL`: Connection string PostgreSQL (เช่น Supabase Pooler Port 6543)
+   - `JWT_SECRET`: รหัสสุ่มสำหรับเซ็น JWT (ความยาวอย่างน้อย 32 ตัวอักษร)
+   - `GEMINI_API_KEY`: API Key ของ Google Gemini
+   - `ASPNETCORE_ENVIRONMENT`: `Production`
+   - `ASPNETCORE_URLS`: `http://+:4000`
+   - `PORT`: `4000`
 3. เมื่อ Deploy เสร็จ จะได้ URL สำหรับ Backend API เช่น:
    `https://sales-evaluation-api.onrender.com`
 
@@ -78,38 +69,38 @@
 2. เลือก Git Repository นี้
 3. ในหน้าตั้งค่า **Configure Project**:
    - **Root Directory**: เลือกโฟลเดอร์ `frontend` (กด Edit แล้วเลือก `frontend`)
-   - **Framework Preset**: Next.js (ระบบจะเลือกให้อัตโนมัติ)
+   - **Framework Preset**: Next.js
 4. ในส่วน **Environment Variables** เพิ่มตัวแปร:
    - Name: `NEXT_PUBLIC_API_URL`
-   - Value: URL ของ Backend API ที่ได้จากขั้นตอนที่ 2 (เช่น `https://sales-evaluation-api.onrender.com`)
+   - Value: URL ของ Backend API ที่ได้จากขั้นตอนที่ 2 (เช่น `https://sales-evaluation-api.onrender.com` หรือ `http://localhost:4000`)
 5. กด **Deploy**
-   - Vercel จะทำการ build และ deploy หน้าเว็บให้อัตโนมัติ เมื่อเสร็จแล้วจะได้ URL สำหรับเข้าใช้งานระบบ เช่น `https://sales-evaluation.vercel.app`
 
 ---
 
-## Runbook & Database Migrations
-
-ก่อนการแก้ไข Schema ในอนาคต ให้ทำตามขั้นตอน 5-step:
-1. **Dry Run**: `npx prisma migrate status`
-2. **Backup**: Backup ข้อมูลจาก Supabase Dashboard หรือ `pg_dump`
-3. **Execute**: `npx prisma migrate deploy`
-4. **Verify**: `npx prisma migrate status`
+### ขั้นตอนที่ 4: รันระบบผ่าน Docker Compose (Local / Self-hosted)
+รันทั้ง .NET 9 Backend และ Frontend พร้อมกันด้วยคำสั่งเดียว:
+```bash
+docker compose up -d --build
+```
+ตรวจสอบการทำงาน:
+- Backend Health: `curl http://localhost:4000/health`
+- Frontend UI: `http://localhost:3000`
 
 ---
 
 ## Required Environment Variables
 
-### Backend
+### Backend (.NET 9)
 | Key | Purpose | Example |
 |---|---|---|
-| `DATABASE_URL` | Supabase Pooler Connection (Port 6543) | `postgresql://postgres.[REF]:[PASS]@aws-0-[REGION].pooler.supabase.com:6543/postgres?pgbouncer=true` |
-| `DIRECT_URL` | Supabase Direct Connection (Port 5432) | `postgresql://postgres:[PASS]@db.[REF].supabase.co:5432/postgres` |
+| `DATABASE_URL` | Supabase / PostgreSQL Connection String | `postgresql://postgres.[REF]:[PASS]@aws-0-[REGION].pooler.supabase.com:6543/postgres` |
 | `PORT` | API Server Port | `4000` |
-| `JWT_SECRET` | JWT Secret Key | Random string |
-| `JWT_EXPIRES_IN` | Token Expiry | `1d` |
-| `GEMINI_API_KEY` | Gemini API Key | `AIzaSy...` |
+| `ASPNETCORE_URLS` | ASP.NET Core URL Binding | `http://+:4000` |
+| `ASPNETCORE_ENVIRONMENT` | Environment Mode | `Production` or `Development` |
+| `JWT_SECRET` | Secret Key สำหรับเซ็น HMAC-SHA256 Token | `super-secret-key-at-least-32-chars-long` |
+| `GEMINI_API_KEY` | API Key สำหรับบริการ Google Gemini Coaching | `AIzaSy...` |
 
-### Frontend
+### Frontend (Next.js)
 | Key | Purpose | Example |
 |---|---|---|
-| `NEXT_PUBLIC_API_URL` | URL ของ Backend API | `https://sales-evaluation-api.onrender.com` |
+| `NEXT_PUBLIC_API_URL` | URL ของ Backend API | `https://sales-evaluation-api.onrender.com` หรือ `http://localhost:4000` |

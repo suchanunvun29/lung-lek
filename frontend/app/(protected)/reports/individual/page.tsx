@@ -1,18 +1,25 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { exportIndividualReport, getErrorMessage, getIndividualReport, listSalespeople } from "@/lib/api";
+import { exportIndividualReport, getIndividualReport } from "@/features/reports";
+import { listSalespeople } from "@/features/master-data";
+import { getErrorMessage } from "@/lib/api-client";
 import { formatScore, periodLabelTh, SCORED_METRIC_LABEL_TH, SCORED_METRIC_ORDER } from "@/lib/kpiLabels";
 import { DrillDownMetric, IndividualReportData, PeriodKey, Salesperson } from "@/lib/types";
 import { useAuthStore } from "@/store/useAuthStore";
-import PeriodSelector from "@/components/kpi/PeriodSelector";
-import SalespersonSwitcher from "@/components/dashboard/SalespersonSwitcher";
-import ScoreCard from "@/components/kpi/ScoreCard";
-import CompositeScoreBadge from "@/components/kpi/CompositeScoreBadge";
-import RevenueTargetProgress from "@/components/dashboard/RevenueTargetProgress";
-import SupplementaryKpisPanel from "@/components/kpi/SupplementaryKpisPanel";
-import KpiDrillDownModal from "@/components/kpi/KpiDrillDownModal";
-import CoachingInsightPanel from "@/components/coaching/CoachingInsightPanel";
+import {
+  PeriodSelector,
+  ScoreCard,
+  CompositeScoreBadge,
+  SupplementaryKpisPanel,
+  KpiDrillDownModal,
+} from "@/features/kpi";
+import {
+  SalespersonSwitcher,
+  RevenueTargetProgress,
+} from "@/features/dashboard";
+import { CoachingInsightPanel } from "@/features/coaching";
+import { Button } from "@/components/ui/button";
 
 function defaultPeriod(): PeriodKey {
   const now = new Date();
@@ -97,8 +104,6 @@ export default function IndividualReportPage() {
   const revenueMetric = report?.composite.metrics.find((m) => m.metric === "REVENUE_VS_TARGET");
   const previousMetricByKey = new Map(report?.previousComposite.metrics.map((m) => [m.metric, m]) ?? []);
 
-  // Only a MANAGER may generate/regenerate a coaching insight — matches the permission the
-  // backend enforces in coachingInsight.controller.ts.
   return (
     <div className="mx-auto max-w-5xl p-4 sm:p-6">
       <h1 className="text-2xl font-semibold text-zinc-900">รายงาน Coaching รายบุคคล</h1>
@@ -109,14 +114,15 @@ export default function IndividualReportPage() {
       <div className="mt-4 flex flex-wrap items-center gap-4">
         <SalespersonSwitcher salespeople={salespeople} value={salespersonId} onChange={setSalespersonId} />
         <PeriodSelector value={period} onChange={setPeriod} />
-        <button
+        <Button
           type="button"
           onClick={handleExport}
           disabled={exporting || loading || !report}
-          className="rounded-md bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-800 disabled:opacity-50"
+          className="bg-emerald-700 text-white hover:bg-emerald-800 disabled:opacity-50"
+          size="sm"
         >
           {exporting ? "กำลังดาวน์โหลด..." : "Export Excel"}
-        </button>
+        </Button>
       </div>
 
       {exportError && <p className="mt-3 text-sm text-red-600">{exportError}</p>}

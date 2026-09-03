@@ -1,13 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { getErrorMessage, getSalespersonKpi, listSalespeople } from "@/lib/api";
+import { getSalespersonKpi } from "@/features/kpi/api/kpi.api";
+import { listSalespeople } from "@/features/master-data/api/master-data.api";
+import { getErrorMessage } from "@/lib/api-client";
 import { DrillDownMetric, PeriodKey, Salesperson, SalespersonKpiResponse } from "@/lib/types";
 import { useAuthStore } from "@/store/useAuthStore";
-import PeriodSelector from "@/components/kpi/PeriodSelector";
-import ScoreCard from "@/components/kpi/ScoreCard";
-import SupplementaryKpisPanel from "@/components/kpi/SupplementaryKpisPanel";
-import KpiDrillDownModal from "@/components/kpi/KpiDrillDownModal";
+import {
+  PeriodSelector,
+  ScoreCard,
+  SupplementaryKpisPanel,
+  KpiDrillDownModal,
+} from "@/features/kpi";
+import { Select } from "@/components/ui/select";
 
 function defaultPeriod(): PeriodKey {
   const now = new Date();
@@ -71,17 +76,17 @@ export default function KpiPage() {
       <div className="mt-4 flex flex-wrap items-center gap-4">
         <div className="flex items-center gap-2 text-sm">
           <label className="font-medium text-zinc-600">พนักงานขาย</label>
-          <select
+          <Select
             value={salespersonId}
             onChange={(e) => setSalespersonId(e.target.value)}
-            className="rounded-md border border-zinc-300 px-3 py-2"
+            className="w-auto"
           >
             {salespeople.map((sp) => (
               <option key={sp.id} value={sp.id}>
                 {sp.displayName}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         <PeriodSelector value={period} onChange={setPeriod} />
       </div>

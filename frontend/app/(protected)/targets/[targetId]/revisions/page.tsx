@@ -2,15 +2,17 @@
 
 import Link from "next/link";
 import { use, useCallback, useEffect, useState } from "react";
-import { getErrorMessage, listSalespeople, listTargetRevisions } from "@/lib/api";
-import { fetchKnownProductTypes } from "@/lib/deriveProductTypes";
+import { listTargetRevisions } from "@/features/targets/api/targets.api";
+import { listSalespeople } from "@/features/master-data/api/master-data.api";
+import { fetchKnownProductTypes } from "@/features/products/utils/deriveProductTypes";
 import { formatThaiMonth } from "@/lib/importLabels";
 import {
   TARGET_CHANGE_TYPE_BADGE_CLASS,
   TARGET_CHANGE_TYPE_LABEL_TH,
   formatTargetMoney,
-} from "@/lib/targetLabels";
+} from "@/features/targets/utils/targetLabels";
 import { EntitySummary, Salesperson, TargetProductGroupSnapshot, TargetRevision } from "@/lib/types";
+import { getErrorMessage } from "@/lib/api-client";
 import { useAuthStore } from "@/store/useAuthStore";
 
 interface TargetRevisionsPageProps {

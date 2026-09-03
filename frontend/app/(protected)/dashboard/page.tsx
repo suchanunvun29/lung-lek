@@ -1,20 +1,27 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { getDerivedTarget, getErrorMessage, getSalespersonKpi, getTeamKpi, listSalespeople } from "@/lib/api";
+import { getDerivedTarget } from "@/features/territories/api/territories.api";
+import { getSalespersonKpi, getTeamKpi } from "@/features/kpi/api/kpi.api";
+import { listSalespeople } from "@/features/master-data/api/master-data.api";
+import { getErrorMessage } from "@/lib/api-client";
 import { computeTeamAverageScores } from "@/lib/kpiLabels";
 import { DrillDownMetric, DerivedTarget, PeriodKey, Salesperson, SalespersonKpiResponse } from "@/lib/types";
 import { useAuthStore } from "@/store/useAuthStore";
-import PeriodSelector from "@/components/kpi/PeriodSelector";
-import ScoreCard from "@/components/kpi/ScoreCard";
-import SupplementaryKpisPanel from "@/components/kpi/SupplementaryKpisPanel";
-import KpiDrillDownModal from "@/components/kpi/KpiDrillDownModal";
-import SalespersonSwitcher from "@/components/dashboard/SalespersonSwitcher";
-import RevenueTargetProgress from "@/components/dashboard/RevenueTargetProgress";
-import MonthlyTrendChart from "@/components/dashboard/MonthlyTrendChart";
-import BreakdownPieChart from "@/components/dashboard/BreakdownPieChart";
-import CoachingInsightPanel from "@/components/coaching/CoachingInsightPanel";
-import DerivedTargetCard from "@/components/territories/DerivedTargetCard";
+import {
+  PeriodSelector,
+  ScoreCard,
+  SupplementaryKpisPanel,
+  KpiDrillDownModal,
+} from "@/features/kpi";
+import {
+  SalespersonSwitcher,
+  RevenueTargetProgress,
+  MonthlyTrendChart,
+  BreakdownPieChart,
+} from "@/features/dashboard";
+import { CoachingInsightPanel } from "@/features/coaching";
+import { DerivedTargetCard } from "@/features/territories";
 
 function defaultPeriod(): PeriodKey {
   const now = new Date();

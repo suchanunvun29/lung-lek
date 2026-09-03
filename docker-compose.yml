@@ -1,17 +1,19 @@
-﻿services:
+services:
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Dockerfile.backend
     container_name: sales-eval-backend
     restart: unless-stopped
     ports:
       - "4000:4000"
-    env_file:
-      - ./backend/.env
     environment:
-      - NODE_ENV=production
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:4000
       - PORT=4000
+      - DATABASE_URL=${DATABASE_URL:-}
+      - JWT_SECRET=${JWT_SECRET:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
 
   frontend:
     build:

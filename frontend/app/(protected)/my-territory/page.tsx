@@ -1,17 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import PeriodSelector from "@/components/kpi/PeriodSelector";
+import { PeriodSelector, getTeamKpi } from "@/features/kpi";
 import {
-  exportMyTerritoryView,
-  exportNeverSoldHospitals,
-  getErrorMessage,
   getMyTerritoryView,
   getNeverSoldHospitals,
-  getTeamKpi,
-  listProductTypes,
-  listProvinces,
-} from "@/lib/api";
+  exportMyTerritoryView,
+  exportNeverSoldHospitals,
+} from "@/features/territories/api/territories.api";
+import { listProductTypes } from "@/features/products/api/products.api";
+import { listProvinces } from "@/features/hospital-registry";
+import { getErrorMessage } from "@/lib/api-client";
 import { formatMoney } from "@/lib/importLabels";
 import {
   MyTerritoryViewResponse,
@@ -21,6 +20,8 @@ import {
   TeamKpiResultRow,
 } from "@/lib/types";
 import { useAuthStore } from "@/store/useAuthStore";
+import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 
 const POTENTIAL_METRIC_OPTIONS = [
   { key: "BEDS", label: "จำนวนเตียง (BEDS)" },
@@ -115,7 +116,6 @@ export default function MyTerritoryPage() {
     void loadNeverSold();
   }, [loadNeverSold]);
 
-
   async function exportData() {
     if (!token || !salespersonId) return;
     try {
@@ -155,37 +155,38 @@ export default function MyTerritoryPage() {
               โรงพยาบาลที่ขายได้แล้ว โรงพยาบาลที่เคยขายได้แต่ไม่มีในงวดนี้ และโรงพยาบาลรัฐที่ยังไม่เคยขายเลย
             </p>
           </div>
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={() => void exportData()}
             disabled={!salespersonId || accountNotLinked}
-            className="rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-50"
           >
             Export Excel (ขายได้แล้ว/เคยขาย)
-          </button>
+          </Button>
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
-          <label className="text-sm font-medium text-zinc-600">
+          <label className="text-sm font-medium text-zinc-600 flex items-center gap-2">
             พนักงานขาย
-            <select
+            <Select
               value={salespersonId}
               onChange={(event) => setSalespersonId(event.target.value)}
-              className="ml-2 rounded-md border border-zinc-300 px-3 py-2"
+              className="w-auto"
             >
               {people.map((item) => (
                 <option key={item.salesperson.id} value={item.salesperson.id}>
                   {item.salesperson.displayName}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
-          <label className="text-sm font-medium text-zinc-600">
+          <label className="text-sm font-medium text-zinc-600 flex items-center gap-2">
             กลุ่มสินค้า
-            <select
+            <Select
               value={productTypeId}
               onChange={(event) => setProductTypeId(event.target.value)}
-              className="ml-2 rounded-md border border-zinc-300 px-3 py-2"
+              className="w-auto"
             >
               <option value="">ทุกกลุ่มสินค้า</option>
               {productTypes.map((type) => (
@@ -193,13 +194,14 @@ export default function MyTerritoryPage() {
                   {type.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
-          <label className="inline-flex items-center gap-2 text-sm text-zinc-700">
+          <label className="inline-flex items-center gap-2 text-sm text-zinc-700 cursor-pointer">
             <input
               type="checkbox"
               checked={creditOnly}
               onChange={(event) => setCreditOnly(event.target.checked)}
+              className="cursor-pointer"
             />
             เฉพาะที่ฉันมีเครดิต
           </label>
@@ -309,38 +311,39 @@ export default function MyTerritoryPage() {
               โรงพยาบาลรัฐทั่วไป (GOVERNMENT_GENERAL) ในเขตที่ไม่เคยมีประวัติการซื้อ {productTypeId ? "สำหรับกลุ่มสินค้านี้" : ""}
             </p>
           </div>
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={() => void exportNeverSoldData()}
             disabled={!salespersonId || accountNotLinked}
-            className="rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-50"
           >
             Export Excel (โรงพยาบาลที่ยังไม่เคยขาย)
-          </button>
+          </Button>
         </div>
 
         {/* Dual Constraint & Metric Filters */}
         <div className="mt-4 flex flex-wrap items-center gap-3">
-          <label className="text-sm font-medium text-zinc-600">
+          <label className="text-sm font-medium text-zinc-600 flex items-center gap-2">
             จำนวนสูงสุด (Top N)
-            <select
-              value={topN}
+            <Select
+              value={String(topN)}
               onChange={(e) => setTopN(Number(e.target.value))}
-              className="ml-2 rounded-md border border-zinc-300 px-3 py-2"
+              className="w-auto"
             >
-              <option value={10}>Top 10</option>
-              <option value={20}>Top 20</option>
-              <option value={50}>Top 50</option>
-              <option value={100}>Top 100</option>
-            </select>
+              <option value="10">Top 10</option>
+              <option value="20">Top 20</option>
+              <option value="50">Top 50</option>
+              <option value="100">Top 100</option>
+            </Select>
           </label>
 
-          <label className="text-sm font-medium text-zinc-600">
+          <label className="text-sm font-medium text-zinc-600 flex items-center gap-2">
             จังหวัด
-            <select
+            <Select
               value={provinceMappingId}
               onChange={(e) => setProvinceMappingId(e.target.value)}
-              className="ml-2 rounded-md border border-zinc-300 px-3 py-2"
+              className="w-auto"
             >
               <option value="">ทุกจังหวัด</option>
               {provinces.map((prov) => (
@@ -348,23 +351,22 @@ export default function MyTerritoryPage() {
                   {prov.canonicalName}
                 </option>
               ))}
-
-            </select>
+            </Select>
           </label>
 
-          <label className="text-sm font-medium text-zinc-600">
+          <label className="text-sm font-medium text-zinc-600 flex items-center gap-2">
             เกณฑ์ศักยภาพ
-            <select
+            <Select
               value={potentialMetric}
               onChange={(e) => setPotentialMetric(e.target.value)}
-              className="ml-2 rounded-md border border-zinc-300 px-3 py-2"
+              className="w-auto"
             >
               {POTENTIAL_METRIC_OPTIONS.map((opt) => (
                 <option key={opt.key} value={opt.key}>
                   {opt.label}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
         </div>
 
@@ -416,4 +418,3 @@ export default function MyTerritoryPage() {
     </div>
   );
 }
-

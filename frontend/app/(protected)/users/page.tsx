@@ -5,17 +5,18 @@ import {
   CreateUserInput,
   UpdateUserInput,
   createUser,
-  getErrorMessage,
   listUsers,
   resetUserPassword,
   updateUser,
-} from "@/lib/api";
+  CreateUserForm,
+  EditUserForm,
+  TemporaryPasswordNotice,
+} from "@/features/users";
 import { AppUser } from "@/lib/types";
+import { getErrorMessage } from "@/lib/api-client";
 import { useAuthStore } from "@/store/useAuthStore";
-import Modal from "@/components/Modal";
-import CreateUserForm from "@/components/users/CreateUserForm";
-import EditUserForm from "@/components/users/EditUserForm";
-import TemporaryPasswordNotice from "@/components/users/TemporaryPasswordNotice";
+import { Modal } from "@/components/ui/modal";
+import { Button } from "@/components/ui/button";
 
 const ROLE_LABEL_TH: Record<string, string> = {
   MANAGER: "ผู้จัดการ",
@@ -54,8 +55,6 @@ export default function UsersPage() {
   }, [token]);
 
   useEffect(() => {
-    // No data-fetching library in this stack (see frontend-engineer.md) — plain
-    // fetch-on-mount is intentional here for a one-time manager-only list load.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadUsers();
   }, [loadUsers]);
@@ -121,13 +120,14 @@ export default function UsersPage() {
     <div className="mx-auto max-w-5xl p-4 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold text-zinc-900">จัดการบัญชีผู้ใช้งาน</h1>
-        <button
+        <Button
           type="button"
           onClick={() => setCreateOpen(true)}
-          className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+          className="bg-zinc-900 text-white hover:bg-zinc-800"
+          size="sm"
         >
           + สร้างบัญชีใหม่
-        </button>
+        </Button>
       </div>
 
       {tempPassword && (
@@ -150,7 +150,7 @@ export default function UsersPage() {
             {unlinkedSalespersonUsers.map((user) => (
               <li key={user.id} className="flex flex-wrap items-center justify-between gap-2">
                 <span>{user.displayName} · {user.email}</span>
-                <button type="button" onClick={() => setEditingUser(user)} className="font-medium underline">ไปผูกพนักงานขาย</button>
+                <button type="button" onClick={() => setEditingUser(user)} className="font-medium underline cursor-pointer">ไปผูกพนักงานขาย</button>
               </li>
             ))}
           </ul>
@@ -217,7 +217,7 @@ export default function UsersPage() {
                     <button
                       type="button"
                       onClick={() => setEditingUser(rowUser)}
-                      className="text-zinc-700 hover:underline"
+                      className="text-zinc-700 hover:underline cursor-pointer"
                     >
                       แก้ไข
                     </button>
@@ -225,7 +225,7 @@ export default function UsersPage() {
                       type="button"
                       disabled={busyUserId === rowUser.id}
                       onClick={() => void handleResetPassword(rowUser)}
-                      className="text-zinc-700 hover:underline disabled:opacity-50"
+                      className="text-zinc-700 hover:underline disabled:opacity-50 cursor-pointer"
                     >
                       รีเซ็ตรหัสผ่าน
                     </button>
@@ -234,7 +234,7 @@ export default function UsersPage() {
                       disabled={busyUserId === rowUser.id || rowUser.id === currentUser?.id}
                       onClick={() => void handleToggleActive(rowUser)}
                       title={rowUser.id === currentUser?.id ? "ไม่สามารถปิดใช้งานบัญชีตัวเองได้" : undefined}
-                      className="text-red-600 hover:underline disabled:opacity-50"
+                      className="text-red-600 hover:underline disabled:opacity-50 cursor-pointer"
                     >
                       {rowUser.isActive ? "ปิดใช้งาน" : "เปิดใช้งาน"}
                     </button>

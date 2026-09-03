@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useAuthStore } from "@/store/useAuthStore";
-import ChangePasswordForm from "@/components/ChangePasswordForm";
+import { ChangePasswordForm } from "@/features/auth/components/ChangePasswordForm";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 
 const ROLE_LABEL_TH: Record<string, string> = {
   MANAGER: "ผู้จัดการ",
@@ -16,10 +17,10 @@ export default function AccountPage() {
   if (!user) return null;
 
   return (
-    <div className="mx-auto max-w-2xl p-4 sm:p-6">
+    <div className="mx-auto max-w-2xl p-4 sm:p-6 space-y-6">
       <h1 className="text-2xl font-semibold text-zinc-900">บัญชีของฉัน</h1>
 
-      <div className="mt-4 rounded-lg border border-zinc-200 bg-white p-6">
+      <Card className="p-6">
         <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <dt className="text-sm text-zinc-500">ชื่อที่แสดง</dt>
@@ -34,20 +35,22 @@ export default function AccountPage() {
             <dd className="font-medium text-zinc-900">{ROLE_LABEL_TH[user.role]}</dd>
           </div>
         </dl>
-      </div>
+      </Card>
 
-      <div className="mt-6 rounded-lg border border-zinc-200 bg-white p-6">
-        <h2 className="text-lg font-semibold text-zinc-900">เปลี่ยนรหัสผ่าน</h2>
-        {changeSuccess && (
-          <p className="mt-2 text-sm text-emerald-600">เปลี่ยนรหัสผ่านสำเร็จแล้ว</p>
-        )}
-        <div className="mt-4">
+      <Card className="p-6">
+        <CardHeader className="p-0 pb-4">
+          <CardTitle className="text-lg font-semibold text-zinc-900">เปลี่ยนรหัสผ่าน</CardTitle>
+          {changeSuccess && (
+            <p className="mt-2 text-sm text-emerald-600">เปลี่ยนรหัสผ่านสำเร็จแล้ว</p>
+          )}
+        </CardHeader>
+        <CardContent className="p-0">
           <ChangePasswordForm
             submitLabel="บันทึกรหัสผ่านใหม่"
             onSuccess={() => setChangeSuccess(true)}
           />
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -1,11 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { EvaluationSettingUpdateInput, getErrorMessage, getEvaluationSetting, updateEvaluationSetting } from "@/lib/api";
+import {
+  EvaluationSettingForm,
+  EvaluationSettingReadOnly,
+  EvaluationSettingUpdateInput,
+  getEvaluationSetting,
+  updateEvaluationSetting,
+} from "@/features/settings";
+import { getErrorMessage } from "@/lib/api-client";
 import { EvaluationSetting } from "@/lib/types";
 import { useAuthStore } from "@/store/useAuthStore";
-import EvaluationSettingForm from "@/components/settings/EvaluationSettingForm";
-import EvaluationSettingReadOnly from "@/components/settings/EvaluationSettingReadOnly";
 
 export default function EvaluationSettingsPage() {
   const token = useAuthStore((state) => state.token);

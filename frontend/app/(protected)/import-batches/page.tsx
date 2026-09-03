@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { getErrorMessage, listImportBatches } from "@/lib/api";
+import { listImportBatches } from "@/features/import";
+import { getErrorMessage } from "@/lib/api-client";
 import { ImportBatch } from "@/lib/types";
 import { IMPORT_STATUS_BADGE_CLASS, IMPORT_STATUS_LABEL_TH, formatFileSize } from "@/lib/importLabels";
 import { useAuthStore } from "@/store/useAuthStore";

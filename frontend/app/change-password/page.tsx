@@ -3,8 +3,9 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/useAuthStore";
-import ChangePasswordForm from "@/components/ChangePasswordForm";
-import FullScreenLoading from "@/components/FullScreenLoading";
+import { ChangePasswordForm } from "@/features/auth/components/ChangePasswordForm";
+import { FullScreenLoading } from "@/components/shared/layout/FullScreenLoading";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 
 // The forced first-login flow (design.md: mustChangePassword blocks every
 // other page until this is completed). Voluntary password changes later on
@@ -34,18 +35,20 @@ export default function ForcedChangePasswordPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-50 p-4">
-      <div className="w-full max-w-sm rounded-lg bg-white p-8 shadow">
-        <h1 className="text-xl font-semibold text-zinc-900">ต้องเปลี่ยนรหัสผ่านก่อนใช้งาน</h1>
-        <p className="mt-1 text-sm text-zinc-500">
-          บัญชีนี้ใช้รหัสผ่านชั่วคราวอยู่ กรุณาตั้งรหัสผ่านใหม่เพื่อดำเนินการต่อ
-        </p>
-        <div className="mt-6">
+      <Card className="w-full max-w-sm p-6 shadow">
+        <CardHeader className="p-0 pb-4">
+          <CardTitle className="text-xl font-semibold text-zinc-900">ต้องเปลี่ยนรหัสผ่านก่อนใช้งาน</CardTitle>
+          <CardDescription className="text-sm text-zinc-500">
+            บัญชีนี้ใช้รหัสผ่านชั่วคราวอยู่ กรุณาตั้งรหัสผ่านใหม่เพื่อดำเนินการต่อ
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-0 mt-2">
           <ChangePasswordForm
             submitLabel="เปลี่ยนรหัสผ่านและเข้าใช้งาน"
             onSuccess={() => router.replace("/dashboard")}
           />
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

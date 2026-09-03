@@ -2,17 +2,17 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
-  getErrorMessage,
+  HospitalTable,
+  SalespersonTable,
   listHospitals,
   listSalespeople,
-  listUsers,
   updateHospital,
   updateSalesperson,
-} from "@/lib/api";
+} from "@/features/master-data";
+import { listUsers } from "@/features/users";
+import { getErrorMessage } from "@/lib/api-client";
 import { AppUser, Hospital, Salesperson } from "@/lib/types";
 import { useAuthStore } from "@/store/useAuthStore";
-import HospitalTable from "@/components/masterData/HospitalTable";
-import SalespersonTable from "@/components/masterData/SalespersonTable";
 
 type Tab = "salespeople" | "hospitals";
 
@@ -101,7 +101,7 @@ export default function MasterDataPage() {
         <button
           type="button"
           onClick={() => setTab("salespeople")}
-          className={`rounded px-3 py-1.5 font-medium ${
+          className={`rounded px-3 py-1.5 font-medium cursor-pointer ${
             tab === "salespeople" ? "bg-zinc-900 text-white" : "text-zinc-600 hover:bg-zinc-100"
           }`}
         >
@@ -110,7 +110,7 @@ export default function MasterDataPage() {
         <button
           type="button"
           onClick={() => setTab("hospitals")}
-          className={`rounded px-3 py-1.5 font-medium ${
+          className={`rounded px-3 py-1.5 font-medium cursor-pointer ${
             tab === "hospitals" ? "bg-zinc-900 text-white" : "text-zinc-600 hover:bg-zinc-100"
           }`}
         >

@@ -1,9 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import HospitalRegistryTable from "@/components/registry/HospitalRegistryTable";
-import UploadForm from "@/components/import/UploadForm";
-import { getErrorMessage, listHospitalRegistries, updatePotentialAdjustment, uploadHospitalRegistryFile } from "@/lib/api";
+import {
+  HospitalRegistryTable,
+  listHospitalRegistries,
+  updatePotentialAdjustment,
+  uploadHospitalRegistryFile,
+} from "@/features/hospital-registry";
+import { UploadForm } from "@/features/import";
+import { getErrorMessage } from "@/lib/api-client";
 import { IMPORT_STATUS_BADGE_CLASS, IMPORT_STATUS_LABEL_TH } from "@/lib/importLabels";
 import { HospitalRegistry, ImportBatch } from "@/lib/types";
 import { useAuthStore } from "@/store/useAuthStore";

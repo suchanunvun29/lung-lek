@@ -2,13 +2,21 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getErrorMessage, listSalespeople, listTargets, upsertTarget } from "@/lib/api";
-import { fetchKnownProductTypes } from "@/lib/deriveProductTypes";
+import {
+  TargetsGrid,
+  targetKey,
+  CopyTargetsModal,
+  ProductGroupTargetsModal,
+  listTargets,
+  upsertTarget,
+} from "@/features/targets";
+import { listSalespeople } from "@/features/master-data/api/master-data.api";
+import { fetchKnownProductTypes } from "@/features/products/utils/deriveProductTypes";
 import { EntitySummary, Salesperson, Target } from "@/lib/types";
+import { getErrorMessage } from "@/lib/api-client";
 import { useAuthStore } from "@/store/useAuthStore";
-import TargetsGrid, { targetKey } from "@/components/targets/TargetsGrid";
-import CopyTargetsModal from "@/components/targets/CopyTargetsModal";
-import ProductGroupTargetsModal from "@/components/targets/ProductGroupTargetsModal";
+import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 
 const YEAR_OFFSETS = [-1, 0, 1];
 
@@ -109,13 +117,14 @@ export default function TargetsPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold text-zinc-900">ตั้งเป้าพนักงานขาย</h1>
         {canEdit && (
-          <button
+          <Button
             type="button"
             onClick={() => setCopyModalOpen(true)}
-            className="rounded bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-800"
+            className="bg-zinc-900 text-white hover:bg-zinc-800"
+            size="sm"
           >
             คัดลอกเป้าเดือนก่อน
-          </button>
+          </Button>
         )}
       </div>
 
@@ -125,10 +134,10 @@ export default function TargetsPage() {
 
       <div className="mt-4 flex items-center gap-2 text-sm">
         <label className="font-medium text-zinc-600">ปี</label>
-        <select
-          value={year}
+        <Select
+          value={String(year)}
           onChange={(e) => setYear(Number(e.target.value))}
-          className="rounded-md border border-zinc-300 px-3 py-2"
+          className="w-auto"
         >
           {YEAR_OFFSETS.map((offset) => {
             const y = currentYear + offset;
@@ -138,7 +147,7 @@ export default function TargetsPage() {
               </option>
             );
           })}
-        </select>
+        </Select>
       </div>
 
       {loadError && <p className="mt-4 text-sm text-red-600">{loadError}</p>}

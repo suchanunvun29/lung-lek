@@ -1,0 +1,41 @@
+# Stage 1: Build & Publish
+FROM mcr.microsoft.com/dotnet/sdk:9.0-alpine AS builder
+WORKDIR /src
+
+# Copy sln and csproj files for layer caching
+COPY SalesEvaluation.sln ./
+COPY src/SalesEvaluation.Domain/SalesEvaluation.Domain.csproj src/SalesEvaluation.Domain/
+COPY src/SalesEvaluation.Contracts/SalesEvaluation.Contracts.csproj src/SalesEvaluation.Contracts/
+COPY src/SalesEvaluation.Application/SalesEvaluation.Application.csproj src/SalesEvaluation.Application/
+COPY src/SalesEvaluation.Infrastructure/SalesEvaluation.Infrastructure.csproj src/SalesEvaluation.Infrastructure/
+COPY src/SalesEvaluation.Api/SalesEvaluation.Api.csproj src/SalesEvaluation.Api/
+
+RUN dotnet restore src/SalesEvaluation.Api/SalesEvaluation.Api.csproj
+
+# Copy all source code
+COPY src/ src/
+
+# Publish Release
+RUN dotnet publish src/SalesEvaluation.Api/SalesEvaluation.Api.csproj -c Release -o /app/publish /p:UseAppHost=false
+
+# Stage 2: Runtime
+FROM mcr.microsoft.com/dotnet/aspnet:9.0-alpine AS runner
+RUN apk add --no-cache curl icu-libs
+WORKDIR /app
+
+ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
+ENV ASPNETCORE_URLS=http://+:4000
+ENV ASPNETCORE_ENVIRONMENT=Production
+ENV PORT=4000
+
+# Run as non-root user
+USER $APP_UID
+
+COPY --from=builder /app/publish .
+
+EXPOSE 4000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD curl -f http://localhost:4000/health || exit 1
+
+ENTRYPOINT ["dotnet", "SalesEvaluation.Api.dll"]

@@ -1,15 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getErrorMessage, listHospitals, listSalesLines, listSalespeople } from "@/lib/api";
-import { fetchKnownProductTypes } from "@/lib/deriveProductTypes";
+import { listSalesLines } from "@/features/sales-lines/api/sales-lines.api";
+import { listHospitals, listSalespeople } from "@/features/master-data/api/master-data.api";
+import { fetchKnownProductTypes } from "@/features/products/utils/deriveProductTypes";
 import { EntitySummary, SalesLine } from "@/lib/types";
+import { getErrorMessage } from "@/lib/api-client";
 import { useAuthStore } from "@/store/useAuthStore";
-import SalesLinesFilters, {
+import {
+  SalesLinesFilters,
   SalesLinesFilterValues,
-} from "@/components/salesLines/SalesLinesFilters";
-import SalesLinesTable from "@/components/salesLines/SalesLinesTable";
-import Pagination from "@/components/Pagination";
+  SalesLinesTable,
+} from "@/features/sales-lines";
+import { Pagination } from "@/components/shared/data-table/Pagination";
 
 const PAGE_SIZE = 50;
 const EMPTY_FILTERS: SalesLinesFilterValues = {

@@ -1,13 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import LeaderboardPeopleModal from "@/components/leaderboard/LeaderboardPeopleModal";
-import LeaderboardUnitRow from "@/components/leaderboard/LeaderboardUnitRow";
-import PeriodSelector from "@/components/kpi/PeriodSelector";
-import { exportTerritoryLeaderboard, getErrorMessage, getTerritoryLeaderboard } from "@/lib/api";
+import {
+  LeaderboardPeopleModal,
+  LeaderboardUnitRow,
+  exportTerritoryLeaderboard,
+  getTerritoryLeaderboard,
+} from "@/features/leaderboard";
+import { PeriodSelector } from "@/features/kpi";
+import { getErrorMessage } from "@/lib/api-client";
 import { LEADERBOARD_CRITERIA_LABEL_TH, LEADERBOARD_CRITERIA_ORDER } from "@/lib/kpiLabels";
 import { LeaderboardCriteria, LeaderboardUnit, PeriodKey, TerritoryLeaderboardResponse } from "@/lib/types";
 import { useAuthStore } from "@/store/useAuthStore";
+import { Button } from "@/components/ui/button";
 
 function defaultPeriod(): PeriodKey {
   const now = new Date();
@@ -62,9 +67,14 @@ export default function LeaderboardPage() {
           <h1 className="text-2xl font-semibold text-zinc-900">Leaderboard ระดับเขต</h1>
           <p className="mt-1 text-sm text-zinc-600">จัดอันดับหน่วยเป้า (เขต/กลุ่มเขต) — เลือกเกณฑ์และช่วงเวลาได้</p>
         </div>
-        <button type="button" onClick={() => void exportBoard()} className="rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => void exportBoard()}
+        >
           Export Excel
-        </button>
+        </Button>
       </div>
 
       <div className="mt-4 flex flex-wrap gap-1" role="group" aria-label="เกณฑ์จัดอันดับ">
@@ -73,7 +83,7 @@ export default function LeaderboardPage() {
             key={option}
             type="button"
             onClick={() => setCriteria(option)}
-            className={`rounded px-3 py-1.5 text-sm font-medium ${
+            className={`rounded px-3 py-1.5 text-sm font-medium cursor-pointer ${
               option === criteria ? "bg-zinc-900 text-white" : "border border-zinc-300 text-zinc-700 hover:bg-zinc-100"
             }`}
           >

@@ -1,12 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ScoringWeightInput, getErrorMessage, getScoringWeights, updateScoringWeights } from "@/lib/api";
+import {
+  ScoringWeightInput,
+  ScoringWeightRevisionsList,
+  ScoringWeightsForm,
+  ScoringWeightsReadOnly,
+  getScoringWeights,
+  updateScoringWeights,
+} from "@/features/settings";
+import { getErrorMessage } from "@/lib/api-client";
 import { ScoringWeight, ScoringWeightRevision } from "@/lib/types";
 import { useAuthStore } from "@/store/useAuthStore";
-import ScoringWeightsForm from "@/components/settings/ScoringWeightsForm";
-import ScoringWeightsReadOnly from "@/components/settings/ScoringWeightsReadOnly";
-import ScoringWeightRevisionsList from "@/components/settings/ScoringWeightRevisionsList";
 
 export default function ScoringWeightsSettingsPage() {
   const token = useAuthStore((state) => state.token);

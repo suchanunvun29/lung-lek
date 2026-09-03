@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/useAuthStore";
-import FullScreenLoading from "@/components/FullScreenLoading";
+import { FullScreenLoading } from "@/components/shared/layout/FullScreenLoading";
 
 export default function RootPage() {
   const router = useRouter();

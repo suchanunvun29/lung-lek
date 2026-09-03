@@ -2,14 +2,19 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import PeriodDryRunModal from "@/components/import/PeriodDryRunModal";
-import PeriodPicker from "@/components/import/PeriodPicker";
-import ImportBatchSummary from "@/components/import/ImportBatchSummary";
-import ImportIssueTable from "@/components/import/ImportIssueTable";
-import UploadForm from "@/components/import/UploadForm";
-import { deleteImportPeriods, getErrorMessage, uploadImportFile } from "@/lib/api";
+import {
+  PeriodDryRunModal,
+  PeriodPicker,
+  ImportBatchSummary,
+  ImportIssueTable,
+  UploadForm,
+  deleteImportPeriods,
+  uploadImportFile,
+} from "@/features/import";
+import { getErrorMessage } from "@/lib/api-client";
 import { ImportBatch, ImportMode, PeriodDryRunPreview, PeriodTouched } from "@/lib/types";
 import { useAuthStore } from "@/store/useAuthStore";
+import { Button } from "@/components/ui/button";
 
 interface DryRunState {
   action: "REPLACE_PERIOD" | "PERIOD_DELETE";
@@ -140,11 +145,35 @@ export default function ImportPage() {
         <p className="mt-1 text-sm text-red-800">ใช้เมื่อต้องการล้างข้อมูลทั้งงวดโดยยังไม่มีไฟล์ใหม่มาแทน ระบบจะให้ตรวจสอบผลจำลองก่อนยืนยันอีกครั้ง</p>
         <div className="mt-4"><PeriodPicker value={deletePeriods} onChange={setDeletePeriods} disabled={isCheckingDelete} /></div>
         {deleteError && <p className="mt-3 text-sm text-red-700">{deleteError}</p>}
-        <div className="mt-4 flex justify-end"><button type="button" onClick={() => void checkPeriodDelete()} disabled={isCheckingDelete} className="rounded-md bg-red-700 px-4 py-2 text-sm font-medium text-white hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50">{isCheckingDelete ? "กำลังตรวจสอบ..." : "ตรวจสอบก่อนลบข้อมูล"}</button></div>
+        <div className="mt-4 flex justify-end">
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={() => void checkPeriodDelete()}
+            disabled={isCheckingDelete}
+          >
+            {isCheckingDelete ? "กำลังตรวจสอบ..." : "ตรวจสอบก่อนลบข้อมูล"}
+          </Button>
+        </div>
       </section>
 
-      {result && <div className="mt-8 space-y-6"><h2 className="text-lg font-semibold text-zinc-900">ผลการนำเข้า</h2><ImportBatchSummary batch={result} />{result.issues && <ImportIssueTable issues={result.issues} />}</div>}
-      {dryRun && <PeriodDryRunModal action={dryRun.action} preview={dryRun.preview} isConfirming={isConfirming} error={confirmError} onClose={() => setDryRun(null)} onConfirm={() => void confirmDryRun()} />}
+      {result && (
+        <div className="mt-8 space-y-6">
+          <h2 className="text-lg font-semibold text-zinc-900">ผลการนำเข้า</h2>
+          <ImportBatchSummary batch={result} />
+          {result.issues && <ImportIssueTable issues={result.issues} />}
+        </div>
+      )}
+      {dryRun && (
+        <PeriodDryRunModal
+          action={dryRun.action}
+          preview={dryRun.preview}
+          isConfirming={isConfirming}
+          error={confirmError}
+          onClose={() => setDryRun(null)}
+          onConfirm={() => void confirmDryRun()}
+        />
+      )}
     </div>
   );
 }

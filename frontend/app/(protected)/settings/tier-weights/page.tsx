@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { getErrorMessage, getTierWeights, updateTierWeights } from "@/lib/api";
+import { TierWeightsForm, getTierWeights, updateTierWeights } from "@/features/settings";
+import { getErrorMessage } from "@/lib/api-client";
 import { TierWeightRow } from "@/lib/types";
 import { useAuthStore } from "@/store/useAuthStore";
-import TierWeightsForm from "@/components/settings/TierWeightsForm";
 
 export default function TierWeightsSettingsPage() {
   const token = useAuthStore((state) => state.token);

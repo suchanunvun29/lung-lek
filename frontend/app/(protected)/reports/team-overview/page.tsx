@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { exportTeamOverviewReport, getErrorMessage, getTeamOverviewReport } from "@/lib/api";
+import { exportTeamOverviewReport, getTeamOverviewReport } from "@/features/reports";
+import { PeriodSelector } from "@/features/kpi";
+import { getErrorMessage } from "@/lib/api-client";
 import { formatScore } from "@/lib/kpiLabels";
 import { PeriodKey, TeamOverviewEntry } from "@/lib/types";
 import { useAuthStore } from "@/store/useAuthStore";
-import PeriodSelector from "@/components/kpi/PeriodSelector";
+import { Button } from "@/components/ui/button";
 
 function defaultPeriod(): PeriodKey {
   const now = new Date();
@@ -63,14 +65,15 @@ export default function TeamOverviewReportPage() {
 
       <div className="mt-4 flex flex-wrap items-center gap-4">
         <PeriodSelector value={period} onChange={setPeriod} />
-        <button
+        <Button
           type="button"
           onClick={handleExport}
           disabled={exporting || loading}
-          className="rounded-md bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-800 disabled:opacity-50"
+          className="bg-emerald-700 text-white hover:bg-emerald-800 disabled:opacity-50"
+          size="sm"
         >
           {exporting ? "กำลังดาวน์โหลด..." : "Export Excel"}
-        </button>
+        </Button>
       </div>
 
       {exportError && <p className="mt-3 text-sm text-red-600">{exportError}</p>}
