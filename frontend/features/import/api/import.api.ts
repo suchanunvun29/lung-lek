@@ -49,8 +49,8 @@ export function deleteImportPeriods(token: string, input: PeriodDeleteInput) {
   );
 }
 
-export function listImportBatches(token: string) {
-  return request<{ importBatches: ImportBatch[] }>("/import-batches", { method: "GET" }, token);
+export function listImportBatches(token: string, signal?: AbortSignal) {
+  return request<{ importBatches: ImportBatch[] }>("/import-batches", { method: "GET", signal }, token);
 }
 
 export function getImportBatch(token: string, id: string) {

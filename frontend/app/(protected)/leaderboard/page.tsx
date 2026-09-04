@@ -12,7 +12,7 @@ import { getErrorMessage } from "@/lib/api-client";
 import { LEADERBOARD_CRITERIA_LABEL_TH, LEADERBOARD_CRITERIA_ORDER } from "@/lib/kpiLabels";
 import { LeaderboardCriteria, LeaderboardUnit, PeriodKey, TerritoryLeaderboardResponse } from "@/lib/types";
 import { useAuthStore } from "@/store/useAuthStore";
-import { Button } from "@/components/ui/button";
+import { ExportButton } from "@/components/shared/export/ExportButton";
 
 function defaultPeriod(): PeriodKey {
   const now = new Date();
@@ -53,11 +53,9 @@ export default function LeaderboardPage() {
 
   async function exportBoard() {
     if (!token) return;
-    try {
-      await exportTerritoryLeaderboard(token, criteria, period);
-    } catch (error) {
-      setLoadError(getErrorMessage(error, "ส่งออกไฟล์ไม่สำเร็จ"));
-    }
+    // Same route, params and filename as before — ExportButton only owns the
+    // pending/success/failure presentation (WACC-P0-019).
+    await exportTerritoryLeaderboard(token, criteria, period);
   }
 
   return (
@@ -67,14 +65,7 @@ export default function LeaderboardPage() {
           <h1 className="text-2xl font-semibold text-zinc-900">Leaderboard ระดับเขต</h1>
           <p className="mt-1 text-sm text-zinc-600">จัดอันดับหน่วยเป้า (เขต/กลุ่มเขต) — เลือกเกณฑ์และช่วงเวลาได้</p>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => void exportBoard()}
-        >
-          Export Excel
-        </Button>
+        <ExportButton onExport={exportBoard} />
       </div>
 
       <div className="mt-4 flex flex-wrap gap-1" role="group" aria-label="เกณฑ์จัดอันดับ">

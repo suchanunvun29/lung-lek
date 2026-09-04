@@ -3,6 +3,7 @@
 import { formatScore, SCORED_METRIC_LABEL_TH, SCORED_METRIC_ORDER } from "@/lib/kpiLabels";
 import { CompositeScoreResult, ScoredKpiMetric } from "@/lib/types";
 import { CompositeScoreBadge } from "./CompositeScoreBadge";
+import { MetricReason } from "@/components/shared/kpi/MetricReason";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -31,8 +32,8 @@ export function ScoreCard({ composite, onDrillDown, teamAverages }: ScoreCardPro
             <div key={metric} className="flex items-center justify-between gap-3 py-3">
               <div className="min-w-0">
                 <p className="font-medium text-zinc-900">{SCORED_METRIC_LABEL_TH[metric]}</p>
-                {!result.computable && result.reason && (
-                  <p className="mt-0.5 text-xs text-amber-700">{result.reason}</p>
+                {!result.computable && (
+                  <MetricReason reason={result.reason} className="mt-0.5" />
                 )}
                 {teamAverages?.[metric] !== undefined && (
                   <p className="mt-0.5 text-xs text-zinc-500">

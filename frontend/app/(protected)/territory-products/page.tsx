@@ -8,11 +8,13 @@ import {
   exportTerritoryProductRanking,
 } from "@/features/territory-kpi/api/territory-kpi.api";
 import { formatMoney } from "@/lib/importLabels";
+import { periodLabelTh } from "@/lib/kpiLabels";
 import { PeriodKey, TerritoryProductRankingResponse } from "@/lib/types";
 import { getErrorMessage } from "@/lib/api-client";
 import { useAuthStore } from "@/store/useAuthStore";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import { FilterBar } from "@/components/shared/filters/FilterBar";
 
 function defaultPeriod(): PeriodKey {
   const now = new Date();
@@ -72,6 +74,15 @@ export default function TerritoryProductsPage() {
     }
   }
 
+  /** Reset restores the documented defaults (first territory + current month),
+   *  not "everything cleared" — the screen always needs a territory and a period. */
+  function resetFilters() {
+    setPeriod(defaultPeriod());
+    setTerritoryId(String(territories[0]?.id ?? ""));
+  }
+
+  const territoryName = territories.find((t) => String(t.id) === territoryId)?.name ?? "—";
+
   return (
     <div className="mx-auto max-w-7xl p-4 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -90,8 +101,15 @@ export default function TerritoryProductsPage() {
         </Button>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-3">
-        <label className="text-sm font-medium text-zinc-600 flex items-center gap-2">
+      <FilterBar
+        className="mt-4"
+        chips={[
+          { key: "territory", label: `เขต: ${territoryName}` },
+          { key: "period", label: `งวด: ${periodLabelTh(period)}` },
+        ]}
+        onReset={resetFilters}
+      >
+        <label className="flex items-center gap-2 text-sm font-medium text-zinc-600">
           เขต
           <Select
             value={territoryId}
@@ -106,7 +124,7 @@ export default function TerritoryProductsPage() {
           </Select>
         </label>
         <PeriodSelector value={period} onChange={setPeriod} />
-      </div>
+      </FilterBar>
 
       {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
       {loading && <p className="mt-6 text-zinc-400">กำลังโหลด...</p>}

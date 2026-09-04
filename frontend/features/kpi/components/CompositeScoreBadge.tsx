@@ -1,15 +1,14 @@
 "use client";
 
-import { useState } from "react";
 import { formatScore, metricLabelTh } from "@/lib/kpiLabels";
 import { CompositeScoreResult } from "@/lib/types";
+import { MetricReason } from "@/components/shared/kpi/MetricReason";
 
 export interface CompositeScoreBadgeProps {
   composite: CompositeScoreResult;
 }
 
 export function CompositeScoreBadge({ composite }: CompositeScoreBadgeProps) {
-  const [expanded, setExpanded] = useState(false);
   const excluded = composite.metrics.filter((m) => !m.computable);
 
   return (
@@ -17,28 +16,30 @@ export function CompositeScoreBadge({ composite }: CompositeScoreBadgeProps) {
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-3xl font-semibold text-zinc-900">{formatScore(composite.composite)}</span>
         {composite.composite !== null && <span className="text-sm text-zinc-500">/ 100</span>}
-        <button
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
-          className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-200 cursor-pointer"
-        >
+        {/* Business rule B: the "คิดจาก N จาก 5 เกณฑ์" label is mandatory and always visible. */}
+        <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-700">
           {composite.computedFromLabel}
-        </button>
+        </span>
       </div>
 
-      {composite.message && <p className="mt-1 text-sm text-amber-700">{composite.message}</p>}
+      {composite.message && (
+        <div className="mt-1">
+          <MetricReason reason={composite.message} />
+        </div>
+      )}
 
-      {expanded && excluded.length > 0 && (
-        <ul className="mt-2 space-y-1 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+      {/* Excluded criteria are data the backend deliberately sends (WACC-P0-020):
+          readable without expanding anything — no expander required. */}
+      {excluded.length > 0 && (
+        <ul className="mt-2 space-y-1">
           {excluded.map((m) => (
             <li key={m.metric}>
-              <span className="font-medium">{metricLabelTh(m.metric)}</span>
-              {m.reason ? `: ${m.reason}` : ""}
+              <MetricReason label={metricLabelTh(m.metric)} reason={m.reason ?? "คำนวณไม่ได้"} />
             </li>
           ))}
         </ul>
       )}
-      {expanded && excluded.length === 0 && (
+      {excluded.length === 0 && (
         <p className="mt-2 text-sm text-zinc-500">คำนวณได้ครบทั้ง 5 เกณฑ์</p>
       )}
     </div>
