@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { ProductMasterItem } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DataTable, type DataTableColumn } from "@/components/shared/data-table/DataTable";
 
 export interface ProductMasterTableProps {
   products: ProductMasterItem[];
@@ -25,7 +26,7 @@ export function ProductMasterTable({ products, canEdit, onSave }: ProductMasterT
     setIsActive(product.isActive);
   }
 
-  async function save(product: ProductMasterItem) {
+  const save = useCallback(async (product: ProductMasterItem) => {
     setBusyId(product.id);
     try {
       await onSave(product, { code: code.trim() || null, displayName: displayName.trim() || null, isActive });
@@ -33,120 +34,188 @@ export function ProductMasterTable({ products, canEdit, onSave }: ProductMasterT
     } finally {
       setBusyId(null);
     }
-  }
+  }, [code, displayName, isActive, onSave]);
+
+  const columns = useMemo<DataTableColumn<ProductMasterItem>[]>(() => {
+    const cols: DataTableColumn<ProductMasterItem>[] = [
+      {
+        key: "code",
+        header: "รหัสสินค้า",
+        priority: 2,
+        mobileRole: "meta",
+        sortable: true,
+        sortValue: (p) => p.code ?? "",
+        render: (product) => {
+          const isEditing = editingId === product.id;
+          if (isEditing) {
+            return (
+              <Input
+                value={code}
+                onChange={(event) => setCode(event.target.value)}
+                placeholder="รหัสสินค้า"
+                className="w-32 h-8 text-sm"
+              />
+            );
+          }
+          if (product.code) {
+            return <span className="font-mono text-text-secondary">{product.code}</span>;
+          }
+          return (
+            <span title="สินค้านี้มาจากประวัติการขาย จึงยังไม่มีรหัสสินค้า" className="cursor-help text-text-muted">
+              —
+            </span>
+          );
+        },
+      },
+      {
+        key: "name",
+        header: "ชื่อสินค้า",
+        priority: 1,
+        mobileRole: "identity",
+        sortable: true,
+        sortValue: (p) => p.name,
+        render: (product) => {
+          const isEditing = editingId === product.id;
+          return (
+            <div>
+              <p className="font-medium text-text-primary">{product.name}</p>
+              {isEditing ? (
+                <Input
+                  aria-label="ชื่อแสดงสินค้า"
+                  value={displayName}
+                  onChange={(event) => setDisplayName(event.target.value)}
+                  placeholder="ชื่อทางการ (ถ้ามี)"
+                  className="mt-1 w-full min-w-52 h-8 text-sm"
+                />
+              ) : (
+                product.displayName && <p className="text-xs text-text-muted">{product.displayName}</p>
+              )}
+            </div>
+          );
+        },
+      },
+      {
+        key: "productType",
+        header: "กลุ่มสินค้า",
+        priority: 2,
+        mobileRole: "meta",
+        sortable: true,
+        sortValue: (p) => p.productType.name,
+        render: (product) => <span className="text-text-secondary">{product.productType.name}</span>,
+      },
+      {
+        key: "source",
+        header: "ที่มา",
+        priority: 3,
+        mobileRole: "meta",
+        render: (product) => (
+          <span className="rounded-full bg-surface-subtle border border-border px-2 py-0.5 text-xs font-medium text-text-secondary">
+            {product.source === "SALES_HISTORY" ? "ประวัติการขาย" : "แคตตาล็อก"}
+          </span>
+        ),
+      },
+      {
+        key: "status",
+        header: "สถานะ",
+        priority: 1,
+        mobileRole: "meta",
+        sortable: true,
+        sortValue: (p) => (p.isActive ? 1 : 0),
+        render: (product) => {
+          const isEditing = editingId === product.id;
+          if (isEditing) {
+            return (
+              <label className="inline-flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isActive}
+                  onChange={(event) => setIsActive(event.target.checked)}
+                  className="h-4 w-4 rounded border-border text-primary cursor-pointer"
+                />
+                <span className="text-sm text-text-secondary">{isActive ? "ใช้งาน" : "ไม่ใช้งาน"}</span>
+              </label>
+            );
+          }
+          return (
+            <span
+              className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                product.isActive ? "bg-emerald-100 text-emerald-700" : "bg-zinc-200 text-zinc-600"
+              }`}
+            >
+              {product.isActive ? "ใช้งาน" : "ไม่ใช้งาน"}
+            </span>
+          );
+        },
+      },
+    ];
+
+    if (canEdit) {
+      cols.push({
+        key: "action",
+        header: "จัดการ",
+        priority: 1,
+        mobileRole: "metric",
+        render: (product) => {
+          const isEditing = editingId === product.id;
+          if (isEditing) {
+            return (
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={busyId === product.id}
+                  onClick={() => void save(product)}
+                  className="text-xs px-3 py-1"
+                >
+                  บันทึก
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={busyId === product.id}
+                  onClick={() => setEditingId(null)}
+                  className="text-xs px-3 py-1"
+                >
+                  ยกเลิก
+                </Button>
+              </div>
+            );
+          }
+          return (
+            <button
+              type="button"
+              onClick={() => startEditing(product)}
+              className="text-sm font-medium text-primary hover:underline cursor-pointer"
+            >
+              แก้ไข
+            </button>
+          );
+        },
+      });
+    }
+
+    return cols;
+  }, [editingId, busyId, code, displayName, isActive, canEdit, save]);
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
-      <table className="min-w-full divide-y divide-zinc-200 text-sm">
-        <thead className="bg-zinc-50 text-left text-xs font-medium uppercase tracking-wide text-zinc-500">
-          <tr>
-            <th className="px-4 py-3">รหัสสินค้า</th>
-            <th className="px-4 py-3">ชื่อ</th>
-            <th className="px-4 py-3">กลุ่มสินค้า</th>
-            <th className="px-4 py-3">ที่มา</th>
-            <th className="px-4 py-3">สถานะ</th>
-            {canEdit && <th className="px-4 py-3">จัดการ</th>}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-zinc-100">
-          {products.length === 0 && (
-            <tr><td colSpan={canEdit ? 6 : 5} className="px-4 py-6 text-center text-zinc-400">ยังไม่มีข้อมูลสินค้า</td></tr>
-          )}
-          {products.map((product) => {
-            const isEditing = editingId === product.id;
-            return (
-              <tr key={product.id}>
-                <td className="px-4 py-3">
-                  {isEditing ? (
-                    <Input
-                      value={code}
-                      onChange={(event) => setCode(event.target.value)}
-                      className="w-32"
-                    />
-                  ) : product.code ? (
-                    <span className="font-mono text-zinc-700">{product.code}</span>
-                  ) : (
-                    <span title="สินค้านี้มาจากประวัติการขาย จึงยังไม่มีรหัสสินค้า" className="cursor-help text-zinc-500">—</span>
-                  )}
-                </td>
-                <td className="px-4 py-3">
-                  <p className="font-medium text-zinc-900">{product.name}</p>
-                  {isEditing ? (
-                    <Input
-                      aria-label="ชื่อแสดงสินค้า"
-                      value={displayName}
-                      onChange={(event) => setDisplayName(event.target.value)}
-                      placeholder="ชื่อทางการ (ถ้ามี)"
-                      className="mt-2 w-full min-w-52"
-                    />
-                  ) : product.displayName && (
-                    <p className="mt-1 text-zinc-500">{product.displayName}</p>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-zinc-600">{product.productType.name}</td>
-                <td className="px-4 py-3">
-                  <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700">
-                    {product.source === "SALES_HISTORY" ? "ประวัติการขาย" : "แคตตาล็อก"}
-                  </span>
-                </td>
-                <td className="px-4 py-3">
-                  {isEditing ? (
-                    <label className="inline-flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={isActive}
-                        onChange={(event) => setIsActive(event.target.checked)}
-                        className="cursor-pointer"
-                      />
-                      <span>{isActive ? "ใช้งาน" : "ไม่ใช้งาน"}</span>
-                    </label>
-                  ) : (
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${product.isActive ? "bg-emerald-100 text-emerald-700" : "bg-zinc-200 text-zinc-600"}`}>
-                      {product.isActive ? "ใช้งาน" : "ไม่ใช้งาน"}
-                    </span>
-                  )}
-                </td>
-                {canEdit && (
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    {isEditing ? (
-                      <div className="flex gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          disabled={busyId === product.id}
-                          onClick={() => void save(product)}
-                          className="bg-zinc-900 text-white hover:bg-zinc-800 text-xs px-3 py-1.5"
-                        >
-                          บันทึก
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          disabled={busyId === product.id}
-                          onClick={() => setEditingId(null)}
-                          className="text-xs px-3 py-1.5"
-                        >
-                          ยกเลิก
-                        </Button>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => startEditing(product)}
-                        className="text-sm font-medium text-zinc-700 hover:underline cursor-pointer"
-                      >
-                        แก้ไข
-                      </button>
-                    )}
-                  </td>
-                )}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+    <DataTable
+      caption="ตารางทะเบียนสินค้า"
+      density="comfortable"
+      columns={columns}
+      rows={products}
+      getRowId={(p) => p.id}
+      searchable
+      searchPlaceholder="ค้นหาชื่อสินค้า, รหัส หรือกลุ่มสินค้า…"
+      searchPredicate={(p, query) =>
+        p.name.toLowerCase().includes(query) ||
+        (p.code?.toLowerCase().includes(query) ?? false) ||
+        (p.displayName?.toLowerCase().includes(query) ?? false) ||
+        p.productType.name.toLowerCase().includes(query)
+      }
+      emptyTitle="ยังไม่มีข้อมูลสินค้า"
+      emptyDescription="ยังไม่พบข้อมูลสินค้าในระบบ"
+    />
   );
 }
 

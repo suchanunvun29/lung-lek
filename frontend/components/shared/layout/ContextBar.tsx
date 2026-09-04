@@ -18,10 +18,11 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { PeriodSelector } from "@/features/kpi/components/PeriodSelector";
 import { listSalespeople } from "@/features/master-data";
+import { listTerritories } from "@/features/territories/api/territories.api";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useContextStore } from "@/store/useContextStore";
 import { findNavItemByPath } from "../navigation/navigation.config";
-import type { Salesperson } from "@/lib/types";
+import type { Salesperson, Territory } from "@/lib/types";
 
 export function ContextBar() {
   const pathname = usePathname();
@@ -32,13 +33,17 @@ export function ContextBar() {
   const setPeriod = useContextStore((state) => state.setPeriod);
   const salespersonId = useContextStore((state) => state.salespersonId);
   const setSalespersonId = useContextStore((state) => state.setSalespersonId);
+  const territoryId = useContextStore((state) => state.territoryId);
+  const setTerritoryId = useContextStore((state) => state.setTerritoryId);
 
   const [salespeople, setSalespeople] = useState<Salesperson[]>([]);
+  const [territories, setTerritories] = useState<Territory[]>([]);
 
   // Determine what to show based on the config for the current route.
   const navItem = findNavItemByPath(pathname);
   const showPeriod = navItem?.showPeriodSelector ?? false;
   const showSalesperson = navItem?.showSalespersonSelector ?? false;
+  const showTerritory = navItem?.showTerritorySelector ?? false;
 
   // Load salesperson list when the switcher is needed.
   useEffect(() => {
@@ -58,12 +63,54 @@ export function ContextBar() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showSalesperson, token]);
 
-  if (!showPeriod && !showSalesperson) return null;
+  // Load territory list when the territory switcher is needed.
+  useEffect(() => {
+    if (!showTerritory || !token) return;
+    listTerritories(token)
+      .then((data) => {
+        const active = data.territories.filter((t) => t.isActive);
+        setTerritories(active);
+        // Safe automation: default to first territory if not set.
+        if (territoryId === null && active.length > 0) {
+          setTerritoryId(active[0].id);
+        }
+      })
+      .catch(() => {
+        // Silently ignore
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showTerritory, token]);
+
+  if (!showPeriod && !showSalesperson && !showTerritory) return null;
 
   return (
     <div className="flex flex-wrap items-center gap-3 text-sm">
       {showPeriod && (
         <PeriodSelector value={period} onChange={setPeriod} />
+      )}
+
+      {showTerritory && territories.length > 0 && (
+        territories.length === 1 ? (
+          /* Auto-select: sole option renders as text */
+          <span className="font-medium text-[var(--text-secondary)]">
+            {territories[0].name}
+          </span>
+        ) : (
+          <div className="flex items-center gap-2">
+            <label className="font-medium text-[var(--text-muted)]">เขต</label>
+            <select
+              value={territoryId ?? ""}
+              onChange={(e) => setTerritoryId(Number(e.target.value) || null)}
+              className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+            >
+              {territories.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )
       )}
 
       {showSalesperson && salespeople.length > 0 && (

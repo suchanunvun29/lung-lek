@@ -29,6 +29,8 @@ export interface NavItem {
   showPeriodSelector?: boolean;
   /** Whether the global SalespersonSwitcher should be shown for this route. */
   showSalespersonSelector?: boolean;
+  /** Whether the global TerritorySwitcher should be shown for this route. */
+  showTerritorySelector?: boolean;
 }
 
 export interface NavGroup {
@@ -155,13 +157,13 @@ export const NAV_GROUPS: NavGroup[] = [
       },
       {
         href: "/territories/moves",
-        label: "ย้ายโรงพยาบาล",
+        label: "ย้าย รพ. เข้าเขต",
         icon: GitBranch,
         managerOnly: true,
       },
       {
         href: "/territories/unassigned",
-        label: "โรงพยาบาลไม่มีเขต",
+        label: "รพ. ที่ยังไม่ผูกเขต",
         icon: Hospital,
         managerOnly: true,
         badgeKey: "unassignedHospitals",
@@ -197,17 +199,12 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "อันดับสินค้า",
         icon: BarChart2,
         showPeriodSelector: true,
+        showTerritorySelector: true,
       },
       {
         href: "/master-data",
-        label: "ข้อมูลหลัก",          // renamed from "Master Data" per design
+        label: "ข้อมูลหลัก",          // renamed from "Master Data" per design; absorbs /products per WACC-P2-002
         icon: Database,
-      },
-      {
-        href: "/products",
-        label: "ทะเบียนสินค้า",
-        icon: Layers,
-        managerOnly: true,
       },
       {
         href: "/import",

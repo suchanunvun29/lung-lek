@@ -1,59 +1,146 @@
+"use client";
+
 import { SalesLine } from "@/lib/types";
 import { formatMoney } from "@/lib/importLabels";
+import { DataTable, type DataTableColumn } from "@/components/shared/data-table/DataTable";
 
 export interface SalesLinesTableProps {
   salesLines: SalesLine[];
   loading: boolean;
+  error?: string | null;
+  onRetry?: () => void;
+  page?: number;
+  pageSize?: number;
+  total?: number;
+  onPageChange?: (page: number) => void;
 }
 
-export function SalesLinesTable({ salesLines, loading }: SalesLinesTableProps) {
+const COLUMNS: DataTableColumn<SalesLine>[] = [
+  // ── P1: Hospital + Total ──────────────────────────────────────────
+  {
+    key: "hospital",
+    header: "โรงพยาบาล",
+    priority: 1,
+    mobileRole: "identity",
+    render: (line) => (
+      <div>
+        <p className="font-medium text-text-primary">{line.hospital.displayName}</p>
+        {line.province && <p className="text-xs text-text-muted">{line.province}</p>}
+      </div>
+    ),
+  },
+  {
+    key: "total",
+    header: "ยอดรวม (Total)",
+    priority: 1,
+    align: "right",
+    numeric: true,
+    mobileRole: "metric",
+    render: (line) => (
+      <span className="font-medium text-text-primary">
+        {formatMoney(line.total)}
+      </span>
+    ),
+  },
+
+  // ── P2: Salesperson + Invoice Date ────────────────────────────────
+  {
+    key: "salesperson",
+    header: "พนักงานขาย",
+    priority: 2,
+    mobileRole: "meta",
+    render: (line) => <span className="text-text-primary">{line.salesperson.displayName}</span>,
+  },
+  {
+    key: "invoiceDate",
+    header: "วันที่ใบแจ้งหนี้",
+    priority: 2,
+    mobileRole: "meta",
+    render: (line) => (
+      <span className="whitespace-nowrap text-text-secondary">
+        {new Date(line.invoiceDate).toLocaleDateString("th-TH")}
+      </span>
+    ),
+  },
+
+  // ── P3: Invoice No, Product, Product Type, Qty, Lot/Expiry ────────
+  {
+    key: "invoiceNo",
+    header: "เลขที่ใบแจ้งหนี้",
+    priority: 3,
+    mobileRole: "meta",
+    render: (line) => <span className="font-mono text-xs text-text-secondary">{line.invoiceNo}</span>,
+  },
+  {
+    key: "product",
+    header: "สินค้า",
+    priority: 3,
+    mobileRole: "meta",
+    render: (line) => <span className="text-text-secondary">{line.product.name}</span>,
+  },
+  {
+    key: "productType",
+    header: "กลุ่มสินค้า",
+    priority: 3,
+    mobileRole: "meta",
+    render: (line) => <span className="text-text-secondary">{line.productType.name}</span>,
+  },
+  {
+    key: "qty",
+    header: "จำนวน",
+    align: "right",
+    numeric: true,
+    priority: 3,
+    mobileRole: "meta",
+    render: (line) => <span className="text-text-secondary">{line.qty}</span>,
+  },
+  {
+    key: "lotExpiry",
+    header: "Lot / Expiry",
+    priority: 3,
+    mobileRole: "meta",
+    render: (line) => {
+      if (!line.lot && !line.expiryDate) {
+        return <span className="text-text-muted">—</span>;
+      }
+      return (
+        <span className="text-xs text-text-muted">
+          {[line.lot ? `Lot: ${line.lot}` : "", line.expiryDate ? `Exp: ${line.expiryDate}` : ""]
+            .filter(Boolean)
+            .join(" · ")}
+        </span>
+      );
+    },
+  },
+];
+
+export function SalesLinesTable({
+  salesLines,
+  loading,
+  error,
+  onRetry,
+  page,
+  pageSize,
+  total,
+  onPageChange,
+}: SalesLinesTableProps) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
-      <table className="min-w-full divide-y divide-zinc-200 text-sm">
-        <thead className="bg-zinc-50 text-left text-xs font-medium uppercase tracking-wide text-zinc-500">
-          <tr>
-            <th className="px-4 py-3">วันที่ใบแจ้งหนี้</th>
-            <th className="px-4 py-3">เลขที่ใบแจ้งหนี้</th>
-            <th className="px-4 py-3">โรงพยาบาล</th>
-            <th className="px-4 py-3">พนักงานขาย</th>
-            <th className="px-4 py-3">สินค้า</th>
-            <th className="px-4 py-3">กลุ่มสินค้า</th>
-            <th className="px-4 py-3 text-right">จำนวน</th>
-            <th className="px-4 py-3 text-right">ยอดรวม (Total)</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-zinc-100">
-          {loading && (
-            <tr>
-              <td colSpan={8} className="px-4 py-6 text-center text-zinc-400">
-                กำลังโหลด...
-              </td>
-            </tr>
-          )}
-          {!loading && salesLines.length === 0 && (
-            <tr>
-              <td colSpan={8} className="px-4 py-6 text-center text-zinc-400">
-                ไม่พบข้อมูลตามเงื่อนไขที่เลือก
-              </td>
-            </tr>
-          )}
-          {salesLines.map((line) => (
-            <tr key={line.id}>
-              <td className="px-4 py-3 whitespace-nowrap text-zinc-600">
-                {new Date(line.invoiceDate).toLocaleDateString("th-TH")}
-              </td>
-              <td className="px-4 py-3 text-zinc-600">{line.invoiceNo}</td>
-              <td className="px-4 py-3 text-zinc-900">{line.hospital.displayName}</td>
-              <td className="px-4 py-3 text-zinc-900">{line.salesperson.displayName}</td>
-              <td className="px-4 py-3 text-zinc-600">{line.product.name}</td>
-              <td className="px-4 py-3 text-zinc-600">{line.productType.name}</td>
-              <td className="px-4 py-3 text-right text-zinc-600">{line.qty}</td>
-              <td className="px-4 py-3 text-right font-medium text-zinc-900">{formatMoney(line.total)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <DataTable
+      caption="ตารางข้อมูลการขาย"
+      columns={COLUMNS}
+      rows={salesLines}
+      getRowId={(line) => line.id}
+      loading={loading}
+      error={error}
+      onRetry={onRetry}
+      serverPaginated={true}
+      page={page}
+      pageSize={pageSize}
+      total={total}
+      onPageChange={onPageChange}
+      emptyTitle="ไม่พบข้อมูลการขาย"
+      emptyDescription="ไม่พบรายการขายตามเงื่อนไขตัวกรองที่เลือก"
+    />
   );
 }
 

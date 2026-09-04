@@ -9,36 +9,61 @@ import {
   updateHospital,
   updateSalesperson,
 } from "@/features/master-data";
+import { ProductMasterTable, listProducts, updateProduct } from "@/features/products";
 import { listUsers } from "@/features/users";
 import { getErrorMessage } from "@/lib/api-client";
-import { AppUser, Hospital, Salesperson } from "@/lib/types";
+import { AppUser, Hospital, ProductMasterItem, Salesperson } from "@/lib/types";
 import { useAuthStore } from "@/store/useAuthStore";
+import { PageContainer } from "@/components/shared/layout/PageContainer";
+import { PageHeader } from "@/components/shared/layout/PageHeader";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
-type Tab = "salespeople" | "hospitals";
+type Tab = "salespeople" | "hospitals" | "products";
+
+function readInitialTab(): Tab {
+  if (typeof window === "undefined") return "salespeople";
+  const value = new URLSearchParams(window.location.search).get("tab");
+  return value === "hospitals" || value === "products" ? value : "salespeople";
+}
+
+function setTabInUrl(tab: Tab) {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  url.searchParams.set("tab", tab);
+  window.history.replaceState(null, "", url.toString());
+}
 
 export default function MasterDataPage() {
   const token = useAuthStore((state) => state.token);
   const currentUser = useAuthStore((state) => state.user);
   const canEdit = currentUser?.role === "MANAGER";
 
-  const [tab, setTab] = useState<Tab>("salespeople");
+  const [tab, setTabState] = useState<Tab>(readInitialTab);
   const [salespeople, setSalespeople] = useState<Salesperson[]>([]);
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
+  const [products, setProducts] = useState<ProductMasterItem[]>([]);
   const [users, setUsers] = useState<AppUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
+  function setTab(nextTab: Tab) {
+    setTabState(nextTab);
+    setTabInUrl(nextTab);
+  }
+
   const loadAll = useCallback(async () => {
     if (!token) return;
     setLoading(true);
     try {
-      const [salespeopleData, hospitalData] = await Promise.all([
+      const [salespeopleData, hospitalData, productsData] = await Promise.all([
         listSalespeople(token),
         listHospitals(token),
+        listProducts(token),
       ]);
       setSalespeople(salespeopleData.salespeople);
       setHospitals(hospitalData.hospitals);
+      setProducts(productsData.products);
       if (canEdit) {
         const usersData = await listUsers(token);
         setUsers(usersData.users);
@@ -90,54 +115,77 @@ export default function MasterDataPage() {
     }
   }
 
+  async function handleProductSave(
+    product: ProductMasterItem,
+    input: { code: string | null; displayName: string | null; isActive: boolean }
+  ) {
+    if (!token) return;
+    setActionError(null);
+    try {
+      const data = await updateProduct(token, product.id, input);
+      setProducts((items) => items.map((item) => (item.id === product.id ? data.product : item)));
+    } catch (saveError) {
+      setActionError(getErrorMessage(saveError, "บันทึกสินค้าไม่สำเร็จ"));
+    }
+  }
+
   return (
-    <div className="mx-auto max-w-5xl p-4 sm:p-6">
-      <h1 className="text-2xl font-semibold text-zinc-900">จัดการ Master Data</h1>
+    <PageContainer width="standard">
+      <PageHeader
+        title="ข้อมูลหลัก"
+        description="จัดการข้อมูลพนักงานขาย โรงพยาบาล และทะเบียนสินค้า"
+      />
+
       {!canEdit && (
-        <p className="mt-1 text-sm text-zinc-600">คุณสามารถดูข้อมูลได้เท่านั้น การแก้ไขสงวนไว้สำหรับผู้จัดการ</p>
+        <p className="mb-4 text-sm text-text-muted">
+          คุณสามารถดูข้อมูลได้เท่านั้น การแก้ไขสงวนไว้สำหรับผู้จัดการ
+        </p>
       )}
 
-      <div className="mt-4 flex gap-1 text-sm">
-        <button
-          type="button"
-          onClick={() => setTab("salespeople")}
-          className={`rounded px-3 py-1.5 font-medium cursor-pointer ${
-            tab === "salespeople" ? "bg-zinc-900 text-white" : "text-zinc-600 hover:bg-zinc-100"
-          }`}
-        >
-          พนักงานขาย
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab("hospitals")}
-          className={`rounded px-3 py-1.5 font-medium cursor-pointer ${
-            tab === "hospitals" ? "bg-zinc-900 text-white" : "text-zinc-600 hover:bg-zinc-100"
-          }`}
-        >
-          โรงพยาบาล
-        </button>
-      </div>
+      <Tabs value={tab} onValueChange={(val) => setTab(val as Tab)}>
+        <div className="overflow-x-auto pb-1 mb-4">
+          <TabsList className="min-w-max">
+            <TabsTrigger value="salespeople">พนักงานขาย</TabsTrigger>
+            <TabsTrigger value="hospitals">โรงพยาบาล</TabsTrigger>
+            <TabsTrigger value="products">สินค้า</TabsTrigger>
+          </TabsList>
+        </div>
 
-      {loadError && <p className="mt-4 text-sm text-red-600">{loadError}</p>}
-      {actionError && <p className="mt-4 text-sm text-red-600">{actionError}</p>}
+        {loadError && <p className="mb-4 text-sm text-status-danger">{loadError}</p>}
+        {actionError && <p className="mb-4 text-sm text-status-danger">{actionError}</p>}
 
-      <div className="mt-4">
-        {loading && <p className="text-zinc-400">กำลังโหลด...</p>}
+        {loading && <p className="text-text-muted">กำลังโหลด...</p>}
 
-        {!loading && tab === "salespeople" && (
-          <SalespersonTable
-            salespeople={salespeople}
-            linkableUsers={users}
-            canEdit={canEdit}
-            onLink={handleSalespersonLink}
-            onEmploymentDate={handleEmploymentDate}
-          />
+        {!loading && (
+          <>
+            <TabsContent value="salespeople">
+              <SalespersonTable
+                salespeople={salespeople}
+                linkableUsers={users}
+                canEdit={canEdit}
+                onLink={handleSalespersonLink}
+                onEmploymentDate={handleEmploymentDate}
+              />
+            </TabsContent>
+
+            <TabsContent value="hospitals">
+              <HospitalTable
+                hospitals={hospitals}
+                canEdit={canEdit}
+                onToggle={handleHospitalToggle}
+              />
+            </TabsContent>
+
+            <TabsContent value="products">
+              <ProductMasterTable
+                products={products}
+                canEdit={canEdit}
+                onSave={handleProductSave}
+              />
+            </TabsContent>
+          </>
         )}
-
-        {!loading && tab === "hospitals" && (
-          <HospitalTable hospitals={hospitals} canEdit={canEdit} onToggle={handleHospitalToggle} />
-        )}
-      </div>
-    </div>
+      </Tabs>
+    </PageContainer>
   );
 }

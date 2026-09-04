@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { PeriodSelector } from "@/features/kpi";
 import {
   getTerritoryProductRanking,
@@ -9,12 +9,17 @@ import {
 } from "@/features/territory-kpi/api/territory-kpi.api";
 import { formatMoney } from "@/lib/importLabels";
 import { periodLabelTh } from "@/lib/kpiLabels";
-import { PeriodKey, TerritoryProductRankingResponse } from "@/lib/types";
+import { PeriodKey, TerritoryProductRankingItem, TerritoryProductRankingResponse } from "@/lib/types";
 import { getErrorMessage } from "@/lib/api-client";
 import { useAuthStore } from "@/store/useAuthStore";
-import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/select";
+import { useContextStore } from "@/store/useContextStore";
+import { PageContainer } from "@/components/shared/layout/PageContainer";
+import { PageHeader } from "@/components/shared/layout/PageHeader";
+import { ExportButton } from "@/components/shared/export/ExportButton";
 import { FilterBar } from "@/components/shared/filters/FilterBar";
+import { DataTable, type DataTableColumn } from "@/components/shared/data-table/DataTable";
+import { Select } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 
 function defaultPeriod(): PeriodKey {
   const now = new Date();
@@ -26,11 +31,18 @@ const statusLabel = {
   SOLD_BEFORE_NOT_IN_PERIOD: "เคยขายได้ แต่ไม่มีในงวดที่เลือก",
 };
 
+interface RankedProductItem extends TerritoryProductRankingItem {
+  serverRank: number;
+}
+
 export default function TerritoryProductsPage() {
   const token = useAuthStore((s) => s.token);
-  const [period, setPeriod] = useState<PeriodKey>(defaultPeriod());
+  const period = useContextStore((s) => s.period);
+  const setPeriod = useContextStore((s) => s.setPeriod);
+  const territoryId = useContextStore((s) => s.territoryId);
+  const setTerritoryId = useContextStore((s) => s.setTerritoryId);
+
   const [territories, setTerritories] = useState<{ id: number; name: string }[]>([]);
-  const [territoryId, setTerritoryId] = useState("");
   const [data, setData] = useState<TerritoryProductRankingResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -41,16 +53,18 @@ export default function TerritoryProductsPage() {
       .then((r) => {
         const entries = r.territories.map((x) => ({ id: x.territoryId, name: x.name }));
         setTerritories(entries);
-        setTerritoryId((value) => value || String(entries[0]?.id ?? ""));
+        if (territoryId === null && entries.length > 0) {
+          setTerritoryId(entries[0].id);
+        }
       })
       .catch((e) => setError(getErrorMessage(e, "โหลดรายชื่อเขตไม่สำเร็จ")));
-  }, [period, token]);
+  }, [period, territoryId, token, setTerritoryId]);
 
   const load = useCallback(async () => {
-    if (!token || !territoryId) return;
+    if (!token || territoryId === null) return;
     setLoading(true);
     try {
-      setData(await getTerritoryProductRanking(token, territoryId, period));
+      setData(await getTerritoryProductRanking(token, String(territoryId), period));
       setError(null);
     } catch (e) {
       setData(null);
@@ -66,55 +80,157 @@ export default function TerritoryProductsPage() {
   }, [load]);
 
   async function exportFile() {
-    if (!token || !territoryId) return;
-    try {
-      await exportTerritoryProductRanking(token, territoryId, period);
-    } catch (e) {
-      setError(getErrorMessage(e, "ส่งออกอันดับสินค้าไม่สำเร็จ"));
+    if (!token || territoryId === null) return;
+    await exportTerritoryProductRanking(token, String(territoryId), period);
+  }
+
+  function resetFilters() {
+    setPeriod(defaultPeriod());
+    if (territories.length > 0) {
+      setTerritoryId(territories[0].id);
     }
   }
 
-  /** Reset restores the documented defaults (first territory + current month),
-   *  not "everything cleared" — the screen always needs a territory and a period. */
-  function resetFilters() {
-    setPeriod(defaultPeriod());
-    setTerritoryId(String(territories[0]?.id ?? ""));
-  }
+  const territoryName = territories.find((t) => t.id === territoryId)?.name ?? "—";
 
-  const territoryName = territories.find((t) => String(t.id) === territoryId)?.name ?? "—";
+  const items = data?.items;
+  const currentTerritoryName = data?.territory.name ?? "—";
+  const currentOwnerNames = data?.territory.ownerNames.join(", ") || "—";
+
+  const rankedItems: RankedProductItem[] = useMemo(() => {
+    if (!items) return [];
+    return items.map((item, index) => ({
+      ...item,
+      serverRank: index + 1,
+    }));
+  }, [items]);
+
+  const columns: DataTableColumn<RankedProductItem>[] = useMemo(
+    () => [
+      {
+        key: "serverRank",
+        header: "อันดับ (ระบบ)",
+        render: (item) => (
+          <span className="font-semibold text-text-muted font-numeric">{item.serverRank}</span>
+        ),
+        numeric: true,
+        sortable: true,
+        sortValue: (item) => item.serverRank,
+        priority: 1,
+        mobileRole: "meta",
+      },
+      {
+        key: "code",
+        header: "รหัส",
+        render: (item) => (
+          <span
+            title={item.code === "—" ? "สินค้านี้ยังไม่มีรหัสจากแคตตาล็อก" : undefined}
+            className="text-text-secondary font-mono text-xs"
+          >
+            {item.code}
+          </span>
+        ),
+        sortable: true,
+        sortValue: (item) => item.code,
+        priority: 2,
+        mobileRole: "meta",
+      },
+      {
+        key: "name",
+        header: "สินค้า",
+        render: (item) => <span className="font-medium text-text-primary">{item.name}</span>,
+        sortable: true,
+        sortValue: (item) => item.name,
+        priority: 1,
+        mobileRole: "identity",
+      },
+      {
+        key: "productType",
+        header: "กลุ่มสินค้า",
+        render: (item) => item.productType.name,
+        sortable: true,
+        sortValue: (item) => item.productType.name,
+        priority: 2,
+        mobileRole: "meta",
+      },
+      {
+        key: "territory",
+        header: "เขต",
+        render: () => currentTerritoryName,
+        priority: 3,
+        mobileRole: "meta",
+      },
+      {
+        key: "owners",
+        header: "ผู้ดูแลเขต",
+        render: () => currentOwnerNames,
+        priority: 3,
+        mobileRole: "meta",
+      },
+      {
+        key: "revenue",
+        header: "ยอดขาย",
+        render: (item) => formatMoney(item.revenue),
+        numeric: true,
+        sortable: true,
+        sortValue: (item) => Number(item.revenue),
+        priority: 1,
+        mobileRole: "metric",
+      },
+      {
+        key: "quantity",
+        header: "จำนวน",
+        render: (item) => item.quantity.toLocaleString("th-TH", { maximumFractionDigits: 2 }),
+        numeric: true,
+        sortable: true,
+        sortValue: (item) => item.quantity,
+        priority: 2,
+        mobileRole: "meta",
+      },
+      {
+        key: "zeroSaleStatus",
+        header: "สถานะ",
+        render: (item) =>
+          item.zeroSaleStatus ? (
+            <Badge variant="secondary" className="text-xs">
+              {statusLabel[item.zeroSaleStatus]}
+            </Badge>
+          ) : null,
+        priority: 2,
+        mobileRole: "meta",
+      },
+    ],
+    [currentTerritoryName, currentOwnerNames]
+  );
 
   return (
-    <div className="mx-auto max-w-7xl p-4 sm:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-zinc-900">อันดับสินค้ารายเขต</h1>
-          <p className="mt-1 text-sm text-zinc-600">เรียงตามยอดขายของเขตในงวดที่เลือก</p>
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => void exportFile()}
-          disabled={!territoryId}
-        >
-          Export Excel
-        </Button>
-      </div>
+    <PageContainer width="standard" className="space-y-6">
+      <PageHeader
+        title="อันดับสินค้ารายเขต"
+        description="เรียงตามยอดขายของเขตในงวดที่เลือก"
+        primaryAction={
+          <ExportButton
+            onExport={exportFile}
+            label="ส่งออก Excel"
+            disabled={territoryId === null || loading}
+          />
+        }
+      />
 
       <FilterBar
-        className="mt-4"
         chips={[
           { key: "territory", label: `เขต: ${territoryName}` },
           { key: "period", label: `งวด: ${periodLabelTh(period)}` },
         ]}
         onReset={resetFilters}
       >
-        <label className="flex items-center gap-2 text-sm font-medium text-zinc-600">
-          เขต
+        <label className="flex items-center gap-2 text-sm font-medium text-text-secondary">
+          <span>เขต</span>
           <Select
-            value={territoryId}
-            onChange={(e) => setTerritoryId(e.target.value)}
+            value={territoryId !== null ? String(territoryId) : ""}
+            onChange={(e) => setTerritoryId(e.target.value ? Number(e.target.value) : null)}
             className="w-auto"
+            aria-label="เลือกเขต"
           >
             {territories.map((t) => (
               <option key={t.id} value={t.id}>
@@ -126,69 +242,51 @@ export default function TerritoryProductsPage() {
         <PeriodSelector value={period} onChange={setPeriod} />
       </FilterBar>
 
-      {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
-      {loading && <p className="mt-6 text-zinc-400">กำลังโหลด...</p>}
-
-      {data && !loading && (
-        <div className="mt-6 space-y-4">
-          <p className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
-            {data.zeroSaleWarning}
-          </p>
-
-          <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
-            <table className="min-w-full divide-y divide-zinc-200 text-sm">
-              <thead className="bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500">
-                <tr>
-                  <th className="px-3 py-2">รหัส</th>
-                  <th className="px-3 py-2">สินค้า</th>
-                  <th className="px-3 py-2">กลุ่มสินค้า</th>
-                  <th className="px-3 py-2">เขต</th>
-                  <th className="px-3 py-2">ผู้ดูแลเขต</th>
-                  <th className="px-3 py-2 text-right">ยอดขาย</th>
-                  <th className="px-3 py-2 text-right">จำนวน</th>
-                  <th className="px-3 py-2">สถานะ</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100">
-                {data.items.map((i) => (
-                  <tr key={i.productId}>
-                    <td title={i.code === "—" ? "สินค้านี้ยังไม่มีรหัสจากแคตตาล็อก" : ""} className="px-3 py-2">
-                      {i.code}
-                    </td>
-                    <td className="px-3 py-2 font-medium">{i.name}</td>
-                    <td className="px-3 py-2">{i.productType.name}</td>
-                    <td className="px-3 py-2">{data.territory.name}</td>
-                    <td className="px-3 py-2">{data.territory.ownerNames.join(", ")}</td>
-                    <td className="px-3 py-2 text-right">{formatMoney(i.revenue)}</td>
-                    <td className="px-3 py-2 text-right">{i.quantity.toLocaleString("th-TH", { maximumFractionDigits: 2 })}</td>
-                    <td className="px-3 py-2">
-                      {i.zeroSaleStatus && (
-                        <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700">
-                          {statusLabel[i.zeroSaleStatus]}
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {data.personalBucket && (
-            <section className="rounded-lg border border-zinc-200 bg-white p-4">
-              <h2 className="font-semibold text-zinc-900">ยอดขายส่วนบุคคล</h2>
-              <p className="mt-1 text-sm text-zinc-600">ยอดนี้ไม่ถูกรวมในเขตใด</p>
-              <ul className="mt-3 space-y-1 text-sm">
-                {data.personalBucket.map((i) => (
-                  <li key={i.productId}>
-                    {i.name}: {formatMoney(i.revenue)}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
+      {error && (
+        <div className="rounded-lg border border-danger/30 bg-danger-subtle p-3 text-sm text-danger">
+          {error}
         </div>
       )}
-    </div>
+
+      {data?.zeroSaleWarning && (
+        <div className="rounded-lg border border-warning/30 bg-warning-subtle p-3 text-sm text-warning">
+          {data.zeroSaleWarning}
+        </div>
+      )}
+
+      <DataTable
+        columns={columns}
+        rows={rankedItems}
+        getRowId={(item) => item.productId}
+        caption="ตารางอันดับสินค้ารายเขต"
+        loading={loading}
+        searchable
+        searchPlaceholder="ค้นหาชื่อสินค้า รหัส หรือกลุ่มสินค้า…"
+        searchPredicate={(item, q) =>
+          item.name.toLowerCase().includes(q) ||
+          item.code.toLowerCase().includes(q) ||
+          item.productType.name.toLowerCase().includes(q)
+        }
+        emptyTitle="ไม่มีข้อมูลการขายสินค้าในงวดนี้"
+        emptyDescription="ลองเปลี่ยนเขตหรือเลือกงวดอื่นเพื่อดูข้อมูล"
+      />
+
+      {data?.personalBucket && data.personalBucket.length > 0 && (
+        <section className="rounded-lg border border-border bg-surface p-4">
+          <h2 className="font-semibold text-text-primary">ยอดขายส่วนบุคคล</h2>
+          <p className="mt-1 text-xs text-text-muted">ยอดนี้ไม่ถูกรวมในเขตใด</p>
+          <ul className="mt-3 divide-y divide-border/60 text-sm">
+            {data.personalBucket.map((item) => (
+              <li key={item.productId} className="flex items-center justify-between py-1.5">
+                <span className="text-text-primary">{item.name}</span>
+                <span className="font-numeric font-medium text-text-secondary">
+                  {formatMoney(item.revenue)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </PageContainer>
   );
 }

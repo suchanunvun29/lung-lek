@@ -6,13 +6,16 @@ import { listHospitals, listSalespeople } from "@/features/master-data/api/maste
 import { fetchKnownProductTypes } from "@/features/products/utils/deriveProductTypes";
 import { EntitySummary, SalesLine } from "@/lib/types";
 import { getErrorMessage } from "@/lib/api-client";
+import { formatMoney } from "@/lib/importLabels";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useContextStore } from "@/store/useContextStore";
 import {
   SalesLinesFilters,
   SalesLinesFilterValues,
   SalesLinesTable,
 } from "@/features/sales-lines";
-import { Pagination } from "@/components/shared/data-table/Pagination";
+import { PageContainer } from "@/components/shared/layout/PageContainer";
+import { PageHeader } from "@/components/shared/layout/PageHeader";
 
 const PAGE_SIZE = 50;
 const EMPTY_FILTERS: SalesLinesFilterValues = {
@@ -25,6 +28,7 @@ const EMPTY_FILTERS: SalesLinesFilterValues = {
 
 export default function SalesLinesPage() {
   const token = useAuthStore((state) => state.token);
+  const period = useContextStore((state) => state.period);
 
   const [filters, setFilters] = useState<SalesLinesFilterValues>(EMPTY_FILTERS);
   const [page, setPage] = useState(1);
@@ -36,6 +40,19 @@ export default function SalesLinesPage() {
   const [salespeople, setSalespeople] = useState<EntitySummary[]>([]);
   const [hospitals, setHospitals] = useState<EntitySummary[]>([]);
   const [productTypes, setProductTypes] = useState<EntitySummary[]>([]);
+
+  // Safe Automation: synchronize year/month from shell period when periodType is MONTH
+  useEffect(() => {
+    if (period.periodType === "MONTH") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setFilters((prev) => ({
+        ...prev,
+        year: String(period.year),
+        month: String(period.periodNumber),
+      }));
+      setPage(1);
+    }
+  }, [period.periodType, period.year, period.periodNumber]);
 
   useEffect(() => {
     if (!token) return;
@@ -93,32 +110,43 @@ export default function SalesLinesPage() {
     setPage(1);
   }
 
-  return (
-    <div className="mx-auto max-w-6xl p-4 sm:p-6">
-      <h1 className="text-2xl font-semibold text-zinc-900">ข้อมูลการขาย</h1>
-      <p className="mt-1 text-sm text-zinc-600">
-        ยอดรวมของหน้านี้: {totalAmount.toLocaleString("th-TH", { minimumFractionDigits: 2 })} บาท
-      </p>
+  function handleResetFilters() {
+    setFilters({
+      ...EMPTY_FILTERS,
+      year: period.periodType === "MONTH" ? String(period.year) : "",
+      month: period.periodType === "MONTH" ? String(period.periodNumber) : "",
+    });
+    setPage(1);
+  }
 
-      <div className="mt-4">
+  return (
+    <PageContainer width="wide">
+      <PageHeader
+        title="ข้อมูลการขาย"
+        meta={`ยอดรวมของหน้านี้: ${formatMoney(totalAmount)} บาท (${salesLines.length} รายการ จากทั้งหมด ${total.toLocaleString("th-TH")} รายการ)`}
+      />
+
+      <div className="mb-6">
         <SalesLinesFilters
           values={filters}
           onChange={handleFilterChange}
           salespeople={salespeople}
           hospitals={hospitals}
           productTypes={productTypes}
+          onReset={handleResetFilters}
         />
       </div>
 
-      {loadError && <p className="mt-4 text-sm text-red-600">{loadError}</p>}
-
-      <div className="mt-4">
-        <SalesLinesTable salesLines={salesLines} loading={loading} />
-      </div>
-
-      <div className="mt-4">
-        <Pagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
-      </div>
-    </div>
+      <SalesLinesTable
+        salesLines={salesLines}
+        loading={loading}
+        error={loadError}
+        onRetry={loadSalesLines}
+        page={page}
+        pageSize={PAGE_SIZE}
+        total={total}
+        onPageChange={setPage}
+      />
+    </PageContainer>
   );
 }

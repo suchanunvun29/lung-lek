@@ -150,19 +150,19 @@ export function TerritoryGroupManager({ canEdit, groups, territories, token, onC
   }
 
   return (
-    <Card className="p-4">
+    <Card className="p-4 border-border bg-surface">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="font-semibold">กลุ่มเขต</h2>
-          <p className="mt-1 text-sm text-zinc-600">สมาชิกมีผลเต็มเดือน และประวัติจะไม่ถูกลบ</p>
+          <h2 className="font-semibold text-text-primary">กลุ่มเขต</h2>
+          <p className="mt-1 text-sm text-text-muted">สมาชิกมีผลเต็มเดือน และประวัติจะไม่ถูกลบ</p>
         </div>
-        <label className="text-sm">
+        <label className="text-sm text-text-secondary">
           งวดที่กำลังตั้งเป้า{" "}
           <input
             type="month"
             value={selectedMonth}
             onChange={(event) => setSelectedMonth(event.target.value)}
-            className="ml-2 rounded border border-zinc-300 p-2 text-sm"
+            className="ml-2 rounded border border-border bg-surface p-2 text-sm text-text-primary"
           />
         </label>
         {canEdit && (
@@ -173,7 +173,7 @@ export function TerritoryGroupManager({ canEdit, groups, territories, token, onC
               placeholder="ชื่อกลุ่ม"
               className="w-auto"
             />
-            <Button type="submit" size="sm" className="bg-zinc-900 text-white hover:bg-zinc-800">
+            <Button type="submit" size="sm">
               สร้างกลุ่ม
             </Button>
           </form>
@@ -183,16 +183,16 @@ export function TerritoryGroupManager({ canEdit, groups, territories, token, onC
         {groups.map((group) => {
           const activeMembers = group.members.filter((member) => isMemberActiveInMonth(member, selectedMonth));
           return (
-            <div key={group.id} className="rounded-lg border border-zinc-200 p-3">
-              <h3 className="font-medium">{group.name}</h3>
+            <div key={group.id} className="rounded-lg border border-border bg-surface p-3">
+              <h3 className="font-medium text-text-primary">{group.name}</h3>
               <div className="mt-3">
-                <p className="text-sm font-medium text-zinc-700">สมาชิกที่มีผลใน {selectedMonth}</p>
+                <p className="text-sm font-medium text-text-secondary">สมาชิกที่มีผลใน {selectedMonth}</p>
                 {activeMembers.length === 0 ? (
-                  <p className="mt-1 text-sm text-zinc-500">ไม่มีสมาชิกในงวดนี้</p>
+                  <p className="mt-1 text-sm text-text-muted">ไม่มีสมาชิกในงวดนี้</p>
                 ) : (
                   <ul className="mt-2 flex flex-wrap gap-2">
                     {activeMembers.map((member) => (
-                      <li key={member.id} className="rounded bg-zinc-100 px-2 py-1 text-sm">
+                      <li key={member.id} className="rounded bg-surface-subtle px-2 py-1 text-sm text-text-secondary border border-border">
                         {member.territory.name}
                       </li>
                     ))}
@@ -201,7 +201,7 @@ export function TerritoryGroupManager({ canEdit, groups, territories, token, onC
               </div>
               {canEdit && groupTargets && (
                 <div className="mt-4">
-                  <p className="text-sm font-medium text-zinc-700">เป้ารวมของกลุ่ม ประจำ {selectedMonth}</p>
+                  <p className="text-sm font-medium text-text-secondary">เป้ารวมของกลุ่ม ประจำ {selectedMonth}</p>
                   <GroupTargetForm
                     key={`${group.id}-${selectedMonth}-${groupTargets.get(groupTargetKey(group.id, targetMonth))?.updatedAt ?? "none"}`}
                     target={groupTargets.get(groupTargetKey(group.id, targetMonth))}
@@ -211,8 +211,8 @@ export function TerritoryGroupManager({ canEdit, groups, territories, token, onC
                 </div>
               )}
               {canEdit && (
-                <form onSubmit={(event) => void submitMember(event, group.id)} className="mt-4 flex flex-wrap items-end gap-2 rounded-lg bg-zinc-50 p-3 text-sm">
-                  <label>
+                <form onSubmit={(event) => void submitMember(event, group.id)} className="mt-4 flex flex-wrap items-end gap-2 rounded-lg bg-surface-subtle p-3 text-sm border border-border">
+                  <label className="text-text-secondary">
                     เขต
                     <Select
                       required
@@ -228,34 +228,34 @@ export function TerritoryGroupManager({ canEdit, groups, territories, token, onC
                       ))}
                     </Select>
                   </label>
-                  <label>
+                  <label className="text-text-secondary">
                     เริ่มเดือน
                     <input
                       required
                       type="month"
                       value={memberForm.effectiveFrom}
                       onChange={(event) => setMemberForm({ ...memberForm, effectiveFrom: event.target.value })}
-                      className="ml-1 rounded border border-zinc-300 p-2 text-sm"
+                      className="ml-1 rounded border border-border bg-surface p-2 text-sm text-text-primary"
                     />
                   </label>
-                  <label>
+                  <label className="text-text-secondary">
                     สิ้นสุดเดือน (ถ้ามี)
                     <input
                       type="month"
                       value={memberForm.effectiveTo}
                       onChange={(event) => setMemberForm({ ...memberForm, effectiveTo: event.target.value })}
-                      className="ml-1 rounded border border-zinc-300 p-2 text-sm"
+                      className="ml-1 rounded border border-border bg-surface p-2 text-sm text-text-primary"
                     />
                   </label>
-                  <Button type="submit" size="sm" className="bg-zinc-900 text-white hover:bg-zinc-800">
+                  <Button type="submit" size="sm">
                     เพิ่มสมาชิก
                   </Button>
                 </form>
               )}
               <div className="mt-4 overflow-x-auto">
-                <p className="mb-2 text-sm font-medium text-zinc-700">ประวัติสมาชิก</p>
+                <p className="mb-2 text-sm font-medium text-text-secondary">ประวัติสมาชิก</p>
                 <table className="w-full text-left text-sm">
-                  <thead className="border-b border-zinc-200 text-zinc-500">
+                  <thead className="border-b border-border text-text-muted">
                     <tr>
                       <th className="p-2">เขต</th>
                       <th className="p-2">เริ่มมีผล</th>
@@ -265,10 +265,10 @@ export function TerritoryGroupManager({ canEdit, groups, territories, token, onC
                   </thead>
                   <tbody>
                     {group.members.map((member) => (
-                      <tr key={member.id} className="border-b border-zinc-100 last:border-0">
-                        <td className="p-2">{territoryNames.get(member.territoryId) ?? member.territory.name}</td>
-                        <td className="p-2">{member.effectiveFrom.slice(0, 10)}</td>
-                        <td className="p-2">{member.effectiveTo?.slice(0, 10) ?? "ยังมีผล"}</td>
+                      <tr key={member.id} className="border-b border-border/60 last:border-0">
+                        <td className="p-2 text-text-primary">{territoryNames.get(member.territoryId) ?? member.territory.name}</td>
+                        <td className="p-2 text-text-secondary">{member.effectiveFrom.slice(0, 10)}</td>
+                        <td className="p-2 text-text-secondary">{member.effectiveTo?.slice(0, 10) ?? "ยังมีผล"}</td>
                         {canEdit && (
                           <td className="p-2">
                             {!member.effectiveTo && (
@@ -279,19 +279,19 @@ export function TerritoryGroupManager({ canEdit, groups, territories, token, onC
                                     type="month"
                                     value={endingMonth}
                                     onChange={(event) => setEndingMonth(event.target.value)}
-                                    className="rounded border border-zinc-300 p-1 text-sm"
+                                    className="rounded border border-border bg-surface p-1 text-sm text-text-primary"
                                   />
-                                  <button type="button" onClick={() => void endMembership(group.id, member)} className="text-red-700 underline text-xs cursor-pointer">
+                                  <Button type="button" size="sm" variant="destructive" onClick={() => void endMembership(group.id, member)} className="h-7 px-2 text-xs">
                                     ยืนยัน
-                                  </button>
-                                  <button type="button" onClick={() => { setEndingMemberId(null); setEndingMonth(""); }} className="underline text-xs cursor-pointer">
+                                  </Button>
+                                  <Button type="button" size="sm" variant="outline" onClick={() => { setEndingMemberId(null); setEndingMonth(""); }} className="h-7 px-2 text-xs">
                                     ยกเลิก
-                                  </button>
+                                  </Button>
                                 </span>
                               ) : (
-                                <button type="button" onClick={() => setEndingMemberId(member.id)} className="text-red-700 underline text-xs cursor-pointer">
+                                <Button type="button" size="sm" variant="ghost" onClick={() => setEndingMemberId(member.id)} className="h-7 px-2 text-xs text-danger hover:text-danger hover:bg-danger/10">
                                   สิ้นสุดการเป็นสมาชิก
-                                </button>
+                                </Button>
                               )
                             )}
                           </td>
@@ -325,8 +325,8 @@ function GroupTargetForm({ target, periodLabel, onSave }: { target?: Target; per
   }
 
   return (
-    <form onSubmit={(event) => void submit(event)} className="mt-2 flex flex-wrap items-end gap-2 rounded-lg bg-zinc-50 p-3 text-sm">
-      <label>
+    <form onSubmit={(event) => void submit(event)} className="mt-2 flex flex-wrap items-end gap-2 rounded-lg bg-surface-subtle border border-border p-3 text-sm">
+      <label className="text-text-secondary">
         เป้ายอดขาย
         <Input
           required
@@ -337,7 +337,7 @@ function GroupTargetForm({ target, periodLabel, onSave }: { target?: Target; per
           className="ml-1 w-40"
         />
       </label>
-      <label>
+      <label className="text-text-secondary">
         เป้าลูกค้าใหม่
         <Input
           required
@@ -348,10 +348,10 @@ function GroupTargetForm({ target, periodLabel, onSave }: { target?: Target; per
           className="ml-1 w-32"
         />
       </label>
-      <Button disabled={saving} size="sm" className="bg-zinc-900 text-white hover:bg-zinc-800 disabled:opacity-50">
+      <Button type="submit" disabled={saving} size="sm">
         {saving ? "กำลังบันทึก..." : "บันทึกเป้ากลุ่ม"}
       </Button>
-      {savedMessage && <span className="text-emerald-700 text-sm">{savedMessage}</span>}
+      {savedMessage && <span className="text-success text-sm font-medium">{savedMessage}</span>}
     </form>
   );
 }

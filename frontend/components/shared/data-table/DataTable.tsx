@@ -96,6 +96,11 @@ export interface DataTableProps<Row> {
   frozenFirstColumn?: boolean;
   /** The card's single primary action on <768px (e.g. a detail link). */
   rowAction?: (row: Row) => React.ReactNode;
+  /** Scoped selection capability (WACC-P2-007) */
+  selectable?: boolean;
+  selectedRowIds?: Set<string | number>;
+  onSelectionChange?: (selectedIds: Set<string | number>) => void;
+  selectionToolbar?: React.ReactNode;
   className?: string;
 }
 
@@ -133,12 +138,20 @@ export function DataTable<Row>({
   onPageChange,
   frozenFirstColumn = false,
   rowAction,
+  selectable = false,
+  selectedRowIds,
+  onSelectionChange,
+  selectionToolbar,
   className,
 }: DataTableProps<Row>) {
   const [sort, setSort] = React.useState<SortState | null>(null);
   const [query, setQuery] = React.useState("");
   const [clientPage, setClientPage] = React.useState(1);
   const [expandedCardIds, setExpandedCardIds] = React.useState<Set<string>>(new Set());
+  const [internalSelectedIds, setInternalSelectedIds] = React.useState<Set<string | number>>(new Set());
+
+  const selectedIds = selectedRowIds ?? internalSelectedIds;
+  const updateSelection = onSelectionChange ?? setInternalSelectedIds;
 
   const normalizedQuery = query.trim().toLowerCase();
   const searchEnabled = searchable && !serverPaginated;
@@ -248,8 +261,14 @@ export function DataTable<Row>({
         </div>
       )}
 
+      {selectionToolbar && (
+        <div className="mb-3">
+          {selectionToolbar}
+        </div>
+      )}
+
       {loading ? (
-        <SkeletonTable rows={6} columns={columns.length} />
+        <SkeletonTable rows={6} columns={columns.length + (selectable ? 1 : 0)} />
       ) : error ? (
         <EmptyState
           variant="error"
@@ -283,6 +302,32 @@ export function DataTable<Row>({
               <caption className="sr-only">{caption}</caption>
               <thead>
                 <tr>
+                  {selectable && (
+                    <th
+                      scope="col"
+                      className={cn(
+                        "sticky top-0 z-10 w-12 bg-surface-subtle px-3 align-middle text-center",
+                        rowHeightClass,
+                        frozenFirstColumn && "left-0 z-20 border-r border-border"
+                      )}
+                    >
+                      <input
+                        type="checkbox"
+                        aria-label="เลือกทั้งหมดในหน้านี้"
+                        checked={visibleRows.length > 0 && visibleRows.every((r) => selectedIds.has(getRowId(r)))}
+                        onChange={(e) => {
+                          const next = new Set(selectedIds);
+                          if (e.target.checked) {
+                            visibleRows.forEach((r) => next.add(getRowId(r)));
+                          } else {
+                            visibleRows.forEach((r) => next.delete(getRowId(r)));
+                          }
+                          updateSelection(next);
+                        }}
+                        className="h-4 w-4 rounded border-border text-primary focus:ring-ring cursor-pointer"
+                      />
+                    </th>
+                  )}
                   {columns.map((column, index) => {
                     const isSorted = sort?.key === column.key;
                     const ariaSort = isSorted
@@ -340,6 +385,32 @@ export function DataTable<Row>({
                   const rowKey = String(getRowId(row));
                   return (
                     <tr key={rowKey} className="group hover:bg-surface-subtle">
+                      {selectable && (
+                        <td
+                          className={cn(
+                            "w-12 px-3 align-middle text-center",
+                            rowHeightClass,
+                            frozenFirstColumn && "sticky left-0 z-[1] bg-surface border-r border-border group-hover:bg-surface-subtle"
+                          )}
+                        >
+                          <input
+                            type="checkbox"
+                            aria-label={`เลือกรายการ ${rowKey}`}
+                            checked={selectedIds.has(getRowId(row))}
+                            onChange={(e) => {
+                              const next = new Set(selectedIds);
+                              const id = getRowId(row);
+                              if (e.target.checked) {
+                                next.add(id);
+                              } else {
+                                next.delete(id);
+                              }
+                              updateSelection(next);
+                            }}
+                            className="h-4 w-4 rounded border-border text-primary focus:ring-ring cursor-pointer"
+                          />
+                        </td>
+                      )}
                       {columns.map((column, index) => {
                         const alignClass =
                           column.align === "right" || column.numeric
@@ -381,6 +452,27 @@ export function DataTable<Row>({
               const action = rowAction?.(row);
               return (
                 <div key={rowKey} className="p-4">
+                  {selectable && (
+                    <label className="mb-3 flex items-center gap-2 border-b border-border pb-2 text-xs font-medium text-text-secondary cursor-pointer">
+                      <input
+                        type="checkbox"
+                        aria-label={`เลือกรายการ ${rowKey}`}
+                        checked={selectedIds.has(getRowId(row))}
+                        onChange={(e) => {
+                          const next = new Set(selectedIds);
+                          const id = getRowId(row);
+                          if (e.target.checked) {
+                            next.add(id);
+                          } else {
+                            next.delete(id);
+                          }
+                          updateSelection(next);
+                        }}
+                        className="h-4 w-4 rounded border-border text-primary focus:ring-ring cursor-pointer"
+                      />
+                      <span>เลือกรายการ</span>
+                    </label>
+                  )}
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 space-y-0.5">
                       {identityColumns.map((column) => (
