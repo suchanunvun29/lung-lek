@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -9,6 +9,9 @@ import { FullScreenLoading } from "@/components/shared/layout/FullScreenLoading"
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { FormField } from "@/components/shared/form/FormField";
+import { Alert } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -49,51 +52,65 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 p-4">
-      <Card className="w-full max-w-sm p-6 shadow">
+    <div className="flex min-h-screen items-center justify-center bg-[var(--surface-sunken)] p-4">
+      <Card className="w-full max-w-sm p-6 shadow-[var(--shadow-elevation-1)] border-[var(--border)] bg-[var(--surface)]">
         <CardHeader className="p-0 pb-4">
-          <CardTitle className="text-xl font-semibold text-zinc-900">เข้าสู่ระบบ</CardTitle>
-          <CardDescription className="text-sm text-zinc-500">ระบบประเมินและสนับสนุนพนักงานขาย</CardDescription>
+          <CardTitle className="text-xl font-semibold text-[var(--text-primary)]">
+            เข้าสู่ระบบ
+          </CardTitle>
+          <CardDescription className="text-sm text-[var(--text-secondary)]">
+            ระบบประเมินและสนับสนุนพนักงานขาย
+          </CardDescription>
         </CardHeader>
 
         <CardContent className="p-0">
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1">
-              <label htmlFor="email" className="text-sm font-medium text-zinc-700">
-                อีเมล
-              </label>
+            <FormField id="email" label="อีเมล" required>
               <Input
-                id="email"
                 type="email"
+                inputMode="email"
                 autoComplete="username"
                 required
                 value={email}
-                onChange={(event) => setEmail(event.target.value)}
+                onChange={(event) => {
+                  setEmail(event.target.value);
+                  if (error) setError(null);
+                }}
+                className="h-11 sm:h-9"
               />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label htmlFor="password" className="text-sm font-medium text-zinc-700">
-                รหัสผ่าน
-              </label>
+            </FormField>
+
+            <FormField id="password" label="รหัสผ่าน" required>
               <Input
-                id="password"
                 type="password"
                 autoComplete="current-password"
                 required
                 value={password}
-                onChange={(event) => setPassword(event.target.value)}
+                onChange={(event) => {
+                  setPassword(event.target.value);
+                  if (error) setError(null);
+                }}
+                className="h-11 sm:h-9"
               />
-            </div>
-            {error && <p className="text-sm text-red-600">{error}</p>}
+            </FormField>
+
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <div className="ml-2 text-sm">{error}</div>
+              </Alert>
+            )}
+
             <Button
               type="submit"
               disabled={loading}
-              className="mt-2 bg-zinc-900 text-white hover:bg-zinc-800"
+              className="mt-2 min-h-[44px] sm:min-h-[36px]"
             >
               {loading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
             </Button>
           </form>
-          <p className="mt-6 text-xs text-zinc-400">
+
+          <p className="mt-6 text-xs text-[var(--text-muted)] leading-relaxed">
             ไม่มีบัญชี? ติดต่อผู้จัดการฝ่ายขายเพื่อขอให้สร้างบัญชีให้ — ระบบนี้ไม่เปิดให้สมัครเอง
           </p>
         </CardContent>

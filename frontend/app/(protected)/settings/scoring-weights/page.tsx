@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -12,6 +12,11 @@ import {
 import { getErrorMessage } from "@/lib/api-client";
 import { ScoringWeight, ScoringWeightRevision } from "@/lib/types";
 import { useAuthStore } from "@/store/useAuthStore";
+import { PageContainer } from "@/components/shared/layout/PageContainer";
+import { PageHeader } from "@/components/shared/layout/PageHeader";
+import { Alert } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
+import { Skeleton } from "@/components/shared/feedback/Skeleton";
 
 export default function ScoringWeightsSettingsPage() {
   const token = useAuthStore((state) => state.token);
@@ -51,30 +56,46 @@ export default function ScoringWeightsSettingsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl p-4 sm:p-6">
-      <h1 className="text-2xl font-semibold text-zinc-900">ตั้งค่าน้ำหนักคะแนน</h1>
-      <p className="mt-1 text-sm text-zinc-600">
-        น้ำหนักที่ใช้ถ่วงคะแนนรวม 0–100 จากทั้ง 5 เกณฑ์ รวมกันต้องเท่ากับ 100
-        {!canEdit && " — คุณสามารถดูได้เท่านั้น การแก้ไขสงวนไว้สำหรับผู้จัดการ"}
-      </p>
+    <PageContainer width="standard">
+      <PageHeader
+        title="ตั้งค่าน้ำหนักคะแนน"
+        description={
+          canEdit
+            ? "กำหนดค่าน้ำหนักถ่วงคะแนน 0–100 จากเกณฑ์การประเมิน 5 ด้าน"
+            : "ค่าน้ำหนักถ่วงคะแนน 0–100 จากเกณฑ์การประเมิน (ดูได้อย่างเดียว — สิทธิ์แก้ไขสำหรับผู้จัดการเท่านั้น)"
+        }
+      />
 
-      {loadError && <p className="mt-4 text-sm text-red-600">{loadError}</p>}
-      {loading && <p className="mt-6 text-zinc-400">กำลังโหลด...</p>}
+      {loadError && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <div className="ml-2 text-sm">{loadError}</div>
+        </Alert>
+      )}
+
+      {loading && (
+        <div className="space-y-4">
+          <Skeleton className="h-40 w-full" />
+          <Skeleton className="h-24 w-full" />
+        </div>
+      )}
 
       {!loading && !loadError && (
-        <div className="mt-6 space-y-8">
+        <div className="space-y-6">
           {canEdit ? (
             <ScoringWeightsForm weights={weights} onSubmit={handleSubmit} />
           ) : (
             <ScoringWeightsReadOnly weights={weights} />
           )}
 
-          <div>
-            <h2 className="mb-2 text-lg font-semibold text-zinc-900">ประวัติการแก้ไข</h2>
+          <div className="pt-2">
+            <h2 className="mb-3 text-base font-semibold text-[var(--text-primary)]">
+              ประวัติการแก้ไขน้ำหนัก
+            </h2>
             <ScoringWeightRevisionsList revisions={revisions} />
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { FormEvent, useState } from "react";
 import { changePassword } from "@/features/auth/api/auth.api";
@@ -6,6 +6,9 @@ import { getErrorMessage } from "@/lib/api-client";
 import { useAuthStore } from "@/store/useAuthStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { FormField } from "@/components/shared/form/FormField";
+import { Alert } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 
 // Matches MIN_PASSWORD_LENGTH in backend/src/validators/auth.validators.ts
 const MIN_PASSWORD_LENGTH = 8;
@@ -22,23 +25,34 @@ export function ChangePasswordForm({ onSuccess, submitLabel }: ChangePasswordFor
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [newPasswordError, setNewPasswordError] = useState<string | null>(null);
+  const [confirmPasswordError, setConfirmPasswordError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    setError(null);
+    setFormError(null);
+    setNewPasswordError(null);
+    setConfirmPasswordError(null);
+
+    let hasFieldError = false;
 
     if (newPassword.length < MIN_PASSWORD_LENGTH) {
-      setError(`รหัสผ่านใหม่ต้องมีอย่างน้อย ${MIN_PASSWORD_LENGTH} ตัวอักษร`);
-      return;
+      setNewPasswordError(`รหัสผ่านใหม่ต้องมีอย่างน้อย ${MIN_PASSWORD_LENGTH} ตัวอักษร`);
+      hasFieldError = true;
     }
     if (newPassword !== confirmPassword) {
-      setError("รหัสผ่านใหม่และรหัสผ่านยืนยันไม่ตรงกัน");
+      setConfirmPasswordError("รหัสผ่านใหม่และรหัสผ่านยืนยันไม่ตรงกัน");
+      hasFieldError = true;
+    }
+
+    if (hasFieldError) {
       return;
     }
+
     if (!token) {
-      setError("เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่อีกครั้ง");
+      setFormError("เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่อีกครั้ง");
       return;
     }
 
@@ -51,7 +65,7 @@ export function ChangePasswordForm({ onSuccess, submitLabel }: ChangePasswordFor
       setConfirmPassword("");
       onSuccess();
     } catch (err) {
-      setError(getErrorMessage(err, "เปลี่ยนรหัสผ่านไม่สำเร็จ กรุณาลองใหม่"));
+      setFormError(getErrorMessage(err, "เปลี่ยนรหัสผ่านไม่สำเร็จ กรุณาลองใหม่"));
     } finally {
       setLoading(false);
     }
@@ -59,50 +73,76 @@ export function ChangePasswordForm({ onSuccess, submitLabel }: ChangePasswordFor
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1">
-        <label htmlFor="currentPassword" className="text-sm font-medium text-zinc-700">
-          รหัสผ่านปัจจุบัน
-        </label>
+      <FormField
+        id="currentPassword"
+        label="รหัสผ่านปัจจุบัน"
+        required
+      >
         <Input
-          id="currentPassword"
           type="password"
+          autoComplete="current-password"
           required
           value={currentPassword}
-          onChange={(event) => setCurrentPassword(event.target.value)}
+          onChange={(event) => {
+            setCurrentPassword(event.target.value);
+            if (formError) setFormError(null);
+          }}
+          className="h-11 sm:h-9"
         />
-      </div>
-      <div className="flex flex-col gap-1">
-        <label htmlFor="newPassword" className="text-sm font-medium text-zinc-700">
-          รหัสผ่านใหม่
-        </label>
+      </FormField>
+
+      <FormField
+        id="newPassword"
+        label="รหัสผ่านใหม่"
+        hint={`อย่างน้อย ${MIN_PASSWORD_LENGTH} ตัวอักษร`}
+        error={newPasswordError}
+        required
+      >
         <Input
-          id="newPassword"
           type="password"
+          autoComplete="new-password"
           required
           minLength={MIN_PASSWORD_LENGTH}
           value={newPassword}
-          onChange={(event) => setNewPassword(event.target.value)}
+          onChange={(event) => {
+            setNewPassword(event.target.value);
+            if (newPasswordError) setNewPasswordError(null);
+          }}
+          className="h-11 sm:h-9"
         />
-        <p className="text-xs text-zinc-500">อย่างน้อย {MIN_PASSWORD_LENGTH} ตัวอักษร</p>
-      </div>
-      <div className="flex flex-col gap-1">
-        <label htmlFor="confirmPassword" className="text-sm font-medium text-zinc-700">
-          ยืนยันรหัสผ่านใหม่
-        </label>
+      </FormField>
+
+      <FormField
+        id="confirmPassword"
+        label="ยืนยันรหัสผ่านใหม่"
+        error={confirmPasswordError}
+        required
+      >
         <Input
-          id="confirmPassword"
           type="password"
+          autoComplete="new-password"
           required
           minLength={MIN_PASSWORD_LENGTH}
           value={confirmPassword}
-          onChange={(event) => setConfirmPassword(event.target.value)}
+          onChange={(event) => {
+            setConfirmPassword(event.target.value);
+            if (confirmPasswordError) setConfirmPasswordError(null);
+          }}
+          className="h-11 sm:h-9"
         />
-      </div>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      </FormField>
+
+      {formError && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <div className="ml-2 text-sm">{formError}</div>
+        </Alert>
+      )}
+
       <Button
         type="submit"
         disabled={loading}
-        className="bg-zinc-900 text-white hover:bg-zinc-800"
+        className="mt-2 w-full min-h-[44px] sm:min-h-[36px]"
       >
         {loading ? "กำลังบันทึก..." : submitLabel}
       </Button>

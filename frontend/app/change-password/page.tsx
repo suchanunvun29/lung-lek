@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -34,11 +34,13 @@ export default function ForcedChangePasswordPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 p-4">
-      <Card className="w-full max-w-sm p-6 shadow">
+    <div className="flex min-h-screen items-center justify-center bg-[var(--surface-sunken)] p-4">
+      <Card className="w-full max-w-sm p-6 shadow-[var(--shadow-elevation-1)] border-[var(--border)] bg-[var(--surface)]">
         <CardHeader className="p-0 pb-4">
-          <CardTitle className="text-xl font-semibold text-zinc-900">ต้องเปลี่ยนรหัสผ่านก่อนใช้งาน</CardTitle>
-          <CardDescription className="text-sm text-zinc-500">
+          <CardTitle className="text-xl font-semibold text-[var(--text-primary)]">
+            ต้องเปลี่ยนรหัสผ่านก่อนใช้งาน
+          </CardTitle>
+          <CardDescription className="text-sm text-[var(--text-secondary)]">
             บัญชีนี้ใช้รหัสผ่านชั่วคราวอยู่ กรุณาตั้งรหัสผ่านใหม่เพื่อดำเนินการต่อ
           </CardDescription>
         </CardHeader>

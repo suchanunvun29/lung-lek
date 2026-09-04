@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useState } from "react";
 import { TierWeightsForm, getTierWeights, updateTierWeights } from "@/features/settings";
@@ -6,6 +6,11 @@ import { getErrorMessage } from "@/lib/api-client";
 import { TierWeightRow } from "@/lib/types";
 import { useAuthStore } from "@/store/useAuthStore";
 import { ForbiddenState } from "@/components/shared/auth/ForbiddenState";
+import { PageContainer } from "@/components/shared/layout/PageContainer";
+import { PageHeader } from "@/components/shared/layout/PageHeader";
+import { Alert } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
+import { Skeleton } from "@/components/shared/feedback/Skeleton";
 
 export default function TierWeightsSettingsPage() {
   const token = useAuthStore((state) => state.token);
@@ -42,6 +47,7 @@ export default function TierWeightsSettingsPage() {
     const data = await updateTierWeights(token, input);
     setWeights(data.weights);
     setSavedNotice("บันทึกน้ำหนักเรียบร้อยแล้ว");
+    setTimeout(() => setSavedNotice(null), 4000);
   }
 
   if (!isManager) {
@@ -49,28 +55,42 @@ export default function TierWeightsSettingsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl p-4 sm:p-6">
-      <h1 className="text-2xl font-semibold text-zinc-900">น้ำหนักตามระดับโรงพยาบาล</h1>
-      <p className="mt-1 text-sm text-zinc-600">
-        น้ำหนักที่ถ่วงค่าตัวชี้วัดศักยภาพของโรงพยาบาลแต่ละระดับ (TierWeight) — ค่าเริ่มต้น 1.000 ทุกระดับ
-        เพื่อให้วันแรกผลลัพธ์เท่ากับผลรวมค่าดิบพอดี
-      </p>
+    <PageContainer width="standard">
+      <PageHeader
+        title="น้ำหนักตามระดับโรงพยาบาล"
+        description="ค่าน้ำหนักถ่วงตัวชี้วัดศักยภาพตามระดับโรงพยาบาล (TierWeight) เพื่อใช้ปรับเป้าหมายในเขตการขาย"
+      />
 
-      {loadError && <p className="mt-4 text-sm text-red-600">{loadError}</p>}
-      {savedNotice && <p className="mt-4 text-sm text-emerald-700">{savedNotice}</p>}
-      {loading && <p className="mt-6 text-zinc-400">กำลังโหลด...</p>}
+      {loadError && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <div className="ml-2 text-sm">{loadError}</div>
+        </Alert>
+      )}
+
+      {savedNotice && (
+        <div className="mb-6 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--success-subtle)] p-3 text-sm font-medium text-[var(--success)]">
+          {savedNotice}
+        </div>
+      )}
+
+      {loading && (
+        <div className="space-y-4">
+          <Skeleton className="h-48 w-full" />
+        </div>
+      )}
 
       {!loading && !loadError && (
-        <div className="mt-6">
+        <div>
           {weights.length === 0 ? (
-            <p className="rounded-lg border border-zinc-200 bg-white p-4 text-sm text-zinc-500">
+            <div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] p-6 text-center text-sm text-[var(--text-muted)]">
               ยังไม่มีระดับโรงพยาบาลในทะเบียน — นำเข้าไฟล์ทะเบียนก่อนจึงจะมีระดับให้ตั้งค่า
-            </p>
+            </div>
           ) : (
             <TierWeightsForm weights={weights} onSubmit={handleSubmit} />
           )}
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }
