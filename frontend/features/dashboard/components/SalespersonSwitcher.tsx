@@ -12,7 +12,7 @@ export interface SalespersonSwitcherProps {
 export function SalespersonSwitcher({ salespeople, value, onChange }: SalespersonSwitcherProps) {
   return (
     <div className="flex items-center gap-2 text-sm">
-      <label className="font-medium text-zinc-600">มุมมอง</label>
+      <label className="font-medium text-text-secondary">มุมมอง</label>
       <Select
         value={value}
         onChange={(e) => onChange(e.target.value)}

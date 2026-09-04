@@ -7,9 +7,9 @@ export const INSIGHT_STATUS_LABEL_TH: Record<InsightStatus, string> = {
 };
 
 export const INSIGHT_STATUS_BADGE_CLASS: Record<InsightStatus, string> = {
-  PENDING: "bg-zinc-200 text-zinc-700",
-  SUCCESS: "bg-emerald-100 text-emerald-700",
-  FAILED: "bg-amber-100 text-amber-700",
+  PENDING: "bg-surface-subtle text-text-muted border border-border",
+  SUCCESS: "bg-emerald-100 text-emerald-800",
+  FAILED: "bg-warning-subtle text-warning border border-warning/30",
 };
 
 export function providerLabelTh(provider: string | null): string {

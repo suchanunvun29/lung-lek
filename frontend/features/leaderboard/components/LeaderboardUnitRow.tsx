@@ -20,8 +20,8 @@ export function LeaderboardUnitNameCell({ unit }: { unit: LeaderboardUnit }) {
 
   return (
     <div className="min-w-0">
-      <p className="truncate font-medium text-zinc-900">{unit.name}</p>
-      <p className="truncate text-xs text-zinc-500">{unit.ownerNames.join(", ")}</p>
+      <p className="truncate font-medium text-text-primary">{unit.name}</p>
+      <p className="truncate text-xs text-text-muted">{unit.ownerNames.join(", ")}</p>
       {isGroup && <LeaderboardGroupMembers members={unit.members ?? []} />}
     </div>
   );
@@ -31,7 +31,7 @@ function LeaderboardGroupMembers({ members }: { members: LeaderboardMemberRow[] 
   const [expanded, setExpanded] = useState(false);
 
   if (members.length === 0) {
-    return <p className="mt-1 text-xs text-zinc-400">กลุ่มนี้ยังไม่มีเขตสมาชิกในงวดนี้</p>;
+    return <p className="mt-1 text-xs text-text-muted">กลุ่มนี้ยังไม่มีเขตสมาชิกในงวดนี้</p>;
   }
 
   return (
@@ -40,25 +40,25 @@ function LeaderboardGroupMembers({ members }: { members: LeaderboardMemberRow[] 
         type="button"
         onClick={() => setExpanded((current) => !current)}
         aria-expanded={expanded}
-        className="cursor-pointer rounded border border-zinc-300 px-1.5 py-0.5 text-xs text-zinc-600 hover:bg-zinc-100"
+        className="cursor-pointer rounded border border-border px-1.5 py-0.5 text-xs text-text-secondary hover:bg-surface-subtle"
       >
         {expanded ? "▾" : "▸"} สมาชิก ({members.length})
       </button>
       {expanded && (
         <ul className="mt-2 space-y-1">
           {members.map((member) => (
-            <li key={member.territoryId} className="rounded border border-zinc-200 bg-zinc-50 px-2.5 py-2 text-sm">
+            <li key={member.territoryId} className="rounded border border-border bg-surface-subtle px-2.5 py-2 text-sm">
               <div className="min-w-0">
-                <p className="truncate font-medium text-zinc-800">{member.name}</p>
-                <p className="truncate text-xs text-zinc-500">{member.ownerNames.join(", ")}</p>
+                <p className="truncate font-medium text-text-primary">{member.name}</p>
+                <p className="truncate text-xs text-text-muted">{member.ownerNames.join(", ")}</p>
               </div>
               <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-                <span className="text-zinc-500">{member.rank ? `อันดับ ${member.rank}` : ""}</span>
-                <span className="font-semibold text-zinc-800">
+                <span className="text-text-muted">{member.rank ? `อันดับ ${member.rank}` : ""}</span>
+                <span className="font-semibold text-text-primary font-numeric">
                   {member.compositeScore !== null ? member.compositeScore.toFixed(2) : "—"}
                 </span>
                 {member.visibility === "TERRITORY_FULL" ? (
-                  <span className="text-zinc-600">
+                  <span className="text-text-secondary font-numeric">
                     {formatMoney(member.revenue ?? 0)}
                     {member.achievementPercent !== null && member.achievementPercent !== undefined
                       ? ` · ${member.achievementPercent.toFixed(1)}%`
@@ -67,7 +67,7 @@ function LeaderboardGroupMembers({ members }: { members: LeaderboardMemberRow[] 
                 ) : (
                   <RestrictedValue visibility={member.visibility} />
                 )}
-                <span className="text-zinc-400">{member.computedMetricLabel}</span>
+                <span className="text-text-muted">{member.computedMetricLabel}</span>
               </div>
             </li>
           ))}

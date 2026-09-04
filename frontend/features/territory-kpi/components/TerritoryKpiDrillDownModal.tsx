@@ -31,28 +31,28 @@ export function TerritoryKpiDrillDownModal({ territoryId, territoryName, metric,
 
   return (
     <Modal title={`ที่มาของ ${metricLabelTh(metric)} · ${territoryName}`} onClose={onClose} widthClassName="max-w-4xl">
-      {!data && !error && <p className="text-zinc-400">กำลังโหลด...</p>}
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {!data && !error && <p className="text-text-muted">กำลังโหลด...</p>}
+      {error && <p className="text-sm text-danger">{error}</p>}
       {data && (
         <div className="space-y-5">
           <section>
-            <h3 className="text-sm font-semibold text-zinc-900">กลุ่มสินค้าที่ขายได้</h3>
-            <div className="mt-2 overflow-x-auto rounded-lg border border-zinc-200">
-              <table className="min-w-full divide-y divide-zinc-200 text-sm">
-                <thead className="bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500">
+            <h3 className="text-sm font-semibold text-text-primary">กลุ่มสินค้าที่ขายได้</h3>
+            <div className="mt-2 overflow-x-auto rounded-lg border border-border bg-surface">
+              <table className="min-w-full divide-y divide-border text-sm">
+                <thead className="bg-surface-subtle text-left text-xs uppercase tracking-wide text-text-secondary">
                   <tr>
                     <th className="px-3 py-2">กลุ่มสินค้า</th>
                     <th className="px-3 py-2 text-right">ยอดขาย</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-100">
+                <tbody className="divide-y divide-border">
                   {data.productTypes.length === 0 ? (
-                    <tr><td colSpan={2} className="px-3 py-5 text-center text-zinc-400">ไม่มีรายการ</td></tr>
+                    <tr><td colSpan={2} className="px-3 py-5 text-center text-text-muted">ไม่มีรายการ</td></tr>
                   ) : (
                     data.productTypes.map((productType) => (
                       <tr key={productType.id}>
-                        <td className="px-3 py-2">{productType.name}</td>
-                        <td className="px-3 py-2 text-right">{formatMoney(productType.revenue)}</td>
+                        <td className="px-3 py-2 text-text-primary">{productType.name}</td>
+                        <td className="px-3 py-2 text-right text-text-primary font-numeric">{formatMoney(productType.revenue)}</td>
                       </tr>
                     ))
                   )}
@@ -61,23 +61,23 @@ export function TerritoryKpiDrillDownModal({ territoryId, territoryName, metric,
             </div>
           </section>
           <section>
-            <h3 className="text-sm font-semibold text-zinc-900">โรงพยาบาลที่ขายให้</h3>
-            <div className="mt-2 max-h-72 overflow-auto rounded-lg border border-zinc-200">
-              <table className="min-w-full divide-y divide-zinc-200 text-sm">
-                <thead className="sticky top-0 bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500">
+            <h3 className="text-sm font-semibold text-text-primary">โรงพยาบาลที่ขายให้</h3>
+            <div className="mt-2 max-h-72 overflow-auto rounded-lg border border-border bg-surface">
+              <table className="min-w-full divide-y divide-border text-sm">
+                <thead className="sticky top-0 bg-surface-subtle text-left text-xs uppercase tracking-wide text-text-secondary">
                   <tr>
                     <th className="px-3 py-2">โรงพยาบาล</th>
                     <th className="px-3 py-2 text-right">ยอดขาย</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-100">
+                <tbody className="divide-y divide-border">
                   {data.hospitals.length === 0 ? (
-                    <tr><td colSpan={2} className="px-3 py-5 text-center text-zinc-400">ไม่มีรายการ</td></tr>
+                    <tr><td colSpan={2} className="px-3 py-5 text-center text-text-muted">ไม่มีรายการ</td></tr>
                   ) : (
                     data.hospitals.map((hospital) => (
                       <tr key={hospital.id}>
-                        <td className="px-3 py-2">{hospital.name}</td>
-                        <td className="px-3 py-2 text-right">{formatMoney(hospital.revenue)}</td>
+                        <td className="px-3 py-2 text-text-primary">{hospital.name}</td>
+                        <td className="px-3 py-2 text-right text-text-primary font-numeric">{formatMoney(hospital.revenue)}</td>
                       </tr>
                     ))
                   )}

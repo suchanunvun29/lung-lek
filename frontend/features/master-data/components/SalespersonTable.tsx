@@ -74,13 +74,13 @@ export function SalespersonTable({
           <div className="flex flex-wrap items-center gap-1">
             <span
               className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                sp.isActive ? "bg-emerald-100 text-emerald-700" : "bg-zinc-200 text-zinc-600"
+                sp.isActive ? "bg-emerald-100 text-emerald-800" : "bg-surface-subtle text-text-muted border border-border"
               }`}
             >
               {sp.isActive ? "ใช้งาน" : "ไม่ใช้งาน"}
             </span>
             {ended && (
-              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+              <span className="rounded-full bg-warning-subtle text-warning border border-warning/30 px-2 py-0.5 text-xs font-medium">
                 พ้นสภาพ
               </span>
             )}

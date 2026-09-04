@@ -42,18 +42,18 @@ export function RevenueTargetProgress({ metric }: RevenueTargetProgressProps) {
       }
       status={remaining <= 0 ? "positive" : "default"}
     >
-      <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-zinc-100">
+      <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-surface-subtle border border-border">
         <div
-          className="h-full rounded-full bg-emerald-500"
+          className="h-full rounded-full bg-success"
           style={{ width: `${progressWidth}%` }}
         />
       </div>
 
       <div className="mt-2 text-sm">
         {remaining > 0 ? (
-          <span className="font-medium text-zinc-900">เหลืออีก {formatMoney(String(remaining))} บาท ถึงเป้า</span>
+          <span className="font-medium text-text-primary">เหลืออีก {formatMoney(String(remaining))} บาท ถึงเป้า</span>
         ) : (
-          <span className="font-medium text-emerald-700">ถึงเป้าแล้ว (เกินเป้า {formatMoney(String(-remaining))} บาท)</span>
+          <span className="font-medium text-success">ถึงเป้าแล้ว (เกินเป้า {formatMoney(String(-remaining))} บาท)</span>
         )}
       </div>
     </KpiTile>

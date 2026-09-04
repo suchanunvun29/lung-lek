@@ -100,14 +100,14 @@ export default function TerritoryTargetsPage() {
 
   return (
     <div className="mx-auto max-w-6xl p-4 sm:p-6">
-      <h1 className="text-2xl font-semibold text-zinc-900">เป้ารายเขต</h1>
-      <p className="mt-1 text-sm text-zinc-600">
+      <h1 className="text-2xl font-semibold text-text-primary">เป้ารายเขต</h1>
+      <p className="mt-1 text-sm text-text-secondary">
         เป้าระดับเขตแยกจากเป้ารายคน — พนักงานขายที่ไม่ได้ตั้งเป้าเองจะได้เป้าจากเขตที่รับผิดชอบ
         {!canEdit && " (ดูได้เท่านั้น การแก้ไขสงวนไว้สำหรับผู้จัดการ)"}
       </p>
 
       <div className="mt-4 flex items-center gap-2 text-sm">
-        <label className="font-medium text-zinc-600">ปี</label>
+        <label className="font-medium text-text-secondary">ปี</label>
         <Select
           value={String(year)}
           onChange={(e) => setYear(Number(e.target.value))}
@@ -124,12 +124,12 @@ export default function TerritoryTargetsPage() {
         </Select>
       </div>
 
-      {loadError && <p className="mt-4 text-sm text-red-600">{loadError}</p>}
-      {actionError && <p className="mt-4 text-sm text-red-600">{actionError}</p>}
+      {loadError && <p className="mt-4 text-sm text-danger">{loadError}</p>}
+      {actionError && <p className="mt-4 text-sm text-danger">{actionError}</p>}
 
       <div className="mt-4">
         {loading ? (
-          <p className="text-zinc-400">กำลังโหลด...</p>
+          <p className="text-text-muted">กำลังโหลด...</p>
         ) : (
           <TargetsGrid
             key={year}

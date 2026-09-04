@@ -8,7 +8,7 @@
  * No page file is edited — the swap is in app/(protected)/layout.tsx only.
  *
  * Skip link: "ข้ามไปยังเนื้อหาหลัก" moves focus to #main-content on activation.
- * Page background uses --surface-sunken (matches today's bg-zinc-50).
+ * Page background uses --surface-sunken (matches bg-surface-sunken).
  */
 
 import { useState } from "react";

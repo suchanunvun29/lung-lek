@@ -46,7 +46,7 @@ export function PeriodPicker({ value, onChange, disabled }: PeriodPickerProps) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-end gap-3">
-        <label className="grid gap-1 text-sm font-medium text-zinc-700">
+        <label className="grid gap-1 text-sm font-medium text-text-primary">
           ปี
           <Input
             type="number"
@@ -57,7 +57,7 @@ export function PeriodPicker({ value, onChange, disabled }: PeriodPickerProps) {
             className="w-28"
           />
         </label>
-        <label className="grid gap-1 text-sm font-medium text-zinc-700">
+        <label className="grid gap-1 text-sm font-medium text-text-primary">
           เดือน
           <Select
             value={month}
@@ -83,24 +83,24 @@ export function PeriodPicker({ value, onChange, disabled }: PeriodPickerProps) {
         </Button>
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-danger">{error}</p>}
 
       <div className="flex min-h-8 flex-wrap gap-2">
         {value.map((period) => (
-          <span key={`${period.year}-${period.month}`} className="inline-flex items-center gap-2 rounded-full bg-zinc-100 px-3 py-1 text-sm text-zinc-700">
+          <span key={`${period.year}-${period.month}`} className="inline-flex items-center gap-2 rounded-full bg-surface-subtle px-3 py-1 text-sm text-text-secondary">
             {formatThaiMonth(period.month)} {period.year}
             <button
               type="button"
               onClick={() => removePeriod(period)}
               disabled={disabled}
               aria-label={`ลบงวด ${formatThaiMonth(period.month)} ${period.year}`}
-              className="font-semibold text-zinc-500 hover:text-zinc-900 disabled:cursor-not-allowed cursor-pointer"
+              className="font-semibold text-text-muted hover:text-text-primary disabled:cursor-not-allowed cursor-pointer"
             >
               ×
             </button>
           </span>
         ))}
-        {value.length === 0 && <p className="text-sm text-zinc-500">ยังไม่ได้เลือกงวด</p>}
+        {value.length === 0 && <p className="text-sm text-text-muted">ยังไม่ได้เลือกงวด</p>}
       </div>
     </div>
   );

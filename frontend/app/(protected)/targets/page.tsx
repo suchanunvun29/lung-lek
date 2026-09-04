@@ -115,12 +115,11 @@ export default function TargetsPage() {
   return (
     <div className="mx-auto max-w-6xl p-4 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-zinc-900">ตั้งเป้าพนักงานขาย</h1>
+        <h1 className="text-2xl font-semibold text-text-primary">ตั้งเป้าพนักงานขาย</h1>
         {canEdit && (
           <Button
             type="button"
             onClick={() => setCopyModalOpen(true)}
-            className="bg-zinc-900 text-white hover:bg-zinc-800"
             size="sm"
           >
             คัดลอกเป้าเดือนก่อน
@@ -129,11 +128,11 @@ export default function TargetsPage() {
       </div>
 
       {!canEdit && (
-        <p className="mt-1 text-sm text-zinc-600">คุณสามารถดูเป้าได้เท่านั้น การแก้ไขสงวนไว้สำหรับผู้จัดการ</p>
+        <p className="mt-1 text-sm text-text-secondary">คุณสามารถดูเป้าได้เท่านั้น การแก้ไขสงวนไว้สำหรับผู้จัดการ</p>
       )}
 
       <div className="mt-4 flex items-center gap-2 text-sm">
-        <label className="font-medium text-zinc-600">ปี</label>
+        <label className="font-medium text-text-secondary">ปี</label>
         <Select
           value={String(year)}
           onChange={(e) => setYear(Number(e.target.value))}
@@ -150,12 +149,12 @@ export default function TargetsPage() {
         </Select>
       </div>
 
-      {loadError && <p className="mt-4 text-sm text-red-600">{loadError}</p>}
-      {actionError && <p className="mt-4 text-sm text-red-600">{actionError}</p>}
+      {loadError && <p className="mt-4 text-sm text-danger">{loadError}</p>}
+      {actionError && <p className="mt-4 text-sm text-danger">{actionError}</p>}
 
       <div className="mt-4">
         {loading ? (
-          <p className="text-zinc-400">กำลังโหลด...</p>
+          <p className="text-text-muted">กำลังโหลด...</p>
         ) : (
           <TargetsGrid
             key={year}

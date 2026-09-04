@@ -7,21 +7,9 @@ export const IMPORT_STATUS_LABEL_TH: Record<ImportStatus, string> = {
   FAILED: "ล้มเหลว",
 };
 
-export const IMPORT_STATUS_BADGE_CLASS: Record<ImportStatus, string> = {
-  PROCESSING: "bg-zinc-200 text-zinc-700",
-  SUCCESS: "bg-emerald-100 text-emerald-700",
-  PARTIAL: "bg-amber-100 text-amber-700",
-  FAILED: "bg-red-100 text-red-700",
-};
-
 export const IMPORT_ISSUE_LEVEL_LABEL_TH: Record<ImportIssueLevel, string> = {
   WARNING: "คำเตือน",
   ERROR: "ข้อผิดพลาด",
-};
-
-export const IMPORT_ISSUE_LEVEL_BADGE_CLASS: Record<ImportIssueLevel, string> = {
-  WARNING: "bg-amber-100 text-amber-700",
-  ERROR: "bg-red-100 text-red-700",
 };
 
 export function formatFileSize(bytes: number): string {

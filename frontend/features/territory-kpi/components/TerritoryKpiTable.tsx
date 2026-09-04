@@ -38,7 +38,7 @@ export function TerritoryKpiTable({ territories, onDrillDown }: TerritoryKpiTabl
       mobileRole: "hidden",
       sortable: true,
       sortValue: (row) => row.rank,
-      render: (row) => <span className="font-medium text-zinc-700">{row.rank}</span>,
+      render: (row) => <span className="font-medium text-text-secondary">{row.rank}</span>,
     },
     {
       key: "name",
@@ -46,7 +46,7 @@ export function TerritoryKpiTable({ territories, onDrillDown }: TerritoryKpiTabl
       mobileRole: "identity",
       sortable: true,
       sortValue: (row) => row.name,
-      render: (row) => <span className="font-medium text-zinc-900">{row.name}</span>,
+      render: (row) => <span className="font-medium text-text-primary">{row.name}</span>,
     },
     {
       key: "owners",
@@ -54,7 +54,7 @@ export function TerritoryKpiTable({ territories, onDrillDown }: TerritoryKpiTabl
       priority: 3,
       sortable: true,
       sortValue: (row) => row.ownerNames.join(", ") || null,
-      render: (row) => <span className="text-zinc-600">{ownerLabel(row.ownerNames)}</span>,
+      render: (row) => <span className="text-text-secondary">{ownerLabel(row.ownerNames)}</span>,
     },
     {
       key: "revenue",
@@ -64,7 +64,7 @@ export function TerritoryKpiTable({ territories, onDrillDown }: TerritoryKpiTabl
       sortValue: (row) => (row.visibility === "TERRITORY_FULL" ? row.revenue : null),
       render: (row) =>
         row.visibility === "TERRITORY_FULL" ? (
-          formatMoney(row.revenue)
+          <span className="font-numeric">{formatMoney(row.revenue)}</span>
         ) : (
           <RestrictedValue visibility={row.visibility} />
         ),
@@ -79,9 +79,9 @@ export function TerritoryKpiTable({ territories, onDrillDown }: TerritoryKpiTabl
       render: (row) => {
         if (row.visibility !== "TERRITORY_FULL") return <RestrictedValue visibility={row.visibility} label="จำกัดตามสิทธิ์" />;
         if (row.target === null) {
-          return <span className="text-xs text-amber-700">{row.targetLabel ?? "ยังไม่ได้ตั้งเป้า"}</span>;
+          return <span className="text-xs text-warning">{row.targetLabel ?? "ยังไม่ได้ตั้งเป้า"}</span>;
         }
-        return formatMoney(row.target);
+        return <span className="font-numeric">{formatMoney(row.target)}</span>;
       },
     },
     {
@@ -93,7 +93,7 @@ export function TerritoryKpiTable({ territories, onDrillDown }: TerritoryKpiTabl
       render: (row) => {
         if (row.visibility !== "TERRITORY_FULL") return <RestrictedValue visibility={row.visibility} label="จำกัดตามสิทธิ์" />;
         if (row.achievementPercent === null) {
-          return <span className="text-xs text-amber-700">{row.targetLabel ?? "ยังไม่ได้ตั้งเป้า"}</span>;
+          return <span className="text-xs text-warning">{row.targetLabel ?? "ยังไม่ได้ตั้งเป้า"}</span>;
         }
         return <span className="font-semibold">{formatPercent(row.achievementPercent)}</span>;
       },
@@ -107,7 +107,7 @@ export function TerritoryKpiTable({ territories, onDrillDown }: TerritoryKpiTabl
         return (
           <div className="min-w-52 space-y-1">
             {row.metrics.map((metric) => (
-              <p key={metric.metric} className="text-xs text-zinc-600">
+              <p key={metric.metric} className="text-xs text-text-secondary">
                 {metricLabelTh(metric.metric)}:{" "}
                 {metric.computable ? `${metric.score?.toLocaleString("th-TH", { maximumFractionDigits: 1 })} คะแนน` : metric.reason}
               </p>
@@ -126,13 +126,13 @@ export function TerritoryKpiTable({ territories, onDrillDown }: TerritoryKpiTabl
       render: (row) => (
         <div>
           {row.compositeScore !== null ? (
-            <p className="font-medium text-zinc-900">{row.compositeScore.toLocaleString("th-TH", { maximumFractionDigits: 1 })}</p>
+            <p className="font-medium text-text-primary font-numeric">{row.compositeScore.toLocaleString("th-TH", { maximumFractionDigits: 1 })}</p>
           ) : (
-            <p className="max-w-44 text-xs text-amber-700">
+            <p className="max-w-44 text-xs text-warning">
               {row.visibility === "TERRITORY_FULL" ? row.message ?? "ยังไม่มีคะแนนรวมในงวดนี้" : "ยังไม่มีคะแนนรวมในงวดนี้"}
             </p>
           )}
-          <p className="mt-1 text-xs text-zinc-500">{row.computedMetricLabel}</p>
+          <p className="mt-1 text-xs text-text-muted">{row.computedMetricLabel}</p>
         </div>
       ),
     },
@@ -144,12 +144,12 @@ export function TerritoryKpiTable({ territories, onDrillDown }: TerritoryKpiTabl
           <button
             type="button"
             onClick={() => onDrillDown(row, "REVENUE_VS_TARGET")}
-            className="text-sm font-medium text-zinc-700 hover:underline cursor-pointer"
+            className="text-sm font-medium text-text-secondary hover:text-text-primary hover:underline cursor-pointer"
           >
             ดูที่มา
           </button>
         ) : (
-          <span className="text-zinc-400">—</span>
+          <span className="text-text-muted">—</span>
         ),
     },
   ];
@@ -168,12 +168,12 @@ export function TerritoryKpiTable({ territories, onDrillDown }: TerritoryKpiTabl
           <button
             type="button"
             onClick={() => onDrillDown(row, "REVENUE_VS_TARGET")}
-            className="min-h-[44px] w-full rounded-md border border-border px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 cursor-pointer"
+            className="min-h-[44px] w-full rounded-md border border-border px-3 text-sm font-medium text-text-secondary hover:bg-surface-subtle cursor-pointer"
           >
             ดูที่มา
           </button>
         ) : (
-          <span className="text-zinc-400">—</span>
+          <span className="text-text-muted">—</span>
         )
       }
     />

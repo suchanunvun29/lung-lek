@@ -11,7 +11,7 @@ export interface CoverageBadgeProps {
 const BADGE_BASE_CLASS = "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium";
 
 export function CoverageBadge({ scopeLabel, coverage, gate }: CoverageBadgeProps) {
-  const toneClass = !gate ? "border border-zinc-200 bg-zinc-100 text-zinc-700" : gate.pass ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-900";
+  const toneClass = !gate ? "border border-border bg-surface-subtle text-text-secondary" : gate.pass ? "bg-emerald-100 text-emerald-800" : "border border-warning/30 bg-warning-subtle text-warning";
   return (
     <span className={`${BADGE_BASE_CLASS} ${toneClass}`}>
       {scopeLabel} {formatRatioPercent(coverage)}

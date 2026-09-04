@@ -259,7 +259,7 @@ export default function UnassignedTerritoriesPage() {
     <PageContainer width="standard" className="space-y-6">
       <PageHeader
         title="โรงพยาบาลที่ยังไม่ผูกเขต"
-        description={`จำนวน ${hospitalCount.toLocaleString("th-TH")} แห่ง · ยอดรวมที่ยังไม่จัดเขต (unassignedBucket): ฿${bucket.toLocaleString("th-TH")}`}
+        description={`จำนวน ${hospitalCount.toLocaleString("th-TH")} แห่ง · ยอดรวมที่ยังไม่จัดเขต: ฿${bucket.toLocaleString("th-TH")}`}
       />
 
       {!canEdit && (

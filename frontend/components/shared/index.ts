@@ -6,7 +6,6 @@ export * from "./kpi/KpiTile";
 export * from "./filters/FilterBar";
 export * from "./filters/FilterDrawer";
 export * from "./export/ExportButton";
-export * from "./navigation/NavBar";
 export * from "./layout/FullScreenLoading";
 export * from "./auth/AuthGuard";
 export * from "./auth/ForbiddenState";

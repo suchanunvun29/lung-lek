@@ -183,26 +183,26 @@ export default function ImportPage() {
         title="นำเข้าข้อมูลการขายจาก Excel"
         description="อัปโหลดไฟล์ .xlsx รายงานการขาย ระบบจะนำเข้าเฉพาะ sheet แรกของไฟล์เท่านั้น"
         secondaryActions={[
-          <Link key="batches" href="/import-batches" className="text-sm font-medium text-zinc-700 hover:underline">
+          <Link key="batches" href="/import-batches" className="text-sm font-medium text-text-secondary hover:underline">
             ดูประวัติการนำเข้า
           </Link>,
         ]}
       />
 
-      <section className="rounded-lg border border-zinc-200 bg-white p-6">
-        <h2 className="text-lg font-semibold text-zinc-900">โหมดการนำเข้า</h2>
+      <section className="rounded-lg border border-border bg-surface p-6">
+        <h2 className="text-lg font-semibold text-text-primary">โหมดการนำเข้า</h2>
         <div className="mt-4 space-y-3">
           {IMPORT_MODE_OPTIONS.map((option) => (
-            <label key={option.value} className="flex cursor-pointer gap-3 rounded-md border border-zinc-200 p-4 has-[:checked]:border-zinc-900 has-[:checked]:bg-zinc-50">
+            <label key={option.value} className="flex cursor-pointer gap-3 rounded-md border border-border p-4 has-[:checked]:border-primary has-[:checked]:bg-surface-subtle">
               <input type="radio" name="import-mode" value={option.value} checked={mode === option.value} onChange={() => setMode(option.value)} className="mt-1" />
-              <span><span className="block text-sm font-medium text-zinc-900">{option.label}</span><span className="mt-1 block text-sm text-zinc-600">{option.description}</span></span>
+              <span><span className="block text-sm font-medium text-text-primary">{option.label}</span><span className="mt-1 block text-sm text-text-secondary">{option.description}</span></span>
             </label>
           ))}
         </div>
         {mode === "REPLACE_PERIOD" && (
-          <div className="mt-5 border-t border-zinc-200 pt-5">
-            <p className="text-sm font-medium text-zinc-800">เลือกงวดที่จะแทนที่</p>
-            <p className="mt-1 text-sm text-zinc-600">ทุกแถวในไฟล์ต้องอยู่ในงวดที่เลือกไว้เท่านั้น</p>
+          <div className="mt-5 border-t border-border pt-5">
+            <p className="text-sm font-medium text-text-primary">เลือกงวดที่จะแทนที่</p>
+            <p className="mt-1 text-sm text-text-secondary">ทุกแถวในไฟล์ต้องอยู่ในงวดที่เลือกไว้เท่านั้น</p>
             <div className="mt-3"><PeriodPicker value={replacePeriods} onChange={setReplacePeriods} /></div>
           </div>
         )}
@@ -223,14 +223,14 @@ export default function ImportPage() {
               <li key={step.label}>
                 <Link
                   href={step.href(result!.id)}
-                  className="flex min-h-[44px] items-center gap-3 rounded-md border border-emerald-200 bg-white px-4 py-2 hover:border-emerald-400"
+                  className="flex min-h-[44px] items-center gap-3 rounded-md border border-emerald-200 bg-surface px-4 py-2 hover:border-emerald-400"
                 >
                   <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-semibold text-emerald-800">
                     {index + 1}
                   </span>
                   <span className="min-w-0">
-                    <span className="block text-sm font-medium text-zinc-900">{step.label}</span>
-                    <span className="block text-xs text-zinc-500">{step.description}</span>
+                    <span className="block text-sm font-medium text-text-primary">{step.label}</span>
+                    <span className="block text-xs text-text-muted">{step.description}</span>
                   </span>
                 </Link>
               </li>
@@ -241,7 +241,7 @@ export default function ImportPage() {
 
       {result && (
         <div className="mt-8 space-y-6">
-          <h2 className="text-lg font-semibold text-zinc-900">ผลการดำเนินการ</h2>
+          <h2 className="text-lg font-semibold text-text-primary">ผลการดำเนินการ</h2>
           <ImportBatchSummary batch={result} />
           {result.issues && <ImportIssueTable issues={result.issues} />}
         </div>

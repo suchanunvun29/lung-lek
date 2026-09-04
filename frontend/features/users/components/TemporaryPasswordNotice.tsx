@@ -27,12 +27,12 @@ export function TemporaryPasswordNotice({
   }
 
   return (
-    <div className="rounded-lg border border-amber-300 bg-amber-50 p-4">
-      <p className="text-sm font-medium text-amber-900">
+    <div className="rounded-lg border border-warning/30 bg-warning-subtle p-4">
+      <p className="text-sm font-medium text-warning">
         รหัสผ่านชั่วคราวสำหรับ {email} — ระบบจะแสดงครั้งนี้ครั้งเดียวเท่านั้น กรุณาคัดลอกไปให้ผู้ใช้ทันที
       </p>
       <div className="mt-2 flex items-center gap-2">
-        <code className="rounded bg-white px-3 py-1.5 font-mono text-sm text-zinc-900">
+        <code className="rounded bg-surface border border-border px-3 py-1.5 font-mono text-sm text-text-primary">
           {temporaryPassword}
         </code>
         <Button
@@ -40,7 +40,7 @@ export function TemporaryPasswordNotice({
           variant="outline"
           size="sm"
           onClick={handleCopy}
-          className="border-amber-400 text-amber-900 hover:bg-amber-100"
+          className="border-warning/40 text-warning hover:bg-warning-subtle"
         >
           {copied ? "คัดลอกแล้ว" : "คัดลอก"}
         </Button>

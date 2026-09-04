@@ -19,7 +19,7 @@ function contributionLabel(item: DerivedTargetContribution) {
 
 function ContributionList({ items }: { items: DerivedTargetContribution[] }) {
   return (
-    <ul className="space-y-1 text-sm text-zinc-600">
+    <ul className="space-y-1 text-sm text-text-secondary">
       {items.map((item) => (
         <li key={item.territoryId ?? item.territoryGroupId}>
           {contributionLabel(item)}: ฿{item.revenueTarget.toLocaleString("th-TH")}
@@ -35,14 +35,14 @@ export function DerivedTargetCard({ target }: DerivedTargetCardProps) {
   return (
     <Card className="p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-semibold text-zinc-900">เป้ารายคนที่คำนวณแล้ว</h2>
-        <span className="rounded bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-700">{SOURCE_LABEL[target.source]}</span>
+        <h2 className="font-semibold text-text-primary">เป้ารายคนที่คำนวณแล้ว</h2>
+        <span className="rounded bg-surface-subtle px-2 py-1 text-xs font-medium text-text-secondary border border-border">{SOURCE_LABEL[target.source]}</span>
       </div>
-      <p className="mt-3 text-2xl font-semibold text-zinc-900">฿{target.revenueTarget.toLocaleString("th-TH")}</p>
-      <p className="text-sm text-zinc-600">เป้าลูกค้าใหม่ {target.newCustomerTarget.toLocaleString("th-TH")} ราย</p>
+      <p className="mt-3 text-2xl font-semibold text-text-primary">฿{target.revenueTarget.toLocaleString("th-TH")}</p>
+      <p className="text-sm text-text-secondary">เป้าลูกค้าใหม่ {target.newCustomerTarget.toLocaleString("th-TH")} ราย</p>
       {owned.length > 0 && <div className="mt-3"><ContributionList items={owned} /></div>}
       {unowned.length > 0 && (
-        <div className="mt-3 rounded bg-amber-50 p-3 text-sm text-amber-800">
+        <div className="mt-3 rounded-lg border border-warning/30 bg-warning-subtle p-3 text-sm text-warning">
           <p className="font-medium">เป้าของเขตที่ยังไม่มีผู้ดูแล</p>
           <div className="mt-1"><ContributionList items={unowned} /></div>
         </div>

@@ -36,7 +36,7 @@ export function CreateUserForm({ onSubmit, onCancel }: CreateUserFormProps) {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <label htmlFor="new-email" className="text-sm font-medium text-zinc-700">
+        <label htmlFor="new-email" className="text-sm font-medium text-text-primary">
           อีเมล
         </label>
         <Input
@@ -48,7 +48,7 @@ export function CreateUserForm({ onSubmit, onCancel }: CreateUserFormProps) {
         />
       </div>
       <div className="flex flex-col gap-1">
-        <label htmlFor="new-displayName" className="text-sm font-medium text-zinc-700">
+        <label htmlFor="new-displayName" className="text-sm font-medium text-text-primary">
           ชื่อที่แสดง
         </label>
         <Input
@@ -60,7 +60,7 @@ export function CreateUserForm({ onSubmit, onCancel }: CreateUserFormProps) {
         />
       </div>
       <div className="flex flex-col gap-1">
-        <label htmlFor="new-role" className="text-sm font-medium text-zinc-700">
+        <label htmlFor="new-role" className="text-sm font-medium text-text-primary">
           บทบาท
         </label>
         <Select
@@ -72,10 +72,10 @@ export function CreateUserForm({ onSubmit, onCancel }: CreateUserFormProps) {
           <option value="MANAGER">ผู้จัดการ</option>
         </Select>
       </div>
-      <p className="text-xs text-zinc-500">
+      <p className="text-xs text-text-muted">
         ระบบจะสุ่มรหัสผ่านชั่วคราวให้อัตโนมัติ และบังคับให้เปลี่ยนรหัสผ่านตอนเข้าสู่ระบบครั้งแรก
       </p>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-danger">{error}</p>}
       <div className="mt-2 flex justify-end gap-2">
         <Button
           type="button"
@@ -87,7 +87,6 @@ export function CreateUserForm({ onSubmit, onCancel }: CreateUserFormProps) {
         <Button
           type="submit"
           disabled={loading}
-          className="bg-zinc-900 text-white hover:bg-zinc-800"
         >
           {loading ? "กำลังสร้าง..." : "สร้างบัญชี"}
         </Button>

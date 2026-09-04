@@ -68,8 +68,8 @@ export function HospitalNameReviewTable({ reviews, onDecide, onRequestMerge }: H
       mobileRole: "identity",
       render: (review) => (
         <div className="space-y-0.5">
-          <p className="font-medium text-zinc-900">{review.sampleRawA}</p>
-          <p className="text-zinc-600">{review.sampleRawB}</p>
+          <p className="font-medium text-text-primary">{review.sampleRawA}</p>
+          <p className="text-text-secondary">{review.sampleRawB}</p>
         </div>
       ),
     },

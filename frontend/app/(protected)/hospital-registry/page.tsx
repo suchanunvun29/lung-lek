@@ -20,7 +20,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { ForbiddenState } from "@/components/shared/auth/ForbiddenState";
-import { FilterBar, PageContainer, PageHeader } from "@/components/shared";
+import { FilterBar, PageContainer, PageHeader, StatusBadge } from "@/components/shared";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,7 +37,6 @@ import { listTerritories } from "@/features/territories/api/territories.api";
 import { UploadForm } from "@/features/import";
 import { getErrorMessage } from "@/lib/api-client";
 import { useAbortableEffect } from "@/lib/useAbortableEffect";
-import { IMPORT_STATUS_BADGE_CLASS, IMPORT_STATUS_LABEL_TH } from "@/lib/importLabels";
 import { HospitalRegistry, ImportBatch, ProvinceMapping, Territory } from "@/lib/types";
 import { useAuthStore } from "@/store/useAuthStore";
 
@@ -53,12 +52,10 @@ function RegistryImportSummary({ result }: { result: RegistryImportResult }) {
   const { importBatch, links } = result;
 
   return (
-    <div className="space-y-4 rounded-lg border border-zinc-200 bg-white p-4">
+    <div className="space-y-4 rounded-lg border border-border bg-surface p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="font-medium text-zinc-900">{importBatch.fileName}</p>
-        <span className={`rounded-full px-3 py-1 text-sm font-medium ${IMPORT_STATUS_BADGE_CLASS[importBatch.status]}`}>
-          {IMPORT_STATUS_LABEL_TH[importBatch.status]}
-        </span>
+        <p className="font-medium text-text-primary">{importBatch.fileName}</p>
+        <StatusBadge status={{ type: "importStatus", value: importBatch.status }} />
       </div>
       {importBatch.errorMessage && <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{importBatch.errorMessage}</p>}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
@@ -77,7 +74,7 @@ function RegistryImportSummary({ result }: { result: RegistryImportResult }) {
 }
 
 function ImportCount({ label, value, tone = "default" }: { label: string; value: number; tone?: "default" | "success" | "warning" }) {
-  const toneClass = tone === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-900" : tone === "warning" ? "border-amber-200 bg-amber-50 text-amber-900" : "border-zinc-200 bg-zinc-50 text-zinc-900";
+  const toneClass = tone === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-900" : tone === "warning" ? "border-warning/30 bg-warning-subtle text-warning" : "border-border bg-surface-subtle text-text-primary";
   return <div className={`rounded-lg border p-4 ${toneClass}`}><p className="text-sm">{label}</p><p className="mt-1 text-2xl font-semibold">{value.toLocaleString("th-TH")}</p></div>;
 }
 
@@ -243,7 +240,7 @@ export default function HospitalRegistryPage() {
 
       {uploadResult && (
         <section className="mb-6 space-y-3">
-          <h2 className="text-lg font-semibold text-zinc-900">ผลการนำเข้า</h2>
+          <h2 className="text-lg font-semibold text-text-primary">ผลการนำเข้า</h2>
           <RegistryImportSummary result={uploadResult} />
         </section>
       )}
@@ -274,7 +271,7 @@ export default function HospitalRegistryPage() {
         onApply={() => setPage(1)}
       >
         <div className="w-full sm:w-64">
-          <label htmlFor="registry-search" className="mb-1 block text-xs font-medium text-zinc-600">
+          <label htmlFor="registry-search" className="mb-1 block text-xs font-medium text-text-secondary">
             ค้นหาชื่อโรงพยาบาล
           </label>
           <Input
@@ -287,7 +284,7 @@ export default function HospitalRegistryPage() {
           />
         </div>
         <div className="w-full sm:w-52">
-          <label htmlFor="registry-province" className="mb-1 block text-xs font-medium text-zinc-600">
+          <label htmlFor="registry-province" className="mb-1 block text-xs font-medium text-text-secondary">
             จังหวัด
           </label>
           <Select
@@ -308,7 +305,7 @@ export default function HospitalRegistryPage() {
           </Select>
         </div>
         <div className="w-full sm:w-52">
-          <label htmlFor="registry-territory" className="mb-1 block text-xs font-medium text-zinc-600">
+          <label htmlFor="registry-territory" className="mb-1 block text-xs font-medium text-text-secondary">
             เขต
           </label>
           <Select
@@ -330,7 +327,7 @@ export default function HospitalRegistryPage() {
         </div>
       </FilterBar>
 
-      {adjustmentError && <p className="mt-4 text-sm text-red-600">{adjustmentError}</p>}
+      {adjustmentError && <p className="mt-4 text-sm text-danger">{adjustmentError}</p>}
 
       <div className="mt-4">
         <HospitalRegistryTable
@@ -345,7 +342,7 @@ export default function HospitalRegistryPage() {
           total={total}
           onPageChange={setPage}
         />
-        <p className="mt-2 text-xs text-zinc-500">
+        <p className="mt-2 text-xs text-text-muted">
           ศักยภาพรายโรงพยาบาล = ค่าตัวชี้วัด × น้ำหนักระดับ × ค่าปรับรายแห่ง — ตั้ง 0 เพื่อตัดโรงพยาบาลนั้นออกจากศักยภาพทั้งหมด
         </p>
       </div>
@@ -353,7 +350,7 @@ export default function HospitalRegistryPage() {
       {uploadOpen && (
         <Modal title="นำเข้าไฟล์ทะเบียนโรงพยาบาล" onClose={() => setUploadOpen(false)} widthClassName="max-w-xl">
           <UploadForm onUpload={handleUpload} />
-          <p className="mt-3 text-xs text-zinc-500">
+          <p className="mt-3 text-xs text-text-muted">
             ระบบจะสร้างหรืออัปเดตทะเบียนจากไฟล์ .xlsx แล้วแสดงผลการจับคู่กับข้อมูลการขายหลังนำเข้าเสร็จ
           </p>
         </Modal>

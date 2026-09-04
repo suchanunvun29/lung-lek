@@ -19,30 +19,30 @@ export function ScoreCard({ composite, onDrillDown, teamAverages }: ScoreCardPro
 
   return (
     <Card className="p-4">
-      <h2 className="text-sm font-medium text-zinc-500">คะแนนรวม</h2>
+      <h2 className="text-sm font-medium text-text-secondary">คะแนนรวม</h2>
       <div className="mt-1">
         <CompositeScoreBadge composite={composite} />
       </div>
 
-      <div className="mt-5 divide-y divide-zinc-100 border-t border-zinc-100">
+      <div className="mt-5 divide-y divide-border border-t border-border">
         {SCORED_METRIC_ORDER.map((metric) => {
           const result = metricByKey.get(metric);
           if (!result) return null;
           return (
             <div key={metric} className="flex items-center justify-between gap-3 py-3">
               <div className="min-w-0">
-                <p className="font-medium text-zinc-900">{SCORED_METRIC_LABEL_TH[metric]}</p>
+                <p className="font-medium text-text-primary">{SCORED_METRIC_LABEL_TH[metric]}</p>
                 {!result.computable && (
                   <MetricReason reason={result.reason} className="mt-0.5" />
                 )}
                 {teamAverages?.[metric] !== undefined && (
-                  <p className="mt-0.5 text-xs text-zinc-500">
+                  <p className="mt-0.5 text-xs text-text-muted">
                     ค่าเฉลี่ยทีม: {formatScore(teamAverages[metric] ?? null)}
                   </p>
                 )}
               </div>
               <div className="flex shrink-0 items-center gap-3">
-                <span className="text-lg font-semibold text-zinc-900">
+                <span className="text-lg font-semibold text-text-primary font-numeric">
                   {result.computable ? formatScore(result.score) : "คำนวณไม่ได้"}
                 </span>
                 <Button

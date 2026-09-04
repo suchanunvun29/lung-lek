@@ -77,14 +77,14 @@ export function BreakdownBarList({ title, items, emptyLabel = "ไม่มี�
                   <span className="min-w-0 truncate" title={item.name}>
                     {item.name}
                   </span>
-                  <span className="shrink-0 tabular-nums text-zinc-600">
+                  <span className="shrink-0 tabular-nums text-text-secondary">
                     {item.secondaryLabel && (
-                      <span className="mr-2 text-xs text-zinc-500">{item.secondaryLabel}</span>
+                      <span className="mr-2 text-xs text-text-muted">{item.secondaryLabel}</span>
                     )}
                     {formatKpiNumber(item.sharePercent)}%
                   </span>
                 </div>
-                <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-zinc-100">
+                <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-surface-subtle border border-border">
                   <div
                     className="h-full rounded-full"
                     style={{

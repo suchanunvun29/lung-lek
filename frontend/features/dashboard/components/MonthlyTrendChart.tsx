@@ -23,7 +23,7 @@ export function MonthlyTrendChart({ data, onDrillDown }: MonthlyTrendChartProps)
   return (
     <Card className="p-4">
       <div className="flex items-start justify-between gap-2">
-        <h2 className="text-sm font-medium text-zinc-500">แนวโน้มยอดขายรายเดือนย้อนหลัง</h2>
+        <h2 className="text-sm font-medium text-text-secondary">แนวโน้มยอดขายรายเดือนย้อนหลัง</h2>
         {onDrillDown && (
           <Button type="button" variant="outline" size="sm" onClick={onDrillDown}>
             ดูที่มา
@@ -31,7 +31,7 @@ export function MonthlyTrendChart({ data, onDrillDown }: MonthlyTrendChartProps)
         )}
       </div>
       {chartData.length === 0 ? (
-        <p className="mt-4 text-sm text-zinc-400">ไม่มีข้อมูล</p>
+        <p className="mt-4 text-sm text-text-muted">ไม่มีข้อมูล</p>
       ) : (
         <div className="mt-3" style={{ height: CHART_HEIGHT_PX }}>
           <ResponsiveContainer width="100%" height="100%">

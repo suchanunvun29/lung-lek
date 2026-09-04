@@ -12,7 +12,7 @@ export function Pagination({ page, pageSize, total, onPageChange }: PaginationPr
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
-    <div className="flex items-center justify-between text-sm text-zinc-600">
+    <div className="flex items-center justify-between text-sm text-text-secondary">
       <p>
         ทั้งหมด {total.toLocaleString("th-TH")} รายการ · หน้า {page} จาก {totalPages}
       </p>

@@ -77,9 +77,9 @@ export function ProductGroupTargetsModal({
   return (
     <Modal title="เป้ากลุ่มสินค้า" onClose={onClose}>
       <div className="space-y-3 text-sm">
-        {canEdit && <p className="text-xs text-zinc-500">เลือกเฉพาะกลุ่มสินค้าที่ต้องการผลักดัน ไม่ต้องตั้งครบทุกกลุ่ม</p>}
+        {canEdit && <p className="text-xs text-text-muted">เลือกเฉพาะกลุ่มสินค้าที่ต้องการผลักดัน ไม่ต้องตั้งครบทุกกลุ่ม</p>}
 
-        {rows.length === 0 && <p className="text-zinc-400">ยังไม่มีเป้ากลุ่มสินค้า</p>}
+        {rows.length === 0 && <p className="text-text-muted">ยังไม่มีเป้ากลุ่มสินค้า</p>}
 
         <div className="space-y-2">
           {rows.map((row, index) =>
@@ -107,13 +107,13 @@ export function ProductGroupTargetsModal({
                 <button
                   type="button"
                   onClick={() => removeRow(row.productTypeId)}
-                  className="text-xs text-red-600 hover:underline cursor-pointer"
+                  className="text-xs text-danger hover:underline cursor-pointer"
                 >
                   ลบ
                 </button>
               </div>
             ) : (
-              <div key={row.productTypeId} className="flex items-center justify-between rounded border border-zinc-200 px-3 py-2">
+              <div key={row.productTypeId} className="flex items-center justify-between rounded border border-border px-3 py-2">
                 <span>{nameById.get(row.productTypeId) ?? row.productTypeId}</span>
                 <span className="font-medium">{formatTargetMoney(row.revenueTarget)} บาท</span>
               </div>
@@ -134,7 +134,7 @@ export function ProductGroupTargetsModal({
           </Button>
         )}
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-sm text-danger">{error}</p>}
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="outline" size="sm" onClick={onClose}>
@@ -146,7 +146,6 @@ export function ProductGroupTargetsModal({
               size="sm"
               onClick={handleSave}
               disabled={submitting}
-              className="bg-zinc-900 text-white hover:bg-zinc-800"
             >
               {submitting ? "กำลังบันทึก..." : "บันทึก"}
             </Button>

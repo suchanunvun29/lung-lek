@@ -200,12 +200,12 @@ export function TargetsGrid({
     if (!canEdit || dirtyCount === 0) return null;
     return (
       <div
-        className={`flex flex-col gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 ${
+        className={`flex flex-col gap-2 rounded-lg border border-warning/30 bg-warning-subtle p-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 ${
           sticky ? "sticky bottom-0 z-20" : ""
         }`}
         role="status"
       >
-        <p className="text-sm font-medium text-amber-900">
+        <p className="text-sm font-medium text-warning">
           มี {dirtyCount.toLocaleString("th-TH")} ช่องยังไม่บันทึก — ออกจากหน้านี้โดยไม่บันทึกแล้วข้อมูลที่แก้ไขจะหาย
         </p>
         <div className="flex gap-2 sm:ml-auto">
@@ -224,13 +224,13 @@ export function TargetsGrid({
             size="sm"
             onClick={() => void saveAll()}
             disabled={savingAll}
-            className="min-h-[44px] bg-zinc-900 text-white hover:bg-zinc-800 sm:min-h-0"
+            className="min-h-[44px] sm:min-h-0"
           >
             {savingAll ? "กำลังบันทึก..." : `บันทึกทั้งหมด (${dirtyCount.toLocaleString("th-TH")})`}
           </Button>
         </div>
         {bulkFailures && (
-          <ul className="w-full space-y-1 text-xs text-red-700">
+          <ul className="w-full space-y-1 text-xs text-danger">
             {bulkFailures.map((failure, index) => (
               <li key={`${failure.ownerName}-${failure.month}-${index}`}>
                 {failure.ownerName} — {formatThaiMonth(failure.month)}: {failure.reason}
@@ -243,7 +243,7 @@ export function TargetsGrid({
   }
 
   if (owners.length === 0) {
-    return <p className="text-zinc-400">ยังไม่มี{ownerNoun}ในระบบ</p>;
+    return <p className="text-text-muted">ยังไม่มี{ownerNoun}ในระบบ</p>;
   }
 
   const mobileOwner =
@@ -256,7 +256,7 @@ export function TargetsGrid({
       {/* Search — the list is returned whole, so filtering is client-side only */}
       <div className="relative w-full max-w-xs">
         <Search
-          className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400"
+          className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted"
           aria-hidden="true"
         />
         <Input
@@ -274,21 +274,21 @@ export function TargetsGrid({
       {/* ── Desktop / tablet grid (≥1024px) ── */}
       <div className="hidden lg:block">
         {visibleOwners.length === 0 ? (
-          <p className="rounded-lg border border-zinc-200 bg-white px-4 py-6 text-center text-sm text-zinc-400">
+          <p className="rounded-lg border border-border bg-surface px-4 py-6 text-center text-sm text-text-muted">
             ไม่พบ{ownerNoun}ที่ตรงกับ &quot;{query.trim()}&quot;
           </p>
         ) : (
-          <div className="max-h-[70vh] overflow-auto rounded-lg border border-zinc-200 bg-white">
+          <div className="max-h-[70vh] overflow-auto rounded-lg border border-border bg-surface">
             <table className="min-w-max border-collapse text-sm">
               <thead>
-                <tr className="bg-zinc-50">
-                  <th className="sticky left-0 top-0 z-30 border-b border-zinc-200 bg-zinc-50 px-3 py-2 text-left font-medium text-zinc-600">
+                <tr className="bg-surface-subtle">
+                  <th className="sticky left-0 top-0 z-30 border-b border-border bg-surface-subtle px-3 py-2 text-left font-medium text-text-secondary">
                     {ownerNoun}
                   </th>
                   {MONTHS.map((month) => (
                     <th
                       key={month}
-                      className="sticky top-0 z-20 border-b border-zinc-200 bg-zinc-50 px-2 py-2 text-left font-medium text-zinc-600"
+                      className="sticky top-0 z-20 border-b border-border bg-surface-subtle px-2 py-2 text-left font-medium text-text-secondary"
                     >
                       {formatThaiMonth(month)}
                     </th>
@@ -297,8 +297,8 @@ export function TargetsGrid({
               </thead>
               <tbody>
                 {visibleOwners.map((owner) => (
-                  <tr key={owner.id} className="border-b border-zinc-100 last:border-0">
-                    <td className="sticky left-0 z-10 border-r border-zinc-100 bg-white px-3 py-2 font-medium text-zinc-900">
+                  <tr key={owner.id} className="border-b border-border last:border-0">
+                    <td className="sticky left-0 z-10 border-r border-border bg-surface px-3 py-2 font-medium text-text-primary">
                       {owner.displayName}
                     </td>
                     {MONTHS.map((month) => (
@@ -317,7 +317,7 @@ export function TargetsGrid({
       {/* ── Mobile / small tablet (<1024px): per-owner vertical view ── */}
       <div className="space-y-3 lg:hidden">
         <div className="flex items-center gap-2 text-sm">
-          <label className="shrink-0 font-medium text-zinc-600">{ownerNoun}</label>
+          <label className="shrink-0 font-medium text-text-secondary">{ownerNoun}</label>
           <Select
             value={String(mobileOwner?.id ?? "")}
             onChange={(e) => setMobileOwnerId(Number(e.target.value))}
@@ -331,10 +331,10 @@ export function TargetsGrid({
           </Select>
         </div>
         {mobileOwner && (
-          <div className="divide-y divide-zinc-100 rounded-lg border border-zinc-200 bg-white">
+          <div className="divide-y divide-border rounded-lg border border-border bg-surface">
             {MONTHS.map((month) => (
               <div key={month} className="flex flex-col gap-2 p-3">
-                <p className="text-sm font-medium text-zinc-700">{formatThaiMonth(month)}</p>
+                <p className="text-sm font-medium text-text-primary">{formatThaiMonth(month)}</p>
                 {renderCell(mobileOwner, month, true)}
               </div>
             ))}

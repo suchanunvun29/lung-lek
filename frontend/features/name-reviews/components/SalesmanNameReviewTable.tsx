@@ -76,7 +76,7 @@ export function SalesmanNameReviewTable({ reviews, mergeTargets, onDecide, onReq
           size={compact ? "default" : "sm"}
           disabled={busyId === review.id || !mergedTarget}
           onClick={() => onRequestMerge(review, Number(mergedTarget))}
-          className={compact ? "min-h-[44px] w-full bg-zinc-900 text-white hover:bg-zinc-700" : "bg-zinc-900 text-white hover:bg-zinc-700"}
+          className={compact ? "min-h-[44px] w-full" : undefined}
         >
           ซ้ำ — รวมเข้าคนนี้
         </Button>
@@ -92,8 +92,8 @@ export function SalesmanNameReviewTable({ reviews, mergeTargets, onDecide, onReq
       sortValue: (review) => review.sampleRaw,
       render: (review) => (
         <div className="space-y-0.5">
-          <p className="font-medium text-zinc-900">{review.sampleRaw}</p>
-          <p className="text-xs text-zinc-500">
+          <p className="font-medium text-text-primary">{review.sampleRaw}</p>
+          <p className="text-xs text-text-muted">
             ระบบสร้างพนักงานขายใหม่ไว้แล้ว: {review.createdSalesperson?.displayName ?? "(ถูกลบไปแล้ว)"}
           </p>
         </div>

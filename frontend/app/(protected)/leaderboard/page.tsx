@@ -23,7 +23,8 @@
  * ContextBar; Export is the header's secondary action via ExportButton.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useState, useTransition } from "react";
 import {
   LeaderboardPeopleModal,
   LeaderboardUnitNameCell,
@@ -72,6 +73,10 @@ function targetText(unit: LeaderboardUnit): string {
 }
 
 export default function LeaderboardPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [, startTransition] = useTransition();
+
   const token = useAuthStore((state) => state.token);
   const period = useContextStore((state) => state.period);
 
@@ -80,7 +85,43 @@ export default function LeaderboardPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
-  const [drillDownUnit, setDrillDownUnit] = useState<LeaderboardUnit | null>(null);
+
+  // WACC-P3-005: drill-down driven by ?people=<territoryId>
+  const peopleParam = searchParams.get("people");
+  const allUnits = [...(data?.ranked ?? []), ...(data?.unranked ?? [])];
+  const matchedUnit = peopleParam
+    ? allUnits.find((u) => String(u.territoryId) === peopleParam) ?? null
+    : null;
+
+  // If a deep link is provided with ?people=id before data loads or if not found in list,
+  // create a placeholder LeaderboardUnit so the modal can fetch or show handled response
+  const drillDownUnit: LeaderboardUnit | null = peopleParam
+    ? matchedUnit ?? {
+        unitType: "TERRITORY",
+        territoryId: Number(peopleParam),
+        name: `เขต ${peopleParam}`,
+        visibility: "TERRITORY_FULL",
+        rank: null,
+        compositeScore: null,
+        computedMetricLabel: "",
+        ownerNames: [],
+        criterionReason: null,
+      }
+    : null;
+
+  const setDrillDownUnit = (unit: LeaderboardUnit | null) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (unit) {
+      params.set("people", String(unit.territoryId));
+    } else {
+      params.delete("people");
+    }
+    const newQuery = params.toString();
+    const newUrl = newQuery ? `?${newQuery}` : window.location.pathname;
+    startTransition(() => {
+      router.replace(newUrl, { scroll: false });
+    });
+  };
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -116,7 +157,7 @@ export default function LeaderboardPage() {
       key: "rank",
       header: "อันดับ",
       render: (unit) => (
-        <span className="font-semibold text-zinc-900" aria-label={`อันดับ ${unit.rank ?? "ไม่ได้จัดอันดับ"}`}>
+        <span className="font-semibold text-text-primary" aria-label={`อันดับ ${unit.rank ?? "ไม่ได้จัดอันดับ"}`}>
           {rankLabel(unit.rank)}
         </span>
       ),
@@ -136,10 +177,10 @@ export default function LeaderboardPage() {
       numeric: true,
       render: (unit) => (
         <div>
-          <p className="font-semibold text-zinc-900">
+          <p className="font-semibold text-text-primary font-numeric">
             {unit.compositeScore !== null ? unit.compositeScore.toFixed(2) : "—"}
           </p>
-          <p className="text-xs text-zinc-500">{unit.computedMetricLabel}</p>
+          <p className="text-xs text-text-muted">{unit.computedMetricLabel}</p>
         </div>
       ),
       priority: 1,
@@ -153,7 +194,7 @@ export default function LeaderboardPage() {
         // Keyed on the wire visibility only — a FULL unit with no percent shows "—",
         // a rank-only unit gets the restriction marker. Never inferred from the value.
         unit.visibility === "TERRITORY_FULL" ? (
-          <span className="text-zinc-700">{achievementText(unit)}</span>
+          <span className="text-text-secondary">{achievementText(unit)}</span>
         ) : (
           <RestrictedValue visibility={unit.visibility} />
         ),
@@ -166,7 +207,7 @@ export default function LeaderboardPage() {
       numeric: true,
       render: (unit) =>
         unit.visibility === "TERRITORY_FULL" ? (
-          <span className="text-zinc-700">{formatMoney(unit.revenue ?? 0)}</span>
+          <span className="text-text-secondary font-numeric">{formatMoney(unit.revenue ?? 0)}</span>
         ) : (
           <RestrictedValue visibility={unit.visibility} />
         ),
@@ -178,7 +219,7 @@ export default function LeaderboardPage() {
       header: "เป้า",
       render: (unit) =>
         unit.visibility === "TERRITORY_FULL" ? (
-          <span className="text-xs text-zinc-600">{targetText(unit)}</span>
+          <span className="text-xs text-text-secondary">{targetText(unit)}</span>
         ) : (
           <RestrictedValue visibility={unit.visibility} />
         ),
@@ -188,7 +229,7 @@ export default function LeaderboardPage() {
     {
       key: "owners",
       header: "ผู้ดูแล",
-      render: (unit) => <span className="text-xs text-zinc-500">{unit.ownerNames.join(", ")}</span>,
+      render: (unit) => <span className="text-xs text-text-muted">{unit.ownerNames.join(", ")}</span>,
       priority: 3,
       mobileRole: "meta",
     },
@@ -211,17 +252,20 @@ export default function LeaderboardPage() {
   ];
 
   return (
-    <PageContainer width="wide">
+    <PageContainer width="standard" className="space-y-6">
       <PageHeader
-        title="Leaderboard ระดับเขต"
-        description="จัดอันดับหน่วยเป้า (เขต/กลุ่มเขต) — เลือกเกณฑ์ได้จากแท็บด้านล่าง ช่วงเวลาใช้ตัวเลือกงวดด้านบนของหน้า"
-        secondaryActions={[
-          <ExportButton key="export" onExport={exportBoard} disabled={loading} disabledReason="รอโหลดข้อมูลก่อน" />,
-        ]}
+        title="Leaderboard"
+        description="อันดับและผลการดำเนินงานเทียบเป้าหมายของแต่ละเขต"
+        primaryAction={
+          <ExportButton
+            onExport={exportBoard}
+            className="sm:items-end"
+          />
+        }
       />
 
-      <Tabs value={criteria} onValueChange={(value) => setCriteria(value as LeaderboardCriteria)}>
-        <TabsList role="group" aria-label="เกณฑ์จัดอันดับ">
+      <Tabs value={criteria} onValueChange={(v) => setCriteria(v as LeaderboardCriteria)}>
+        <TabsList className="flex-wrap">
           {LEADERBOARD_CRITERIA_ORDER.map((option) => (
             <TabsTrigger key={option} value={option}>
               {LEADERBOARD_CRITERIA_LABEL_TH[option]}
@@ -231,7 +275,7 @@ export default function LeaderboardPage() {
       </Tabs>
 
       <section className="mt-4">
-        <h2 className="mb-2 text-base font-semibold text-zinc-900">อันดับ</h2>
+        <h2 className="mb-2 text-base font-semibold text-text-primary">อันดับ</h2>
         <DataTable
           columns={columns}
           rows={rankedUnits}
@@ -253,15 +297,15 @@ export default function LeaderboardPage() {
 
       {data && !loading && data.unranked.length > 0 && (
         <section className="mt-6">
-          <h2 className="mb-1 text-base font-semibold text-zinc-900">คำนวณเกณฑ์ที่เลือกไม่ได้</h2>
-          <p className="mb-2 text-xs text-zinc-500">
+          <h2 className="mb-1 text-base font-semibold text-text-primary">คำนวณเกณฑ์ที่เลือกไม่ได้</h2>
+          <p className="mb-2 text-xs text-text-muted">
             หน่วยเป้าเหล่านี้ยังไม่มีอันดับในงวดนี้ เพราะคำนวณค่าตามเกณฑ์ที่เลือกไม่ได้ — เหตุผลรายหน่วยแสดงใต้ชื่อ
           </p>
           <ul className="space-y-2">
             {data.unranked.map((unit) => (
               <li
                 key={`${unit.unitType}-${unit.territoryId}`}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warning/30 bg-warning-subtle px-4 py-3 text-sm text-warning"
               >
                 <LeaderboardUnitNameCell unit={unit} />
                 {unit.visibility === "TERRITORY_FULL" ? (
@@ -278,17 +322,17 @@ export default function LeaderboardPage() {
       {/* Buckets render only when the server sends them (MANAGER-only per Data Visibility Rules ข้อ 6). */}
       {data && !loading && data.buckets && (
         <Card className="mt-6 p-4">
-          <h2 className="text-base font-semibold text-zinc-900">ยอดนอกการจัดอันดับเขต</h2>
+          <h2 className="text-base font-semibold text-text-primary">ยอดนอกการจัดอันดับเขต</h2>
           <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
             <div>
-              <dt className="text-zinc-500">ยอดส่วนบุคคล</dt>
-              <dd className="mt-1 font-semibold text-zinc-900">
+              <dt className="text-text-muted">ยอดส่วนบุคคล</dt>
+              <dd className="mt-1 font-semibold text-text-primary font-numeric">
                 {data.buckets.personalBucket.toLocaleString(undefined, { maximumFractionDigits: 2 })}
               </dd>
             </div>
             <div>
-              <dt className="text-zinc-500">ยอดที่ยังไม่กำหนดเขต ({data.buckets.unassignedHospitalCount} โรงพยาบาล)</dt>
-              <dd className="mt-1 font-semibold text-zinc-900">
+              <dt className="text-text-muted">ยอดที่ยังไม่กำหนดเขต ({data.buckets.unassignedHospitalCount} โรงพยาบาล)</dt>
+              <dd className="mt-1 font-semibold text-text-primary font-numeric">
                 {data.buckets.unassignedBucket.toLocaleString(undefined, { maximumFractionDigits: 2 })}
               </dd>
             </div>

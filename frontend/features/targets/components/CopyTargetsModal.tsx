@@ -57,7 +57,7 @@ export function CopyTargetsModal({ year, salespeople, onClose, onCopied }: CopyT
       <div className="space-y-3 text-sm">
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-600">จากปี</label>
+            <label className="mb-1 block text-xs font-medium text-text-secondary">จากปี</label>
             <Input
               type="number"
               value={fromYear}
@@ -65,7 +65,7 @@ export function CopyTargetsModal({ year, salespeople, onClose, onCopied }: CopyT
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-600">จากเดือน</label>
+            <label className="mb-1 block text-xs font-medium text-text-secondary">จากเดือน</label>
             <Select
               value={fromMonth}
               onChange={(e) => setFromMonth(Number(e.target.value))}
@@ -78,7 +78,7 @@ export function CopyTargetsModal({ year, salespeople, onClose, onCopied }: CopyT
             </Select>
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-600">ไปปี</label>
+            <label className="mb-1 block text-xs font-medium text-text-secondary">ไปปี</label>
             <Input
               type="number"
               value={toYear}
@@ -86,7 +86,7 @@ export function CopyTargetsModal({ year, salespeople, onClose, onCopied }: CopyT
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-600">ไปเดือน</label>
+            <label className="mb-1 block text-xs font-medium text-text-secondary">ไปเดือน</label>
             <Select
               value={toMonth}
               onChange={(e) => setToMonth(Number(e.target.value))}
@@ -100,15 +100,15 @@ export function CopyTargetsModal({ year, salespeople, onClose, onCopied }: CopyT
           </div>
         </div>
 
-        <label className="flex items-center gap-2 text-xs text-zinc-600 cursor-pointer">
+        <label className="flex items-center gap-2 text-xs text-text-secondary cursor-pointer">
           <input type="checkbox" checked={overwrite} onChange={(e) => setOverwrite(e.target.checked)} />
           เขียนทับเป้าที่มีอยู่แล้วในเดือนปลายทาง
         </label>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-sm text-danger">{error}</p>}
 
         {result && (
-          <div className="space-y-1 rounded border border-zinc-200 bg-zinc-50 p-2 text-xs text-zinc-700">
+          <div className="space-y-1 rounded border border-border bg-surface-subtle p-2 text-xs text-text-secondary">
             <p>ต้นทางมีเป้าทั้งหมด {result.sourceCount} คน</p>
             <p>
               สร้างใหม่ {result.created.length} คน
@@ -134,7 +134,6 @@ export function CopyTargetsModal({ year, salespeople, onClose, onCopied }: CopyT
             size="sm"
             onClick={handleSubmit}
             disabled={submitting}
-            className="bg-zinc-900 text-white hover:bg-zinc-800"
           >
             {submitting ? "กำลังคัดลอก..." : "คัดลอก"}
           </Button>

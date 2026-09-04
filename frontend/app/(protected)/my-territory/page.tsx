@@ -56,7 +56,7 @@ const TAB_LABELS: Record<TerritoryTab, string> = {
 const TAB_DESCRIPTIONS: Record<TerritoryTab, string> = {
   sold: "โรงพยาบาลในเขตที่มียอดขายในงวดนี้",
   churned: "เคยขายได้ แต่ไม่มีในงวดนี้",
-  "never-sold": "โรงพยาบาลรัฐทั่วไป (GOVERNMENT_GENERAL) ในเขตที่ไม่เคยมีประวัติการซื้อ",
+  "never-sold": "โรงพยาบาลรัฐทั่วไปในเขตที่ไม่เคยมีประวัติการซื้อ",
 };
 
 /** Business wording — the enum key stays in the option's value, never in its text. */
@@ -242,7 +242,7 @@ export default function MyTerritoryPage() {
       mobileRole: "identity",
       sortable: true,
       sortValue: (row) => row.hospital.displayName,
-      render: (row) => <span className="font-medium text-zinc-900">{row.hospital.displayName}</span>,
+      render: (row) => <span className="font-medium text-text-primary">{row.hospital.displayName}</span>,
     },
     {
       key: "revenue",
@@ -262,7 +262,7 @@ export default function MyTerritoryPage() {
       mobileRole: "identity",
       sortable: true,
       sortValue: (row) => row.hospital.displayName,
-      render: (row) => <span className="font-medium text-zinc-900">{row.hospital.displayName}</span>,
+      render: (row) => <span className="font-medium text-text-primary">{row.hospital.displayName}</span>,
     },
     {
       key: "province",
@@ -294,7 +294,7 @@ export default function MyTerritoryPage() {
         onReset={resetFilters}
         secondaryFilters={
           <>
-            <label className="text-sm font-medium text-zinc-600 flex items-center gap-2">
+            <label className="text-sm font-medium text-text-secondary flex items-center gap-2">
               จำนวนสูงสุด (Top N)
               <Select value={String(topN)} onChange={(e) => setTopN(Number(e.target.value))} className="w-auto">
                 <option value="10">Top 10</option>
@@ -303,7 +303,7 @@ export default function MyTerritoryPage() {
                 <option value="100">Top 100</option>
               </Select>
             </label>
-            <label className="text-sm font-medium text-zinc-600 flex items-center gap-2">
+            <label className="text-sm font-medium text-text-secondary flex items-center gap-2">
               เกณฑ์ศักยภาพ
               <Select value={potentialMetric} onChange={(e) => setPotentialMetric(e.target.value)} className="w-auto">
                 {POTENTIAL_METRIC_OPTIONS.map((opt) => (
@@ -316,7 +316,7 @@ export default function MyTerritoryPage() {
           </>
         }
       >
-        <label className="text-sm font-medium text-zinc-600 flex items-center gap-2">
+        <label className="text-sm font-medium text-text-secondary flex items-center gap-2">
           พนักงานขาย
           <Select
             value={salespersonId}
@@ -330,7 +330,7 @@ export default function MyTerritoryPage() {
             ))}
           </Select>
         </label>
-        <label className="text-sm font-medium text-zinc-600 flex items-center gap-2">
+        <label className="text-sm font-medium text-text-secondary flex items-center gap-2">
           กลุ่มสินค้า
           <Select
             value={productTypeId}
@@ -345,7 +345,7 @@ export default function MyTerritoryPage() {
             ))}
           </Select>
         </label>
-        <label className="text-sm font-medium text-zinc-600 flex items-center gap-2">
+        <label className="text-sm font-medium text-text-secondary flex items-center gap-2">
           จังหวัด
           <Select
             value={provinceMappingId}
@@ -360,7 +360,7 @@ export default function MyTerritoryPage() {
             ))}
           </Select>
         </label>
-        <label className="inline-flex items-center gap-2 text-sm text-zinc-700 cursor-pointer pb-1.5">
+        <label className="inline-flex items-center gap-2 text-sm text-text-secondary cursor-pointer pb-1.5">
           <input
             type="checkbox"
             checked={creditOnly}
@@ -378,7 +378,7 @@ export default function MyTerritoryPage() {
         </p>
       )}
       {ownCreditOnly && (
-        <p className="text-sm text-zinc-600">
+        <p className="text-sm text-text-secondary">
           เขตที่ดูแล:{" "}
           {view?.territories.length
             ? view.territories.map((territory) => territory.displayName).join(", ")
@@ -387,7 +387,7 @@ export default function MyTerritoryPage() {
         </p>
       )}
       {view && !fallback && !ownCreditOnly && (
-        <p className="text-sm text-zinc-600">
+        <p className="text-sm text-text-secondary">
           เขตที่ดูแล:{" "}
           {view.territories.length
             ? view.territories.map((territory) => territory.displayName).join(", ")
@@ -418,7 +418,7 @@ export default function MyTerritoryPage() {
 
         <TabsContent value="sold" className="mt-4 space-y-3">
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <p className="text-sm text-zinc-600">{TAB_DESCRIPTIONS.sold}</p>
+            <p className="text-sm text-text-secondary">{TAB_DESCRIPTIONS.sold}</p>
             <ExportButton
               label="ส่งออก Excel"
               onExport={exportSoldChurned}
@@ -437,7 +437,7 @@ export default function MyTerritoryPage() {
 
         <TabsContent value="churned" className="mt-4 space-y-3">
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <p className="text-sm text-zinc-600">{TAB_DESCRIPTIONS.churned}</p>
+            <p className="text-sm text-text-secondary">{TAB_DESCRIPTIONS.churned}</p>
             <ExportButton
               label="ส่งออก Excel"
               onExport={exportSoldChurned}
@@ -456,7 +456,7 @@ export default function MyTerritoryPage() {
 
         <TabsContent value="never-sold" className="mt-4 space-y-3">
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <p className="text-sm text-zinc-600">
+            <p className="text-sm text-text-secondary">
               {TAB_DESCRIPTIONS["never-sold"]}
               {neverSoldView ? ` · เกณฑ์ศักยภาพ: ${potentialMetricLabel(neverSoldView.potentialMetric)}` : ""}
             </p>
@@ -494,7 +494,7 @@ function neverSoldTableColumns(
       mobileRole: "identity",
       sortable: true,
       sortValue: (row) => row.displayName,
-      render: (row) => <span className="font-medium text-zinc-900">{row.displayName}</span>,
+      render: (row) => <span className="font-medium text-text-primary">{row.displayName}</span>,
     },
     {
       key: "province",

@@ -27,7 +27,7 @@ export interface SupplementaryKpisPanelProps {
 function SectionHeader({ metric, onDrillDown }: { metric: SupplementaryKpiMetric; onDrillDown: () => void }) {
   return (
     <div className="flex items-center justify-between gap-2">
-      <h3 className="font-medium text-zinc-900">{SUPPLEMENTARY_METRIC_LABEL_TH[metric]}</h3>
+      <h3 className="font-medium text-text-primary">{SUPPLEMENTARY_METRIC_LABEL_TH[metric]}</h3>
       <Button
         type="button"
         variant="outline"
@@ -67,7 +67,7 @@ export function SupplementaryKpisPanel({
           onDrillDown={() => onDrillDown("CHURNED_CUSTOMERS")}
         >
           {supplementary.churnedCustomers.hospitals.length > 0 && (
-            <ul className="mt-2 max-h-32 space-y-0.5 overflow-auto text-xs text-zinc-600">
+            <ul className="mt-2 max-h-32 space-y-0.5 overflow-auto text-xs text-text-secondary">
               {supplementary.churnedCustomers.hospitals.map((h) => (
                 <li key={h.hospitalId}>
                   ไม่สั่งมา {h.monthsSinceLastOrder} เดือน (สั่งล่าสุด {formatThaiMonth(h.lastOrderMonth)} {h.lastOrderYear})
@@ -86,7 +86,7 @@ export function SupplementaryKpisPanel({
           onDrillDown={() => onDrillDown("PRODUCT_PENETRATION")}
         >
           {showProductGroupList && supplementary.productPenetration.productTypeGroupsSold.length > 0 && (
-            <ul className="mt-2 max-h-32 space-y-0.5 overflow-auto text-xs text-zinc-600">
+            <ul className="mt-2 max-h-32 space-y-0.5 overflow-auto text-xs text-text-secondary">
               {supplementary.productPenetration.productTypeGroupsSold.map((g) => (
                 <li key={g.productTypeId}>
                   {g.name}: {formatKpiNumber(g.revenueShare)}%
@@ -101,13 +101,13 @@ export function SupplementaryKpisPanel({
         <Card className="p-4">
           <SectionHeader metric="REVENUE_BY_HOSPITAL" onDrillDown={() => onDrillDown("REVENUE_BY_HOSPITAL")} />
           {supplementary.revenueShareByHospital.length === 0 ? (
-            <p className="mt-2 text-sm text-zinc-400">ไม่มีข้อมูล</p>
+            <p className="mt-2 text-sm text-text-muted">ไม่มีข้อมูล</p>
           ) : (
-            <ul className="mt-2 max-h-32 space-y-0.5 overflow-auto text-xs text-zinc-600">
+            <ul className="mt-2 max-h-32 space-y-0.5 overflow-auto text-xs text-text-secondary">
               {supplementary.revenueShareByHospital.map((h) => (
                 <li key={h.hospitalId} className="flex justify-between gap-2">
                   <span className="truncate">{h.hospitalName}</span>
-                  <span className="shrink-0">
+                  <span className="shrink-0 font-numeric">
                     {formatMoney(String(h.revenue))} บาท ({formatKpiNumber(h.sharePercent)}%)
                   </span>
                 </li>
@@ -121,15 +121,15 @@ export function SupplementaryKpisPanel({
         <Card className="p-4 lg:col-span-2">
           <SectionHeader metric="MONTHLY_TREND" onDrillDown={() => onDrillDown("MONTHLY_TREND")} />
           {supplementary.monthlyRevenueTrend.length === 0 ? (
-            <p className="mt-2 text-sm text-zinc-400">ไม่มีข้อมูล</p>
+            <p className="mt-2 text-sm text-text-muted">ไม่มีข้อมูล</p>
           ) : (
-            <div className="mt-2 flex gap-3 overflow-x-auto text-xs text-zinc-600">
+            <div className="mt-2 flex gap-3 overflow-x-auto text-xs text-text-secondary">
               {supplementary.monthlyRevenueTrend.map((m) => (
-                <div key={`${m.year}-${m.month}`} className="shrink-0 rounded border border-zinc-100 px-2 py-1 text-center">
+                <div key={`${m.year}-${m.month}`} className="shrink-0 rounded border border-border bg-surface-subtle px-2 py-1 text-center">
                   <p className="whitespace-nowrap">
                     {formatThaiMonth(m.month)} {m.year}
                   </p>
-                  <p className="font-medium text-zinc-900">{formatMoney(String(m.revenue))}</p>
+                  <p className="font-medium text-text-primary font-numeric">{formatMoney(String(m.revenue))}</p>
                 </div>
               ))}
             </div>

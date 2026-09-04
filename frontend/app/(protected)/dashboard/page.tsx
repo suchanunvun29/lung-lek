@@ -15,7 +15,8 @@
  * account sees the existing banner — nobody sees a stranger's numbers under their own name.
  */
 
-import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState, useTransition } from "react";
 import { getDerivedTarget } from "@/features/territories/api/territories.api";
 import { getSalespersonKpi, getTeamKpi } from "@/features/kpi/api/kpi.api";
 import { listSalespeople } from "@/features/master-data/api/master-data.api";
@@ -62,7 +63,24 @@ const PANEL_EXCLUDED_METRICS = [
   "MONTHLY_TREND",
 ] as const;
 
+const VALID_DRILL_METRICS = new Set<string>([
+  "REVENUE_VS_TARGET",
+  "NEW_CUSTOMERS",
+  "PRODUCT_GROUP",
+  "RETENTION",
+  "CONSISTENCY",
+  "ACTIVE_CUSTOMERS",
+  "CHURNED_CUSTOMERS",
+  "PRODUCT_PENETRATION",
+  "REVENUE_BY_HOSPITAL",
+  "MONTHLY_TREND",
+]);
+
 export default function DashboardPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [, startTransition] = useTransition();
+
   const token = useAuthStore((state) => state.token);
   const currentUser = useAuthStore((state) => state.user);
 
@@ -77,7 +95,28 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
-  const [drillDownMetric, setDrillDownMetric] = useState<DrillDownMetric | null>(null);
+
+  // WACC-P3-005: drill-down driven by ?drill=<metric>
+  const drillParam = searchParams.get("drill");
+  const drillDownMetric: DrillDownMetric | null =
+    drillParam && VALID_DRILL_METRICS.has(drillParam)
+      ? (drillParam as DrillDownMetric)
+      : null;
+
+  const setDrillDownMetric = (metric: DrillDownMetric | null) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (metric) {
+      params.set("drill", metric);
+    } else {
+      params.delete("drill");
+    }
+    const newQuery = params.toString();
+    const newUrl = newQuery ? `?${newQuery}` : window.location.pathname;
+    startTransition(() => {
+      router.replace(newUrl, { scroll: false });
+    });
+  };
+
   const [accountNotLinked, setAccountNotLinked] = useState(false);
   const [derivedTarget, setDerivedTarget] = useState<DerivedTarget | null>(null);
   const [derivedError, setDerivedError] = useState(false);
@@ -268,11 +307,11 @@ export default function DashboardPage() {
               comparison={
                 <>
                   {/* Business rule B: the "คิดจาก N จาก 5 เกณฑ์" label stays visible next to the score. */}
-                  <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-700">
+                  <span className="rounded-full bg-surface-subtle px-2.5 py-1 text-xs font-medium text-text-secondary">
                     {composite!.computedFromLabel}
                   </span>
                   {teamCompositeAverage !== null && composite!.composite !== null && (
-                    <p className="mt-1.5 text-xs text-zinc-600">
+                    <p className="mt-1.5 text-xs text-text-secondary">
                       ค่าเฉลี่ยทีม {formatScore(teamCompositeAverage)}
                       {compositeDelta !== null &&
                         (compositeDelta === 0
@@ -309,7 +348,7 @@ export default function DashboardPage() {
             (derivedTarget ? (
               <DerivedTargetCard target={derivedTarget} />
             ) : derivedError ? (
-              <p className="text-sm text-zinc-500">ไม่สามารถโหลดเป้ารายคนที่คำนวณแล้วได้</p>
+              <p className="text-sm text-text-muted">ไม่สามารถโหลดเป้ารายคนที่คำนวณแล้วได้</p>
             ) : null)}
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -345,7 +384,7 @@ export default function DashboardPage() {
 
           {/* Level 4 — deep-dive */}
           <details className="rounded-lg border border-border bg-surface p-4">
-            <summary className="cursor-pointer text-sm font-semibold text-[var(--text-primary)]">
+            <summary className="cursor-pointer text-sm font-semibold text-text-primary">
               เจาะลึก — Coaching และตัวชี้วัดเพิ่มเติม
             </summary>
             <div className="mt-4 space-y-4">
@@ -356,7 +395,7 @@ export default function DashboardPage() {
               />
 
               <div>
-                <h2 className="mb-2 text-lg font-semibold text-zinc-900">ตัวชี้วัดเพิ่มเติม (ไม่คิดคะแนน)</h2>
+                <h2 className="mb-2 text-lg font-semibold text-text-primary">ตัวชี้วัดเพิ่มเติม (ไม่คิดคะแนน)</h2>
                 <SupplementaryKpisPanel
                   supplementary={kpi.supplementary}
                   onDrillDown={(metric) => setDrillDownMetric(metric)}

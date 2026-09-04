@@ -73,7 +73,7 @@ function OfferRow({
 export function AcceptOffersPanel({ totals, existingByTerritoryId, savingTerritoryId, onSave }: AcceptOffersPanelProps) {
   if (totals.length === 0) {
     return (
-      <p className="rounded-lg border border-zinc-200 bg-white p-4 text-sm text-zinc-500">
+      <p className="rounded-lg border border-border bg-surface p-4 text-sm text-text-muted">
         ยังไม่มีตัวเลขข้อเสนอต่อเขตในงวดนี้
       </p>
     );

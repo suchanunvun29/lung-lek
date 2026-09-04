@@ -193,7 +193,7 @@ export default function NameReviewsPage() {
       )}
 
       {loading ? (
-        <p className="mt-6 text-zinc-400">กำลังโหลด...</p>
+        <p className="mt-6 text-text-muted">กำลังโหลด...</p>
       ) : (
       <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)}>
         <div className="overflow-x-auto">
@@ -219,14 +219,14 @@ export default function NameReviewsPage() {
         </TabsContent>
 
         <TabsContent value="credits" className="mt-4">
-          <p className="mb-3 text-sm text-zinc-600">
+          <p className="mb-3 text-sm text-text-secondary">
             กติกาแบ่งเครดิตใช้กับดีลที่มีพนักงานขายร่วมกัน — สัดส่วนรวมต้องเท่ากับ 100%
           </p>
           <SalesmanNameRuleTable rules={salesmanRules} onSave={handleRuleSave} />
         </TabsContent>
 
         <TabsContent value="salesmen" className="mt-4">
-          <p className="mb-3 text-sm text-zinc-600">
+          <p className="mb-3 text-sm text-text-secondary">
             การ “รวม” จะย้ายดีล/เครดิตทั้งหมดไปยังคนเป้าหมายแล้วลบแถวที่ถูกสร้างซ้ำ — ตัดสินแล้วจะไม่ถามซ้ำ
           </p>
           <SalesmanNameReviewTable

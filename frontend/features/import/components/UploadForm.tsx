@@ -41,7 +41,7 @@ export function UploadForm({ onUpload, disabled }: UploadFormProps) {
   }
 
   return (
-    <div className="rounded-lg border border-zinc-200 bg-white p-6">
+    <div className="rounded-lg border border-border bg-surface p-6">
       <div
         onDragOver={(e) => {
           e.preventDefault();
@@ -55,7 +55,7 @@ export function UploadForm({ onUpload, disabled }: UploadFormProps) {
         }}
         onClick={() => inputRef.current?.click()}
         className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-10 text-center transition-colors ${
-          isDragging ? "border-zinc-900 bg-zinc-50" : "border-zinc-300"
+          isDragging ? "border-primary bg-surface-subtle" : "border-border"
         }`}
       >
         <input
@@ -65,20 +65,20 @@ export function UploadForm({ onUpload, disabled }: UploadFormProps) {
           className="hidden"
           onChange={(e) => pickFile(e.target.files?.[0])}
         />
-        <p className="text-sm font-medium text-zinc-700">
+        <p className="text-sm font-medium text-text-primary">
           {selectedFile ? selectedFile.name : "ลากไฟล์มาวางที่นี่ หรือคลิกเพื่อเลือกไฟล์"}
         </p>
-        <p className="text-xs text-zinc-400">รองรับไฟล์ .xlsx เท่านั้น ขนาดไม่เกิน 20MB</p>
+        <p className="text-xs text-text-muted">รองรับไฟล์ .xlsx เท่านั้น ขนาดไม่เกิน 20MB</p>
       </div>
 
-      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+      {error && <p className="mt-3 text-sm text-danger">{error}</p>}
 
       <div className="mt-4 flex justify-end">
         <Button
           type="button"
           disabled={!selectedFile || isUploading || disabled}
           onClick={() => void handleUploadClick()}
-          className="bg-zinc-900 text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+          className="disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isUploading ? "กำลังนำเข้า..." : "นำเข้าไฟล์"}
         </Button>

@@ -59,7 +59,7 @@ function AdjustmentCell({ registry, saving, onSave }: { registry: HospitalRegist
   if (!editing) {
     return (
       <div className="flex items-center gap-2">
-        <span className={registry.potentialAdjustment === "0" ? "font-medium text-amber-700" : "text-zinc-700"}>
+        <span className={registry.potentialAdjustment === "0" ? "font-medium text-warning" : "text-text-secondary"}>
           {formatDecimal(registry.potentialAdjustment)}
         </span>
         <Button
@@ -97,7 +97,7 @@ function AdjustmentCell({ registry, saving, onSave }: { registry: HospitalRegist
           size="sm"
           disabled={!valid || saving}
           onClick={() => void handleSave()}
-          className="bg-zinc-900 text-white hover:bg-zinc-800 text-xs px-2 py-1"
+          className="text-xs px-2 py-1"
         >
           {saving ? "..." : "บันทึก"}
         </Button>
@@ -135,7 +135,7 @@ export function HospitalRegistryTable({
     {
       key: "sourceCode",
       header: "รหัส ร.พ.",
-      render: (registry) => <span className="font-mono text-zinc-700">{registry.sourceCode ?? "—"}</span>,
+      render: (registry) => <span className="font-mono text-text-secondary">{registry.sourceCode ?? "—"}</span>,
       priority: 2,
       mobileRole: "meta",
     },
@@ -144,9 +144,9 @@ export function HospitalRegistryTable({
       header: "โรงพยาบาล",
       render: (registry) => (
         <div className="min-w-0">
-          <p className="font-medium text-zinc-900">{registry.displayName}</p>
+          <p className="font-medium text-text-primary">{registry.displayName}</p>
           {registry.nameInFile !== registry.displayName && (
-            <p className="mt-0.5 truncate text-xs text-zinc-500">{registry.nameInFile}</p>
+            <p className="mt-0.5 truncate text-xs text-text-muted">{registry.nameInFile}</p>
           )}
         </div>
       ),
@@ -158,8 +158,8 @@ export function HospitalRegistryTable({
       header: "จังหวัด / ภาค",
       render: (registry) => (
         <div>
-          <p className="text-zinc-600">{registry.provinceMapping?.canonicalName ?? (registry.provinceRaw || "—")}</p>
-          {registry.region && <p className="mt-0.5 text-xs text-zinc-500">{registry.region.name}</p>}
+          <p className="text-text-secondary">{registry.provinceMapping?.canonicalName ?? (registry.provinceRaw || "—")}</p>
+          {registry.region && <p className="mt-0.5 text-xs text-text-muted">{registry.region.name}</p>}
         </div>
       ),
       priority: 3,
@@ -170,8 +170,8 @@ export function HospitalRegistryTable({
       header: "เขตสุขภาพ / ระดับ",
       render: (registry) => (
         <div>
-          <p className="text-zinc-600">{registry.healthZone ?? "—"}</p>
-          {registry.tier && <p className="mt-0.5 text-xs text-zinc-500">{registry.tier}</p>}
+          <p className="text-text-secondary">{registry.healthZone ?? "—"}</p>
+          {registry.tier && <p className="mt-0.5 text-xs text-text-muted">{registry.tier}</p>}
         </div>
       ),
       priority: 3,
@@ -181,7 +181,7 @@ export function HospitalRegistryTable({
       key: "beds",
       header: POTENTIAL_METRIC_LABEL_TH.BEDS,
       numeric: true,
-      render: (registry) => <span className="text-zinc-700">{formatMetric(metricValue(registry))}</span>,
+      render: (registry) => <span className="text-text-secondary">{formatMetric(metricValue(registry))}</span>,
       priority: 2,
       mobileRole: "meta",
     },

@@ -34,7 +34,7 @@ export function TerritoryGroupKpiTable({ groups }: TerritoryGroupKpiTableProps) 
       mobileRole: "identity",
       sortable: true,
       sortValue: (row) => row.name,
-      render: (row) => <span className="font-medium text-zinc-900">{row.name}</span>,
+      render: (row) => <span className="font-medium text-text-primary">{row.name}</span>,
     },
     {
       key: "owners",
@@ -42,7 +42,7 @@ export function TerritoryGroupKpiTable({ groups }: TerritoryGroupKpiTableProps) 
       priority: 3,
       sortable: true,
       sortValue: (row) => row.ownerNames.join(", ") || null,
-      render: (row) => <span className="text-zinc-600">{ownerLabel(row.ownerNames)}</span>,
+      render: (row) => <span className="text-text-secondary">{ownerLabel(row.ownerNames)}</span>,
     },
     {
       key: "revenue",
@@ -52,7 +52,7 @@ export function TerritoryGroupKpiTable({ groups }: TerritoryGroupKpiTableProps) 
       sortValue: (row) => (row.visibility === "TERRITORY_FULL" ? row.revenue : null),
       render: (row) =>
         row.visibility === "TERRITORY_FULL" ? (
-          formatMoney(row.revenue)
+          <span className="font-numeric">{formatMoney(row.revenue)}</span>
         ) : (
           <RestrictedValue visibility={row.visibility} />
         ),
@@ -70,7 +70,7 @@ export function TerritoryGroupKpiTable({ groups }: TerritoryGroupKpiTableProps) 
         ) : row.revenueTarget === null ? (
           "—"
         ) : (
-          formatMoney(row.revenueTarget)
+          <span className="font-numeric">{formatMoney(row.revenueTarget)}</span>
         ),
     },
     {
@@ -96,10 +96,10 @@ export function TerritoryGroupKpiTable({ groups }: TerritoryGroupKpiTableProps) 
       sortValue: (row) => row.compositeScore,
       render: (row) => (
         <div>
-          <p className="font-semibold text-zinc-900">
+          <p className="font-semibold text-text-primary font-numeric">
             {row.compositeScore === null ? "—" : row.compositeScore.toLocaleString("th-TH", { maximumFractionDigits: 1 })}
           </p>
-          <p className="mt-1 text-xs text-zinc-500">{row.computedMetricLabel}</p>
+          <p className="mt-1 text-xs text-text-muted">{row.computedMetricLabel}</p>
         </div>
       ),
     },

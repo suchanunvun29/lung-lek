@@ -29,7 +29,7 @@ export function PeriodSelector({ value, onChange }: PeriodSelectorProps) {
 
   return (
     <div className="flex flex-wrap items-center gap-2 text-sm">
-      <label className="font-medium text-zinc-600">รอบ</label>
+      <label className="font-medium text-text-secondary">รอบ</label>
       <Select
         value={value.periodType}
         onChange={(e) => handlePeriodTypeChange(e.target.value as PeriodType)}
@@ -42,7 +42,7 @@ export function PeriodSelector({ value, onChange }: PeriodSelectorProps) {
         ))}
       </Select>
 
-      <label className="font-medium text-zinc-600">ปี</label>
+      <label className="font-medium text-text-secondary">ปี</label>
       <Select
         value={value.year}
         onChange={(e) => onChange({ ...value, year: Number(e.target.value) })}

@@ -77,7 +77,7 @@ export function CoachingInsightPanel({
     <Card className="p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-sm font-medium text-zinc-500">สรุปจุดแข็ง–จุดที่ควรพัฒนา (AI Coaching)</h2>
+          <h2 className="text-sm font-medium text-text-muted">สรุปจุดแข็ง–จุดที่ควรพัฒนา (AI Coaching)</h2>
           <div className="mt-1 flex flex-wrap items-center gap-2">
             {insight && (
               <span
@@ -98,7 +98,6 @@ export function CoachingInsightPanel({
           type="button"
           onClick={handleGenerate}
           disabled={!canGenerate || generating || loading}
-          className="bg-zinc-900 text-white hover:bg-zinc-800"
           size="sm"
         >
           {generating ? "กำลังสร้าง..." : insight ? "สร้างใหม่" : "สร้างสรุป"}
@@ -106,34 +105,34 @@ export function CoachingInsightPanel({
       </div>
 
       {!canGenerate && (
-        <p className="mt-2 text-xs text-zinc-500">
+        <p className="mt-2 text-xs text-text-muted">
           คุณไม่มีสิทธิ์สั่งสร้างสรุปนี้
         </p>
       )}
 
-      {loadError && <p className="mt-3 text-sm text-red-600">{loadError}</p>}
-      {generateError && <p className="mt-3 text-sm text-red-600">{generateError}</p>}
+      {loadError && <p className="mt-3 text-sm text-danger">{loadError}</p>}
+      {generateError && <p className="mt-3 text-sm text-danger">{generateError}</p>}
 
-      {loading && <p className="mt-4 text-zinc-400">กำลังโหลด...</p>}
+      {loading && <p className="mt-4 text-text-muted">กำลังโหลด...</p>}
 
       {!loading && !insight && !loadError && (
-        <p className="mt-4 text-sm text-zinc-500">ยังไม่มีสรุปสำหรับงวดนี้</p>
+        <p className="mt-4 text-sm text-text-muted">ยังไม่มีสรุปสำหรับงวดนี้</p>
       )}
 
       {!loading && insight && (
         <div className="mt-4 space-y-3">
           {insight.status === "FAILED" && (
-            <p className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            <p className="rounded-md bg-warning-subtle border border-warning/30 px-3 py-2 text-xs text-warning">
               เรียก AI ไม่สำเร็จ{insight.errorMessage ? `: ${insight.errorMessage}` : ""} — แสดงสรุปที่คำนวณจากกฎแทน
             </p>
           )}
 
-          <p className="whitespace-pre-line text-sm leading-relaxed text-zinc-800">
+          <p className="whitespace-pre-line text-sm leading-relaxed text-text-primary">
             {insight.contentTh ?? "ยังไม่มีเนื้อหาสรุป"}
           </p>
 
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-zinc-100 pt-3">
-            <p className="text-xs text-zinc-500">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
+            <p className="text-xs text-text-muted">
               สร้างโดย {providerLabelTh(insight.provider)} · {formatDateTimeTh(insight.generatedAt)}
             </p>
             <Button

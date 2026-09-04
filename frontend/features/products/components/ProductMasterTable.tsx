@@ -139,7 +139,7 @@ export function ProductMasterTable({ products, canEdit, onSave }: ProductMasterT
           return (
             <span
               className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                product.isActive ? "bg-emerald-100 text-emerald-700" : "bg-zinc-200 text-zinc-600"
+                product.isActive ? "bg-emerald-100 text-emerald-800" : "bg-surface-subtle text-text-muted border border-border"
               }`}
             >
               {product.isActive ? "ใช้งาน" : "ไม่ใช้งาน"}

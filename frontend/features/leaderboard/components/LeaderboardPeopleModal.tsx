@@ -57,8 +57,8 @@ export function LeaderboardPeopleModal({ token, criteria, period, unit, onClose 
       onClose={onClose}
       widthClassName="max-w-2xl"
     >
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      {loading && !error && <p className="text-sm text-zinc-400">กำลังโหลด...</p>}
+      {error && <p className="text-sm text-danger">{error}</p>}
+      {loading && !error && <p className="text-sm text-text-muted">กำลังโหลด...</p>}
 
       {!loading && !error && data === null && (
         <EmptyState
@@ -70,42 +70,42 @@ export function LeaderboardPeopleModal({ token, criteria, period, unit, onClose 
 
       {!loading && !error && data?.mode === "FULL" && (
         <ul className="space-y-2">
-          {data.results.length === 0 && <li className="text-sm text-zinc-400">ยังไม่มีผู้ดูแลที่มีผลอยู่</li>}
+          {data.results.length === 0 && <li className="text-sm text-text-muted">ยังไม่มีผู้ดูแลที่มีผลอยู่</li>}
           {data.results.map((row) => (
-            <li key={row.salesperson.id} className="rounded-lg border border-zinc-200 px-4 py-3 text-sm">
+            <li key={row.salesperson.id} className="rounded-lg border border-border bg-surface px-4 py-3 text-sm">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="font-medium text-zinc-900">{row.salesperson.displayName}</span>
-                <span className="font-semibold">
+                <span className="font-medium text-text-primary">{row.salesperson.displayName}</span>
+                <span className="font-semibold text-text-primary">
                   {row.composite.composite !== null ? `${row.composite.composite.toFixed(2)} คะแนน` : "—"}
                 </span>
               </div>
-              <p className="mt-1 text-xs text-zinc-500">{row.composite.computedFromLabel}</p>
+              <p className="mt-1 text-xs text-text-secondary">{row.composite.computedFromLabel}</p>
             </li>
           ))}
         </ul>
       )}
 
       {!loading && !error && data?.mode === "SELF_SUMMARY" && (
-        <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+        <div className="rounded-lg border border-warning/30 bg-warning-subtle p-4 text-sm text-warning">
           <p className="font-semibold">สรุปเฉพาะของคุณในเขตนี้</p>
-          <p className="mt-1 text-xs text-amber-700">
+          <p className="mt-1 text-xs opacity-90">
             สิทธิ์การดูของคุณจำกัดเฉพาะอันดับและสถิติของตัวเองเทียบค่าเฉลี่ยทีม — ไม่มีรายชื่อของผู้อื่นในการตอบนี้
           </p>
           <dl className="mt-3 grid gap-3 sm:grid-cols-2">
             <div>
-              <dt className="text-amber-700">อันดับของคุณตามเกณฑ์</dt>
+              <dt className="text-xs opacity-80">อันดับของคุณตามเกณฑ์</dt>
               <dd className="font-semibold">{data.rank !== null ? `${data.rank} จาก ${data.totalRanked}` : data.reason ?? "คำนวณไม่ได้"}</dd>
             </div>
             <div>
-              <dt className="text-amber-700">ค่าของคุณตามเกณฑ์</dt>
+              <dt className="text-xs opacity-80">ค่าของคุณตามเกณฑ์</dt>
               <dd className="font-semibold">{data.ownComputable && data.ownValue !== null ? data.ownValue.toFixed(2) : data.reason ?? "—"}</dd>
             </div>
             <div>
-              <dt className="text-amber-700">คะแนนรวมเฉลี่ยทีม</dt>
+              <dt className="text-xs opacity-80">คะแนนรวมเฉลี่ยทีม</dt>
               <dd className="font-semibold">{data.teamAverage !== null ? data.teamAverage.toFixed(2) : "—"}</dd>
             </div>
             <div>
-              <dt className="text-amber-700">จำนวนคนที่คำนวณเกณฑ์นี้ได้จริง</dt>
+              <dt className="text-xs opacity-80">จำนวนคนที่คำนวณเกณฑ์นี้ได้จริง</dt>
               <dd className="font-semibold">{data.totalRanked}</dd>
             </div>
           </dl>

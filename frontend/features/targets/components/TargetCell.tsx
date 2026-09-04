@@ -78,7 +78,7 @@ export function TargetCell({
 
   if (editing && draft) {
     return (
-      <div className={`space-y-1 rounded border border-zinc-300 bg-white p-1.5 ${wide ? "w-full" : "w-32"}`}>
+      <div className={`space-y-1 rounded border border-border bg-surface p-1.5 ${wide ? "w-full" : "w-32"}`}>
         <Input
           type="number"
           min={0}
@@ -99,13 +99,13 @@ export function TargetCell({
           placeholder="ลูกค้าใหม่"
           aria-label="เป้าลูกค้าใหม่"
         />
-        {error && <p className="text-[10px] text-red-600">{error}</p>}
+        {error && <p className="text-[10px] text-danger">{error}</p>}
         <div className="flex gap-1">
           <Button
             type="button"
             onClick={() => void handleSave()}
             disabled={saving}
-            className="flex-1 bg-zinc-900 text-white hover:bg-zinc-800 text-[10px] px-1.5 py-1 h-auto"
+            className="flex-1 text-[10px] px-1.5 py-1 h-auto"
           >
             บันทึก
           </Button>
@@ -130,15 +130,15 @@ export function TargetCell({
     <div
       className={`${wide ? "w-full" : "w-32"} rounded border p-1.5 text-xs ${
         target
-          ? "border-transparent bg-white"
-          : "border-dashed border-amber-400 bg-amber-50/70"
-      } ${canEdit && !saving ? "cursor-pointer hover:border-zinc-400 hover:bg-zinc-50" : ""}`}
+          ? "border-transparent bg-surface"
+          : "border-dashed border-warning/40 bg-warning-subtle"
+      } ${canEdit && !saving ? "cursor-pointer hover:border-border-strong hover:bg-surface-subtle" : ""}`}
       onClick={startEdit}
     >
       {target ? (
         <>
-          <p className="font-medium text-zinc-900">{formatTargetMoney(target.revenueTarget)} บาท</p>
-          <p className="text-zinc-500">ลูกค้าใหม่ {target.newCustomerTarget} ราย</p>
+          <p className="font-medium text-text-primary font-numeric">{formatTargetMoney(target.revenueTarget)} บาท</p>
+          <p className="text-text-muted">ลูกค้าใหม่ {target.newCustomerTarget} ราย</p>
           {(onOpenProductGroups || onViewHistory) && (
             <div className="mt-1 flex gap-2 text-[10px]">
               {onOpenProductGroups && (
@@ -148,7 +148,7 @@ export function TargetCell({
                     e.stopPropagation();
                     onOpenProductGroups();
                   }}
-                  className="text-zinc-600 underline hover:text-zinc-900 cursor-pointer"
+                  className="text-text-secondary underline hover:text-text-primary cursor-pointer"
                 >
                   กลุ่มสินค้า
                 </button>
@@ -160,7 +160,7 @@ export function TargetCell({
                     e.stopPropagation();
                     onViewHistory();
                   }}
-                  className="text-zinc-600 underline hover:text-zinc-900 cursor-pointer"
+                  className="text-text-secondary underline hover:text-text-primary cursor-pointer"
                 >
                   ประวัติ
                 </button>
@@ -169,7 +169,7 @@ export function TargetCell({
           )}
         </>
       ) : (
-        <p className="text-amber-700">{canEdit ? "คลิกเพื่อตั้งเป้า" : "ยังไม่ได้ตั้งเป้า"}</p>
+        <p className="text-warning font-medium">{canEdit ? "คลิกเพื่อตั้งเป้า" : "ยังไม่ได้ตั้งเป้า"}</p>
       )}
     </div>
   );

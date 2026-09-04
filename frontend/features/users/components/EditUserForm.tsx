@@ -41,7 +41,7 @@ export function EditUserForm({ user, onSubmit, onCancel }: EditUserFormProps) {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <label htmlFor="edit-displayName" className="text-sm font-medium text-zinc-700">
+        <label htmlFor="edit-displayName" className="text-sm font-medium text-text-primary">
           ชื่อที่แสดง
         </label>
         <Input
@@ -53,7 +53,7 @@ export function EditUserForm({ user, onSubmit, onCancel }: EditUserFormProps) {
         />
       </div>
       <div className="flex flex-col gap-1">
-        <label htmlFor="edit-role" className="text-sm font-medium text-zinc-700">
+        <label htmlFor="edit-role" className="text-sm font-medium text-text-primary">
           บทบาท
         </label>
         <Select
@@ -65,18 +65,18 @@ export function EditUserForm({ user, onSubmit, onCancel }: EditUserFormProps) {
           <option value="MANAGER">ผู้จัดการ</option>
         </Select>
       </div>
-      <label className="flex items-center gap-2 text-sm font-medium text-zinc-700 cursor-pointer">
+      <label className="flex items-center gap-2 text-sm font-medium text-text-primary cursor-pointer">
         <input
           type="checkbox"
           checked={isActive}
           onChange={(event) => setIsActive(event.target.checked)}
-          className="h-4 w-4 rounded border-zinc-300 cursor-pointer"
+          className="h-4 w-4 rounded border-border cursor-pointer accent-primary"
         />
         เปิดใช้งานบัญชีนี้
       </label>
 
-      <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3">
-        <p className="text-sm text-zinc-700">
+      <div className="rounded-md border border-border bg-surface-subtle p-3">
+        <p className="text-sm text-text-primary">
           ผูกกับพนักงานขาย:{" "}
           <span className="font-medium">
             {user.salesperson ? user.salesperson.displayName : "ยังไม่ได้ผูก"}
@@ -87,18 +87,18 @@ export function EditUserForm({ user, onSubmit, onCancel }: EditUserFormProps) {
             type="button"
             disabled={loading}
             onClick={() => void submitChanges({ salespersonId: null })}
-            className="mt-2 text-sm text-red-600 hover:underline disabled:opacity-50 cursor-pointer"
+            className="mt-2 text-sm text-danger hover:underline disabled:opacity-50 cursor-pointer"
           >
             ยกเลิกการผูก
           </button>
         ) : (
-          <p className="mt-1 text-xs text-zinc-500">
+          <p className="mt-1 text-xs text-text-muted">
             จะเลือกผูกได้หลังนำเข้าข้อมูลการขาย เมื่อรายชื่อพนักงานขายเข้าระบบแล้ว
           </p>
         )}
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-danger">{error}</p>}
       <div className="mt-2 flex justify-end gap-2">
         <Button
           type="button"
@@ -110,7 +110,6 @@ export function EditUserForm({ user, onSubmit, onCancel }: EditUserFormProps) {
         <Button
           type="submit"
           disabled={loading}
-          className="bg-zinc-900 text-white hover:bg-zinc-800"
         >
           {loading ? "กำลังบันทึก..." : "บันทึก"}
         </Button>

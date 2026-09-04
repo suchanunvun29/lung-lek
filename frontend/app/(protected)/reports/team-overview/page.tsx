@@ -88,7 +88,7 @@ export default function TeamOverviewReportPage() {
     {
       key: "displayName",
       header: "พนักงานขาย",
-      render: (entry) => <span className="font-medium text-zinc-900">{entry.salesperson.displayName}</span>,
+      render: (entry) => <span className="font-medium text-text-primary">{entry.salesperson.displayName}</span>,
       sortable: true,
       sortValue: (entry) => entry.salesperson.displayName,
       priority: 1,
@@ -102,11 +102,11 @@ export default function TeamOverviewReportPage() {
       sortValue: (entry) => entry.composite.composite,
       render: (entry) =>
         entry.composite.composite !== null ? (
-          <span className="font-semibold text-zinc-900">
-            {formatScore(entry.composite.composite)} <span className="text-xs font-normal text-zinc-400">/ 100</span>
+          <span className="font-semibold text-text-primary">
+            {formatScore(entry.composite.composite)} <span className="text-xs font-normal text-text-muted">/ 100</span>
           </span>
         ) : (
-          <span className="text-xs text-amber-700">{entry.composite.message ?? "คำนวณไม่ได้"}</span>
+          <span className="text-xs text-warning">{entry.composite.message ?? "คำนวณไม่ได้"}</span>
         ),
       priority: 1,
       mobileRole: "metric",
@@ -115,7 +115,7 @@ export default function TeamOverviewReportPage() {
       // Business rule B — "คิดจาก N จาก 5 เกณฑ์" per row.
       key: "computedFrom",
       header: "คิดจากเกณฑ์",
-      render: (entry) => <span className="text-xs text-zinc-500">{entry.composite.computedFromLabel}</span>,
+      render: (entry) => <span className="text-xs text-text-muted">{entry.composite.computedFromLabel}</span>,
       priority: 2,
       mobileRole: "meta",
     },
@@ -126,7 +126,7 @@ export default function TeamOverviewReportPage() {
       render: (entry) => {
         const result = entry.composite.metrics.find((m) => m.metric === metric);
         if (result?.computable && result.score !== null) {
-          return <span className="text-zinc-700">{formatScore(result.score)}</span>;
+          return <span className="text-text-secondary">{formatScore(result.score)}</span>;
         }
         // Not-computable criteria show the server's reason, never an empty cell.
         return <MetricReason reason={result?.reason ?? "คำนวณไม่ได้"} />;

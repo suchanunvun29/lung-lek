@@ -20,7 +20,8 @@
  * Mobile: stacked; Export renders full-width under the header (PageHeader).
  */
 
-import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState, useTransition } from "react";
 import { exportIndividualReport, getIndividualReport } from "@/features/reports/api/reports.api";
 import { listSalespeople } from "@/features/master-data/api/master-data.api";
 import { getErrorMessage } from "@/lib/api-client";
@@ -43,20 +44,37 @@ import { ScoreCard, SupplementaryKpisPanel, KpiDrillDownModal } from "@/features
 import { SalespersonSwitcher, RevenueTargetProgress } from "@/features/dashboard";
 import { CoachingInsightPanel } from "@/features/coaching";
 
+const VALID_DRILL_METRICS = new Set<string>([
+  "REVENUE_VS_TARGET",
+  "NEW_CUSTOMERS",
+  "PRODUCT_GROUP",
+  "RETENTION",
+  "CONSISTENCY",
+  "ACTIVE_CUSTOMERS",
+  "CHURNED_CUSTOMERS",
+  "PRODUCT_PENETRATION",
+  "REVENUE_BY_HOSPITAL",
+  "MONTHLY_TREND",
+]);
+
 function formatScoreDelta(current: number | null, previous: number | null): { text: string; className: string } {
   if (current === null || previous === null) {
-    return { text: "เทียบไม่ได้ (บางงวดยังไม่มีคะแนน)", className: "text-zinc-400" };
+    return { text: "เทียบไม่ได้ (บางงวดยังไม่มีคะแนน)", className: "text-text-muted" };
   }
   const delta = Math.round((current - previous) * 100) / 100;
-  if (delta === 0) return { text: "ไม่เปลี่ยนแปลง", className: "text-zinc-500" };
+  if (delta === 0) return { text: "ไม่เปลี่ยนแปลง", className: "text-text-muted" };
   const sign = delta > 0 ? "+" : "";
   return {
     text: `${sign}${formatScore(delta)}`,
-    className: delta > 0 ? "text-emerald-700" : "text-red-600",
+    className: delta > 0 ? "text-success" : "text-danger",
   };
 }
 
 export default function IndividualPerformancePage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [, startTransition] = useTransition();
+
   const token = useAuthStore((state) => state.token);
   const currentUser = useAuthStore((state) => state.user);
 
@@ -69,7 +87,27 @@ export default function IndividualPerformancePage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
-  const [drillDownMetric, setDrillDownMetric] = useState<DrillDownMetric | null>(null);
+
+  // WACC-P3-005: drill-down driven by ?drill=<metric>
+  const drillParam = searchParams.get("drill");
+  const drillDownMetric: DrillDownMetric | null =
+    drillParam && VALID_DRILL_METRICS.has(drillParam)
+      ? (drillParam as DrillDownMetric)
+      : null;
+
+  const setDrillDownMetric = (metric: DrillDownMetric | null) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (metric) {
+      params.set("drill", metric);
+    } else {
+      params.delete("drill");
+    }
+    const newQuery = params.toString();
+    const newUrl = newQuery ? `?${newQuery}` : window.location.pathname;
+    startTransition(() => {
+      router.replace(newUrl, { scroll: false });
+    });
+  };
 
   useEffect(() => {
     if (!token) return;
@@ -192,10 +230,10 @@ export default function IndividualPerformancePage() {
               status={composite.composite === null ? "warning" : "default"}
               comparison={
                 <>
-                  <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-700">
+                  <span className="rounded-full bg-surface-subtle px-2.5 py-1 text-xs font-medium text-text-secondary">
                     {composite.computedFromLabel}
                   </span>
-                  <p className="mt-1.5 text-xs text-zinc-600">
+                  <p className="mt-1.5 text-xs text-text-secondary">
                     งวดก่อน ({periodLabelTh(report.previousPeriod)}): {formatScore(report.previousComposite.composite)} ·{" "}
                     <span className={`font-medium ${compositeDelta.className}`}>{compositeDelta.text}</span>
                   </p>
@@ -210,17 +248,17 @@ export default function IndividualPerformancePage() {
               <ScoreCard composite={composite} onDrillDown={(metric) => setDrillDownMetric(metric)} />
 
               <Card className="p-4">
-                <h2 className="text-sm font-medium text-zinc-500">
+                <h2 className="text-sm font-medium text-text-muted">
                   คะแนนรายเกณฑ์ เทียบงวดก่อน ({periodLabelTh(report.previousPeriod)})
                 </h2>
-                <div className="mt-3 divide-y divide-zinc-100 border-t border-zinc-100">
+                <div className="mt-3 divide-y divide-border border-t border-border">
                   {SCORED_METRIC_ORDER.map((metric) => {
                     const current = composite.metrics.find((m) => m.metric === metric);
                     const previous = previousMetricByKey.get(metric);
                     const delta = formatScoreDelta(current?.score ?? null, previous?.score ?? null);
                     return (
                       <div key={metric} className="flex items-center justify-between gap-3 py-2 text-sm">
-                        <span className="text-zinc-700">{SCORED_METRIC_LABEL_TH[metric]}</span>
+                        <span className="text-text-secondary">{SCORED_METRIC_LABEL_TH[metric]}</span>
                         <span className={`font-medium ${delta.className}`}>{delta.text}</span>
                       </div>
                     );
@@ -237,7 +275,7 @@ export default function IndividualPerformancePage() {
               />
 
               <div>
-                <h2 className="mb-2 text-lg font-semibold text-zinc-900">ตัวชี้วัดเพิ่มเติม (ไม่คิดคะแนน)</h2>
+                <h2 className="mb-2 text-lg font-semibold text-text-primary">ตัวชี้วัดเพิ่มเติม (ไม่คิดคะแนน)</h2>
                 <SupplementaryKpisPanel
                   supplementary={report.supplementary}
                   onDrillDown={(metric) => setDrillDownMetric(metric)}
