@@ -290,4 +290,76 @@ public class RegistryEndpointsTests : IClassFixture<CustomWebApplicationFactory>
         Assert.Null(result.HospitalRegistryLink.HospitalRegistryId);
         Assert.Null(result.HospitalRegistryLink.Confidence);
     }
+
+    // ---- WACC-P0-005: POST /registry-import ----
+
+    [Fact]
+    public async Task RegistryImport_InvalidExtension_Returns400()
+    {
+        SetBearerToken(_factory.CreateToken(_factory.ManagerUserId, UserRole.MANAGER));
+
+        using var content = new MultipartFormDataContent();
+        var fileContent = new ByteArrayContent(new byte[] { 1, 2, 3 });
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
+        content.Add(fileContent, "file", "registry.csv");
+
+        var response = await _client.PostAsync("/registry-import", content);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Only .xlsx files are supported", json.GetProperty("error").GetString());
+    }
+
+    [Fact]
+    public async Task RegistryImport_SalespersonForbidden_Returns403()
+    {
+        SetBearerToken(_factory.CreateToken(_factory.SalespersonUserId, UserRole.SALESPERSON));
+
+        using var content = new MultipartFormDataContent();
+        var fileContent = new ByteArrayContent(new byte[] { 1, 2, 3 });
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        content.Add(fileContent, "file", "registry.xlsx");
+
+        var response = await _client.PostAsync("/registry-import", content);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task RegistryImport_ValidXlsx_ReturnsResult()
+    {
+        SetBearerToken(_factory.CreateToken(_factory.ManagerUserId, UserRole.MANAGER));
+
+        // Generate minimal valid Excel workbook in memory
+        using var workbook = new ClosedXML.Excel.XLWorkbook();
+        var ws = workbook.Worksheets.Add("Hospital Registry");
+        ws.Cell(1, 1).Value = "รหัส";
+        ws.Cell(1, 2).Value = "ชื่อสถานพยาบาล";
+        ws.Cell(1, 3).Value = "จังหวัด";
+        ws.Cell(1, 4).Value = "เขต";
+        ws.Cell(1, 5).Value = "จำนวนเตียง";
+
+        ws.Cell(2, 1).Value = "10717";
+        ws.Cell(2, 2).Value = "โรงพยาบาลเชียงใหม่";
+        ws.Cell(2, 3).Value = "เชียงใหม่";
+        ws.Cell(2, 4).Value = "เขต 1";
+        ws.Cell(2, 5).Value = 1200;
+
+        using var ms = new MemoryStream();
+        workbook.SaveAs(ms);
+        var bytes = ms.ToArray();
+
+        using var content = new MultipartFormDataContent();
+        var fileContent = new ByteArrayContent(bytes);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        content.Add(fileContent, "file", "registry.xlsx");
+
+        var response = await _client.PostAsync("/registry-import", content);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var result = await response.Content.ReadFromJsonAsync<RegistryImportResultDto>();
+        Assert.NotNull(result);
+        Assert.NotNull(result.ImportBatch);
+        Assert.Equal("APPEND", result.ImportBatch.Mode);
+        Assert.NotNull(result.Links);
+    }
 }

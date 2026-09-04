@@ -45,7 +45,10 @@ public class TargetService : ITargetService
         return new
         {
             id = target.Id,
+            scope = target.Scope.ToString(),
             salespersonId = target.SalespersonId,
+            territoryId = target.TerritoryId,
+            territoryGroupId = target.TerritoryGroupId,
             year = target.Year,
             month = target.Month,
             revenueTarget = (double)target.RevenueTarget,
@@ -141,6 +144,158 @@ public class TargetService : ITargetService
             {
                 SalespersonId = salespersonId,
                 Scope = TargetScope.SALESPERSON,
+                Year = year,
+                Month = month,
+                RevenueTarget = input.RevenueTarget,
+                NewCustomerTarget = input.NewCustomerTarget,
+                Note = input.Note ?? null
+            };
+            _dbContext.Targets.Add(target);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            _dbContext.TargetRevisions.Add(new TargetRevision
+            {
+                TargetId = target.Id,
+                ChangeType = TargetChangeType.CREATE,
+                Before = null,
+                After = SnapshotJson.Serialize(ToTargetSnapshot(target)),
+                ChangedById = changedById
+            });
+        }
+        else
+        {
+            target = existing;
+            var before = SnapshotJson.Serialize(ToTargetSnapshot(existing));
+
+            existing.RevenueTarget = input.RevenueTarget;
+            existing.NewCustomerTarget = input.NewCustomerTarget;
+            if (input.HasNote)
+            {
+                existing.Note = input.Note;
+            }
+
+            existing.UpdatedAt = DateTime.UtcNow;
+
+            _dbContext.TargetRevisions.Add(new TargetRevision
+            {
+                TargetId = existing.Id,
+                ChangeType = TargetChangeType.UPDATE,
+                Before = before,
+                After = SnapshotJson.Serialize(ToTargetSnapshot(existing)),
+                ChangedById = changedById
+            });
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return new TargetResponse { Target = MapTarget(target, includeSalesperson: false, includeProductType: false) };
+    }
+
+    public async Task<TargetResponse?> UpsertTerritoryTargetAsync(
+        int territoryId,
+        int year,
+        int month,
+        UpsertTargetInput input,
+        int changedById,
+        CancellationToken cancellationToken = default)
+    {
+        AssertTargetScopeXor(TargetScope.TERRITORY, null, territoryId, null);
+
+        var territory = await _dbContext.Territories
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.Id == territoryId, cancellationToken);
+        if (territory == null)
+        {
+            return null;
+        }
+
+        var existing = await _dbContext.Targets
+            .Include(t => t.ProductGroupTargets)
+            .FirstOrDefaultAsync(t => t.TerritoryId == territoryId && t.Year == year && t.Month == month && t.Scope == TargetScope.TERRITORY, cancellationToken);
+
+        Target target;
+        if (existing == null)
+        {
+            target = new Target
+            {
+                TerritoryId = territoryId,
+                Scope = TargetScope.TERRITORY,
+                Year = year,
+                Month = month,
+                RevenueTarget = input.RevenueTarget,
+                NewCustomerTarget = input.NewCustomerTarget,
+                Note = input.Note ?? null
+            };
+            _dbContext.Targets.Add(target);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            _dbContext.TargetRevisions.Add(new TargetRevision
+            {
+                TargetId = target.Id,
+                ChangeType = TargetChangeType.CREATE,
+                Before = null,
+                After = SnapshotJson.Serialize(ToTargetSnapshot(target)),
+                ChangedById = changedById
+            });
+        }
+        else
+        {
+            target = existing;
+            var before = SnapshotJson.Serialize(ToTargetSnapshot(existing));
+
+            existing.RevenueTarget = input.RevenueTarget;
+            existing.NewCustomerTarget = input.NewCustomerTarget;
+            if (input.HasNote)
+            {
+                existing.Note = input.Note;
+            }
+
+            existing.UpdatedAt = DateTime.UtcNow;
+
+            _dbContext.TargetRevisions.Add(new TargetRevision
+            {
+                TargetId = existing.Id,
+                ChangeType = TargetChangeType.UPDATE,
+                Before = before,
+                After = SnapshotJson.Serialize(ToTargetSnapshot(existing)),
+                ChangedById = changedById
+            });
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return new TargetResponse { Target = MapTarget(target, includeSalesperson: false, includeProductType: false) };
+    }
+
+    public async Task<TargetResponse?> UpsertTerritoryGroupTargetAsync(
+        int territoryGroupId,
+        int year,
+        int month,
+        UpsertTargetInput input,
+        int changedById,
+        CancellationToken cancellationToken = default)
+    {
+        AssertTargetScopeXor(TargetScope.TERRITORY_GROUP, null, null, territoryGroupId);
+
+        var territoryGroup = await _dbContext.TerritoryGroups
+            .AsNoTracking()
+            .FirstOrDefaultAsync(tg => tg.Id == territoryGroupId, cancellationToken);
+        if (territoryGroup == null)
+        {
+            return null;
+        }
+
+        var existing = await _dbContext.Targets
+            .Include(t => t.ProductGroupTargets)
+            .FirstOrDefaultAsync(t => t.TerritoryGroupId == territoryGroupId && t.Year == year && t.Month == month && t.Scope == TargetScope.TERRITORY_GROUP, cancellationToken);
+
+        Target target;
+        if (existing == null)
+        {
+            target = new Target
+            {
+                TerritoryGroupId = territoryGroupId,
+                Scope = TargetScope.TERRITORY_GROUP,
                 Year = year,
                 Month = month,
                 RevenueTarget = input.RevenueTarget,

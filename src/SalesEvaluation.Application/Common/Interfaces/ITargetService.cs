@@ -15,6 +15,12 @@ public interface ITargetService
     /// <summary>PUT /targets/:salespersonId/:year/:month — upsert + TargetRevision snapshot. Returns null when the salesperson does not exist.</summary>
     Task<TargetResponse?> UpsertMonthlyTargetAsync(int salespersonId, int year, int month, UpsertTargetInput input, int changedById, CancellationToken cancellationToken = default);
 
+    /// <summary>PUT /targets/territory/:territoryId/:year/:month — upsert + TargetRevision snapshot. Returns null when the territory does not exist.</summary>
+    Task<TargetResponse?> UpsertTerritoryTargetAsync(int territoryId, int year, int month, UpsertTargetInput input, int changedById, CancellationToken cancellationToken = default);
+
+    /// <summary>PUT /targets/group/:territoryGroupId/:year/:month — upsert + TargetRevision snapshot. Returns null when the territory group does not exist.</summary>
+    Task<TargetResponse?> UpsertTerritoryGroupTargetAsync(int territoryGroupId, int year, int month, UpsertTargetInput input, int changedById, CancellationToken cancellationToken = default);
+
     /// <summary>PUT /targets/:targetId/product-groups — replace the product-group rows + revision snapshot. Returns null when the target does not exist.</summary>
     Task<TargetResponse?> SetProductGroupTargetsAsync(int targetId, List<ProductGroupInputDto> productGroups, int changedById, CancellationToken cancellationToken = default);
 

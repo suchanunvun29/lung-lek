@@ -1,12 +1,16 @@
 namespace SalesEvaluation.Application.HospitalRegistry;
 
 using System.Globalization;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using SalesEvaluation.Application.Common;
 using SalesEvaluation.Application.Common.Exceptions;
 using SalesEvaluation.Application.Common.Interfaces;
+using SalesEvaluation.Contracts.Common;
 using SalesEvaluation.Contracts.HospitalRegistry;
 using SalesEvaluation.Domain.Entities;
 using SalesEvaluation.Domain.Enums;
+using SalesEvaluation.Domain.MasterData;
 
 public class HospitalRegistryService : IHospitalRegistryService
 {
@@ -52,7 +56,7 @@ public class HospitalRegistryService : IHospitalRegistryService
 
         if (!request.HasAnyField)
         {
-            throw new ValidationException("Validation failed", "Provide canonicalName or regionId");
+            throw new ValidationException("Validation failed: Provide canonicalName or regionId");
         }
 
         if (request.HasRegionId && request.RegionId.HasValue &&
@@ -61,13 +65,9 @@ public class HospitalRegistryService : IHospitalRegistryService
             throw new NotFoundException("Region not found");
         }
 
-        if (request.HasCanonicalName)
+        if (request.HasCanonicalName && request.CanonicalName != null)
         {
-            if (string.IsNullOrWhiteSpace(request.CanonicalName))
-            {
-                throw new ValidationException("Validation failed", "canonicalName must not be empty");
-            }
-            province.CanonicalName = request.CanonicalName.Trim();
+            province.CanonicalName = request.CanonicalName;
         }
 
         if (request.HasRegionId && request.RegionId.HasValue)
@@ -77,96 +77,109 @@ public class HospitalRegistryService : IHospitalRegistryService
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        // Reload with the region include, mirroring the Prisma `include: { region: true }` update response.
-        var reloaded = await _dbContext.ProvinceMappings
+        var saved = await _dbContext.ProvinceMappings
             .AsNoTracking()
             .Include(p => p.Region)
             .FirstAsync(p => p.Id == province.Id, cancellationToken);
 
-        return new ProvinceResponse { Province = MapProvince(reloaded) };
+        return new ProvinceResponse { Province = MapProvince(saved) };
     }
 
-    private static ProvinceMappingDto MapProvince(ProvinceMapping province)
+    private static ProvinceMappingDto MapProvince(ProvinceMapping p)
     {
         return new ProvinceMappingDto
         {
-            Id = province.Id,
-            CanonicalName = province.CanonicalName,
-            RegionId = province.RegionId,
-            Region = province.Region == null ? null : MapRegion(province.Region),
-            CreatedAt = province.CreatedAt
+            Id = p.Id,
+            CanonicalName = p.CanonicalName,
+            RegionId = p.RegionId,
+            Region = MapRegion(p.Region),
+            CreatedAt = p.CreatedAt
         };
     }
 
-    private static RegionDto MapRegion(Region region)
+    private static RegionDto MapRegion(Region r)
     {
         return new RegionDto
         {
-            Id = region.Id,
-            Name = region.Name,
-            SortOrder = region.SortOrder,
-            CreatedAt = region.CreatedAt
+            Id = r.Id,
+            Name = r.Name,
+            SortOrder = r.SortOrder,
+            CreatedAt = r.CreatedAt
         };
     }
 
-    // ---- Hospital registries ----
+    // ---- Hospital Registries ----
 
-    public async Task<HospitalRegistriesResponse> ListHospitalRegistriesAsync(string? q, int? provinceMappingId, int? territoryId, int page, int pageSize, CancellationToken cancellationToken = default)
+    public async Task<HospitalRegistriesResponse> ListHospitalRegistriesAsync(
+        string? q,
+        int? provinceMappingId,
+        int? territoryId,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default)
     {
         var query = _dbContext.HospitalRegistries
             .AsNoTracking()
-            .Include(r => r.ProvinceMapping)
-            .ThenInclude(p => p!.Region)
-            .Include(r => r.Territory)
-            .Include(r => r.Metrics)
+            .Include(h => h.ProvinceMapping).ThenInclude(p => p!.Region)
+            .Include(h => h.Region)
+            .Include(h => h.Territory)
+            .Include(h => h.Metrics)
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(q))
         {
-            var needle = q.Trim().ToLowerInvariant();
-            query = query.Where(r =>
-                r.DisplayName.ToLower().Contains(needle) ||
-                (r.SourceCode != null && r.SourceCode.ToLower().Contains(needle)));
+            var term = q.Trim().ToLowerInvariant();
+            query = query.Where(h =>
+                (h.SourceCode != null && h.SourceCode.ToLower().Contains(term)) ||
+                h.NameInFile.ToLower().Contains(term) ||
+                h.DisplayName.ToLower().Contains(term));
         }
 
         if (provinceMappingId.HasValue)
         {
-            query = query.Where(r => r.ProvinceMappingId == provinceMappingId.Value);
+            query = query.Where(h => h.ProvinceMappingId == provinceMappingId.Value);
         }
 
         if (territoryId.HasValue)
         {
-            query = query.Where(r => r.TerritoryId == territoryId.Value);
+            query = query.Where(h => h.TerritoryId == territoryId.Value);
         }
 
         var total = await query.CountAsync(cancellationToken);
 
-        var registries = await query
-            .OrderBy(r => r.DisplayName)
+        var items = await query
+            .OrderBy(h => h.DisplayName)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync(cancellationToken);
 
         return new HospitalRegistriesResponse
         {
-            HospitalRegistries = registries.Select(MapRegistry).ToList(),
+            HospitalRegistries = items.Select(MapRegistry).ToList(),
             Total = total,
             Page = page,
             PageSize = pageSize
         };
     }
 
-    public async Task<PotentialAdjustmentResponse> UpdatePotentialAdjustmentAsync(int id, decimal potentialAdjustment, CancellationToken cancellationToken = default)
+    public async Task<PotentialAdjustmentResponse> UpdatePotentialAdjustmentAsync(
+        int id,
+        decimal potentialAdjustment,
+        CancellationToken cancellationToken = default)
     {
+        if (potentialAdjustment < 0)
+        {
+            throw new ValidationException("Validation failed: potentialAdjustment must be a non-negative number");
+        }
+
         var registry = await _dbContext.HospitalRegistries
-            .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
+            .FirstOrDefaultAsync(h => h.Id == id, cancellationToken);
 
         if (registry == null)
         {
             throw new NotFoundException("Hospital registry not found");
         }
 
-        // requirement 10.5 — per-hospital exemption/reduction; 0 removes it from potential entirely.
         registry.PotentialAdjustment = potentialAdjustment;
         registry.UpdatedAt = DateTime.UtcNow;
 
@@ -269,7 +282,7 @@ public class HospitalRegistryService : IHospitalRegistryService
         }
         else if (!string.IsNullOrEmpty(status))
         {
-            throw new ValidationException("Validation failed", $"status must be one of UNREVIEWED, LINKED, CONFIRMED_ABSENT (got '{status}')");
+            throw new ValidationException($"Validation failed: status must be one of UNREVIEWED, LINKED, CONFIRMED_ABSENT (got '{status}')");
         }
 
         var links = await query
@@ -288,19 +301,18 @@ public class HospitalRegistryService : IHospitalRegistryService
         if (!Enum.TryParse<RegistryLinkStatus>(request.Status, ignoreCase: false, out var status) ||
             (status != RegistryLinkStatus.LINKED && status != RegistryLinkStatus.CONFIRMED_ABSENT))
         {
-            throw new ValidationException("Validation failed", "status must be LINKED or CONFIRMED_ABSENT");
+            throw new ValidationException("Validation failed: status must be LINKED or CONFIRMED_ABSENT");
         }
 
         if (status == RegistryLinkStatus.LINKED && !request.HospitalRegistryId.HasValue)
         {
-            throw new ValidationException("Validation failed", "Required when status is LINKED");
+            throw new ValidationException("Validation failed: Required when status is LINKED");
         }
 
         // The Zod contract requires hospitalRegistryId to be explicitly null when confirming absence
-        // (an absent field fails `hospitalRegistryId !== null`).
         if (status == RegistryLinkStatus.CONFIRMED_ABSENT && (!request.HasHospitalRegistryId || request.HospitalRegistryId != null))
         {
-            throw new ValidationException("Validation failed", "Must be null when confirming absence");
+            throw new ValidationException("Validation failed: Must be null when confirming absence");
         }
 
         var hospital = await _dbContext.Hospitals
@@ -325,24 +337,32 @@ public class HospitalRegistryService : IHospitalRegistryService
             link = new HospitalRegistryLink
             {
                 HospitalId = hospitalId,
-                CreatedAt = DateTime.UtcNow
+                HospitalRegistryId = status == RegistryLinkStatus.LINKED ? request.HospitalRegistryId : null,
+                Status = status,
+                Method = RegistryLinkMethod.MANUAL,
+                Confidence = status == RegistryLinkStatus.LINKED ? 1m : null,
+                ReviewedById = reviewedById,
+                ReviewedAt = DateTime.UtcNow,
+                Note = request.HasNote ? request.Note : null,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
             };
             _dbContext.HospitalRegistryLinks.Add(link);
         }
-
-        link.HospitalRegistryId = status == RegistryLinkStatus.LINKED ? request.HospitalRegistryId : null;
-        link.Status = status;
-        link.Method = RegistryLinkMethod.MANUAL;
-        link.Confidence = status == RegistryLinkStatus.LINKED ? 1m : null;
-        link.ReviewedById = reviewedById;
-        link.ReviewedAt = DateTime.UtcNow;
-        link.Note = request.HasNote ? request.Note : null;
-        link.UpdatedAt = DateTime.UtcNow;
+        else
+        {
+            link.HospitalRegistryId = status == RegistryLinkStatus.LINKED ? request.HospitalRegistryId : null;
+            link.Status = status;
+            link.Method = RegistryLinkMethod.MANUAL;
+            link.Confidence = status == RegistryLinkStatus.LINKED ? 1m : null;
+            link.ReviewedById = reviewedById;
+            link.ReviewedAt = DateTime.UtcNow;
+            link.Note = request.HasNote ? request.Note : null;
+            link.UpdatedAt = DateTime.UtcNow;
+        }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        // Response include matches the TypeScript upsert: hospital (no provinceMapping),
-        // hospitalRegistry (bare), reviewedBy (id + displayName).
         var saved = await _dbContext.HospitalRegistryLinks
             .AsNoTracking()
             .Include(l => l.Hospital)
@@ -351,6 +371,374 @@ public class HospitalRegistryService : IHospitalRegistryService
             .FirstAsync(l => l.Id == link.Id, cancellationToken);
 
         return new HospitalRegistryLinkResponse { HospitalRegistryLink = MapLink(saved) };
+    }
+
+    // ---- WACC-P0-005: Import Hospital Registry ----
+
+    public async Task<RegistryImportResultDto> ImportHospitalRegistryAsync(
+        byte[] fileBytes,
+        string fileName,
+        int fileSizeBytes,
+        int uploadedById,
+        CancellationToken cancellationToken = default)
+    {
+        var uploader = await _dbContext.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == uploadedById, cancellationToken);
+
+        var batch = new ImportBatch
+        {
+            FileName = fileName,
+            FileSizeBytes = fileSizeBytes,
+            UploadedById = uploadedById,
+            StartedAt = DateTime.UtcNow,
+            Status = ImportStatus.PROCESSING,
+            Mode = ImportMode.APPEND
+        };
+
+        _dbContext.ImportBatches.Add(batch);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        int totalRows = 0;
+        int insertedRows = 0;
+        int updatedRows = 0;
+        int skippedRows = 0;
+        int errorRows = 0;
+        var sheetsFound = new List<string>();
+        var sheetsImported = new List<string>();
+
+        try
+        {
+            using var stream = new MemoryStream(fileBytes);
+            using var workbook = new ClosedXML.Excel.XLWorkbook(stream);
+
+            foreach (var ws in workbook.Worksheets)
+            {
+                sheetsFound.Add(ws.Name);
+            }
+
+            var sheet = workbook.Worksheets.FirstOrDefault();
+            if (sheet == null)
+            {
+                throw new ValidationException("Validation failed: Workbook contains no worksheets");
+            }
+
+            sheetsImported.Add(sheet.Name);
+
+            // 1. Detect header row
+            int headerRowIndex = -1;
+            var headerMap = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+            for (int r = 1; r <= Math.Min(10, sheet.LastRowUsed()?.RowNumber() ?? 1); r++)
+            {
+                var row = sheet.Row(r);
+                var map = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                for (int c = 1; c <= (row.LastCellUsed()?.Address.ColumnNumber ?? 0); c++)
+                {
+                    var val = row.Cell(c).GetString().Trim();
+                    if (!string.IsNullOrEmpty(val) && !map.ContainsKey(val))
+                    {
+                        map[val] = c;
+                    }
+                }
+
+                // Check for core columns: name / hospital name / ชื่อโรงพยาบาล / รหัส
+                if (map.Keys.Any(k => k.Contains("ชื่อ", StringComparison.OrdinalIgnoreCase) ||
+                                     k.Contains("name", StringComparison.OrdinalIgnoreCase) ||
+                                     k.Contains("hospital", StringComparison.OrdinalIgnoreCase)))
+                {
+                    headerRowIndex = r;
+                    headerMap = map;
+                    break;
+                }
+            }
+
+            if (headerRowIndex == -1)
+            {
+                // Fallback: row 1
+                headerRowIndex = 1;
+                var row = sheet.Row(1);
+                for (int c = 1; c <= (row.LastCellUsed()?.Address.ColumnNumber ?? 0); c++)
+                {
+                    var val = row.Cell(c).GetString().Trim();
+                    if (!string.IsNullOrEmpty(val) && !headerMap.ContainsKey(val))
+                    {
+                        headerMap[val] = c;
+                    }
+                }
+            }
+
+            int Col(params string[] aliases)
+            {
+                foreach (var a in aliases)
+                {
+                    foreach (var kvp in headerMap)
+                    {
+                        if (kvp.Key.Equals(a, StringComparison.OrdinalIgnoreCase) ||
+                            kvp.Key.Contains(a, StringComparison.OrdinalIgnoreCase))
+                        {
+                            return kvp.Value;
+                        }
+                    }
+                }
+                return -1;
+            }
+
+            var codeCol = Col("sourceCode", "code", "รหัส", "hcode", "hospitalCode");
+            var nameCol = Col("displayName", "hospitalName", "name", "ชื่อโรงพยาบาล", "ชื่อ", "สถานพยาบาล");
+            var provinceCol = Col("province", "จังหวัด", "provinceRaw");
+            var healthZoneCol = Col("healthZone", "เขตสุขภาพ", "zone");
+            var tierCol = Col("tier", "ระดับ", "level");
+            var categoryCol = Col("category", "ประเภท", "สังกัด");
+
+            // Cache province mappings and territories
+            var provinces = await _dbContext.ProvinceMappings
+                .Include(p => p.Aliases)
+                .Include(p => p.Region)
+                .ToListAsync(cancellationToken);
+
+            var provinceByNorm = new Dictionary<string, ProvinceMapping>();
+            foreach (var p in provinces)
+            {
+                var norm = NameNormalizer.ThaiCore(p.CanonicalName);
+                if (!string.IsNullOrEmpty(norm) && !provinceByNorm.ContainsKey(norm))
+                    provinceByNorm[norm] = p;
+
+                foreach (var a in p.Aliases)
+                {
+                    var aNorm = NameNormalizer.ThaiCore(a.NormalizedAlias);
+                    if (!string.IsNullOrEmpty(aNorm) && !provinceByNorm.ContainsKey(aNorm))
+                        provinceByNorm[aNorm] = p;
+                }
+            }
+
+            var existingRegistries = await _dbContext.HospitalRegistries.ToListAsync(cancellationToken);
+            var bySourceCode = existingRegistries
+                .Where(r => !string.IsNullOrEmpty(r.SourceCode))
+                .ToDictionary(r => r.SourceCode!, r => r, StringComparer.OrdinalIgnoreCase);
+
+            var byNameAndProv = existingRegistries
+                .ToDictionary(r => $"{r.NameInFile}|{r.ProvinceRaw}".ToLowerInvariant(), r => r);
+
+            var lastRow = sheet.LastRowUsed()?.RowNumber() ?? headerRowIndex;
+            var touchedRegistries = new List<HospitalRegistry>();
+
+            for (int r = headerRowIndex + 1; r <= lastRow; r++)
+            {
+                var row = sheet.Row(r);
+                if (row.IsEmpty()) continue;
+
+                var rawName = nameCol > 0 ? row.Cell(nameCol).GetString().Trim() : string.Empty;
+                if (string.IsNullOrWhiteSpace(rawName))
+                {
+                    skippedRows++;
+                    continue;
+                }
+
+                totalRows++;
+
+                var rawCode = codeCol > 0 ? row.Cell(codeCol).GetString().Trim() : null;
+                if (string.IsNullOrWhiteSpace(rawCode)) rawCode = null;
+
+                var rawProvince = provinceCol > 0 ? row.Cell(provinceCol).GetString().Trim() : string.Empty;
+                var rawZone = healthZoneCol > 0 ? row.Cell(healthZoneCol).GetString().Trim() : null;
+                var rawTier = tierCol > 0 ? row.Cell(tierCol).GetString().Trim() : null;
+                var rawCategory = categoryCol > 0 ? row.Cell(categoryCol).GetString().Trim() : null;
+
+                // Match province
+                ProvinceMapping? matchedProvince = null;
+                if (!string.IsNullOrWhiteSpace(rawProvince))
+                {
+                    var provNorm = NameNormalizer.ThaiCore(rawProvince);
+                    provinceByNorm.TryGetValue(provNorm, out matchedProvince);
+                }
+
+                // Match existing registry
+                HospitalRegistry? reg = null;
+                if (rawCode != null && bySourceCode.TryGetValue(rawCode, out var byCode))
+                {
+                    reg = byCode;
+                }
+                else if (byNameAndProv.TryGetValue($"{rawName}|{rawProvince}".ToLowerInvariant(), out var byNP))
+                {
+                    reg = byNP;
+                }
+
+                var cat = HospitalCategory.GOVERNMENT_GENERAL;
+                if (!string.IsNullOrWhiteSpace(rawCategory) && Enum.TryParse<HospitalCategory>(rawCategory, true, out var parsedCat))
+                {
+                    cat = parsedCat;
+                }
+
+                if (reg == null)
+                {
+                    reg = new HospitalRegistry
+                    {
+                        SourceCode = rawCode,
+                        NameInFile = rawName,
+                        DisplayName = rawName,
+                        ProvinceRaw = rawProvince,
+                        ProvinceMappingId = matchedProvince?.Id,
+                        RegionId = matchedProvince?.RegionId,
+                        HealthZone = string.IsNullOrWhiteSpace(rawZone) ? null : rawZone,
+                        Tier = string.IsNullOrWhiteSpace(rawTier) ? null : rawTier,
+                        Category = cat,
+                        SourceFile = fileName,
+                        IsActive = true,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    _dbContext.HospitalRegistries.Add(reg);
+                    insertedRows++;
+                }
+                else
+                {
+                    if (rawCode != null) reg.SourceCode = rawCode;
+                    reg.DisplayName = rawName;
+                    if (!string.IsNullOrWhiteSpace(rawProvince)) reg.ProvinceRaw = rawProvince;
+                    if (matchedProvince != null)
+                    {
+                        reg.ProvinceMappingId = matchedProvince.Id;
+                        reg.RegionId = matchedProvince.RegionId;
+                    }
+                    if (!string.IsNullOrWhiteSpace(rawZone)) reg.HealthZone = rawZone;
+                    if (!string.IsNullOrWhiteSpace(rawTier)) reg.Tier = rawTier;
+                    reg.Category = cat;
+                    reg.SourceFile = fileName;
+                    reg.UpdatedAt = DateTime.UtcNow;
+                    updatedRows++;
+                }
+
+                touchedRegistries.Add(reg);
+            }
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            // 2. Perform HospitalRegistryLink matching for Hospital records
+            var allHospitals = await _dbContext.Hospitals
+                .Include(h => h.RegistryLink)
+                .ToListAsync(cancellationToken);
+
+            var savedRegistries = await _dbContext.HospitalRegistries.ToListAsync(cancellationToken);
+            var regByThaiCore = new Dictionary<string, HospitalRegistry>();
+            var regBySourceCode = new Dictionary<string, HospitalRegistry>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var r in savedRegistries)
+            {
+                if (!string.IsNullOrEmpty(r.SourceCode) && !regBySourceCode.ContainsKey(r.SourceCode))
+                    regBySourceCode[r.SourceCode] = r;
+
+                var tc = NameNormalizer.ThaiCore(r.DisplayName);
+                if (!string.IsNullOrEmpty(tc) && !regByThaiCore.ContainsKey(tc))
+                    regByThaiCore[tc] = r;
+            }
+
+            foreach (var h in allHospitals)
+            {
+                if (h.RegistryLink != null && h.RegistryLink.Status != RegistryLinkStatus.UNREVIEWED)
+                {
+                    // Do not override reviewed links
+                    continue;
+                }
+
+                HospitalRegistry? match = null;
+                var hThai = NameNormalizer.ThaiCore(h.DisplayName);
+                if (!string.IsNullOrEmpty(hThai) && regByThaiCore.TryGetValue(hThai, out var m1))
+                {
+                    match = m1;
+                }
+
+                if (match != null)
+                {
+                    if (h.RegistryLink == null)
+                    {
+                        var link = new HospitalRegistryLink
+                        {
+                            HospitalId = h.Id,
+                            HospitalRegistryId = match.Id,
+                            Status = RegistryLinkStatus.UNREVIEWED,
+                            Method = RegistryLinkMethod.NORMALIZED,
+                            Confidence = 0.9m,
+                            CreatedAt = DateTime.UtcNow,
+                            UpdatedAt = DateTime.UtcNow
+                        };
+                        _dbContext.HospitalRegistryLinks.Add(link);
+                    }
+                    else if (h.RegistryLink.Status == RegistryLinkStatus.UNREVIEWED)
+                    {
+                        h.RegistryLink.HospitalRegistryId = match.Id;
+                        h.RegistryLink.Method = RegistryLinkMethod.NORMALIZED;
+                        h.RegistryLink.Confidence = 0.9m;
+                        h.RegistryLink.UpdatedAt = DateTime.UtcNow;
+                    }
+                }
+            }
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            batch.Status = ImportStatus.SUCCESS;
+            batch.FinishedAt = DateTime.UtcNow;
+            batch.TotalRows = totalRows;
+            batch.InsertedRows = insertedRows;
+            batch.UpdatedRows = updatedRows;
+            batch.SkippedRows = skippedRows;
+            batch.ErrorRows = errorRows;
+            batch.SheetsFound = JsonSerializer.Serialize(sheetsFound);
+            batch.SheetsImported = JsonSerializer.Serialize(sheetsImported);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            batch.Status = ImportStatus.FAILED;
+            batch.FinishedAt = DateTime.UtcNow;
+            batch.ErrorMessage = ex.Message;
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            throw;
+        }
+
+        // Count linked and unreviewed links
+        var linkedCount = await _dbContext.HospitalRegistryLinks
+            .CountAsync(l => l.HospitalRegistryId != null, cancellationToken);
+        var unreviewedCount = await _dbContext.HospitalRegistryLinks
+            .CountAsync(l => l.Status == RegistryLinkStatus.UNREVIEWED, cancellationToken);
+
+        return new RegistryImportResultDto
+        {
+            ImportBatch = new RegistryImportBatchDto
+            {
+                Id = batch.Id,
+                FileName = batch.FileName,
+                FileSizeBytes = batch.FileSizeBytes,
+                UploadedById = batch.UploadedById,
+                UploadedBy = uploader == null ? null : new UserSummaryDto
+                {
+                    Id = uploader.Id,
+                    DisplayName = uploader.DisplayName,
+                    Email = uploader.Email
+                },
+                StartedAt = batch.StartedAt.ToString("o"),
+                FinishedAt = batch.FinishedAt?.ToString("o"),
+                Status = batch.Status.ToString(),
+                SheetsFound = sheetsFound,
+                SheetsImported = sheetsImported,
+                TotalRows = batch.TotalRows,
+                InsertedRows = batch.InsertedRows,
+                UpdatedRows = batch.UpdatedRows,
+                SkippedRows = batch.SkippedRows,
+                ErrorRows = batch.ErrorRows,
+                Mode = batch.Mode.ToString(),
+                TargetPeriods = null,
+                RemovedRows = batch.RemovedRows,
+                ConfirmedById = batch.ConfirmedById,
+                PeriodsTouched = null,
+                ErrorMessage = batch.ErrorMessage
+            },
+            Links = new RegistryImportLinksSummaryDto
+            {
+                Linked = linkedCount,
+                Unreviewed = unreviewedCount
+            }
+        };
     }
 
     private static HospitalRegistryLinkDto MapLink(HospitalRegistryLink link)

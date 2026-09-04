@@ -87,4 +87,68 @@ public class TargetAndSettingsEndpointsTests : IClassFixture<CustomWebApplicatio
         var json = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(JsonValueKind.Object, json.ValueKind);
     }
+
+    // ---- WACC-P0-003: PUT /targets/territory/{territoryId}/{year}/{month} & PUT /targets/group/{territoryGroupId}/{year}/{month} ----
+
+    [Fact]
+    public async Task UpsertTerritoryTarget_Success_Returns200()
+    {
+        var token = _factory.CreateToken(_factory.ManagerUserId, UserRole.MANAGER);
+        var payload = new { revenueTarget = 500000m, newCustomerTarget = 2 };
+        using var request = new HttpRequestMessage(HttpMethod.Put, $"/targets/territory/{_factory.TerritoryId1}/2026/1");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(payload);
+
+        var response = await _client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.True(json.TryGetProperty("target", out var target));
+        Assert.Equal("500000", target.GetProperty("revenueTarget").GetString());
+        Assert.Equal(_factory.TerritoryId1, target.GetProperty("territoryId").GetInt32());
+    }
+
+    [Fact]
+    public async Task UpsertTerritoryTarget_SalespersonForbidden_Returns403()
+    {
+        var token = _factory.CreateToken(_factory.SalespersonUserId, UserRole.SALESPERSON);
+        var payload = new { revenueTarget = 500000m, newCustomerTarget = 2 };
+        using var request = new HttpRequestMessage(HttpMethod.Put, $"/targets/territory/{_factory.TerritoryId1}/2026/1");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(payload);
+
+        var response = await _client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpsertTerritoryTarget_NegativeAmount_Returns400()
+    {
+        var token = _factory.CreateToken(_factory.ManagerUserId, UserRole.MANAGER);
+        var payload = new { revenueTarget = -10m, newCustomerTarget = 2 };
+        using var request = new HttpRequestMessage(HttpMethod.Put, $"/targets/territory/{_factory.TerritoryId1}/2026/1");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(payload);
+
+        var response = await _client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpsertTerritoryGroupTarget_Success_Returns200()
+    {
+        var token = _factory.CreateToken(_factory.ManagerUserId, UserRole.MANAGER);
+        var payload = new { revenueTarget = 1500000m, newCustomerTarget = 5 };
+        using var request = new HttpRequestMessage(HttpMethod.Put, $"/targets/group/{_factory.TerritoryGroupId1}/2026/1");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(payload);
+
+        var response = await _client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.True(json.TryGetProperty("target", out var target));
+        Assert.Equal("1500000", target.GetProperty("revenueTarget").GetString());
+        Assert.Equal(_factory.TerritoryGroupId1, target.GetProperty("territoryGroupId").GetInt32());
+    }
 }

@@ -48,6 +48,9 @@ public static class RegistryEndpoints
         // PATCH /hospital-registry-links/{hospitalId} — MANAGER
         app.MapPatch("/hospital-registry-links/{hospitalId}", HandleUpdateRegistryLink);
 
+        // POST /registry-import — MANAGER (WACC-P0-005)
+        app.MapPost("/registry-import", HandleRegistryImport);
+
         return app;
     }
 
@@ -287,6 +290,51 @@ public static class RegistryEndpoints
 
             var result = await registryService.UpdateRegistryLinkAsync(hospitalId, request, currentUserService.User!.Id, ct);
             return Results.Ok(result);
+        }
+    }
+
+    private static async Task<IResult> HandleRegistryImport(
+        HttpContext httpContext,
+        IHospitalRegistryService registryService,
+        ICurrentUserService currentUserService,
+        CancellationToken ct)
+    {
+        if (currentUserService.User?.Role != UserRole.MANAGER)
+            return Results.Json(new { error = "Forbidden: insufficient role" }, statusCode: StatusCodes.Status403Forbidden);
+
+        var form = await httpContext.Request.ReadFormAsync(ct);
+        var file = form.Files.GetFile("file");
+        if (file == null)
+            return Results.Json(new { error = "File is required (field name: file)" }, statusCode: StatusCodes.Status400BadRequest);
+
+        if (!file.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
+            return Results.Json(new { error = "Only .xlsx files are supported" }, statusCode: StatusCodes.Status400BadRequest);
+
+        const long maxUploadSizeBytes = 20 * 1024 * 1024;
+        if (file.Length > maxUploadSizeBytes)
+            return Results.Json(new { error = "Upload error: File too large" }, statusCode: StatusCodes.Status400BadRequest);
+
+        byte[] fileBytes;
+        using (var ms = new MemoryStream())
+        {
+            await file.CopyToAsync(ms, ct);
+            fileBytes = ms.ToArray();
+        }
+
+        try
+        {
+            var result = await registryService.ImportHospitalRegistryAsync(
+                fileBytes,
+                file.FileName,
+                (int)file.Length,
+                currentUserService.User!.Id,
+                ct);
+
+            return Results.Ok(result);
+        }
+        catch (SalesEvaluation.Application.Common.Exceptions.ValidationException ex)
+        {
+            return Results.Json(new { error = ex.Message }, statusCode: StatusCodes.Status400BadRequest);
         }
     }
 }

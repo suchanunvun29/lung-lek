@@ -19,6 +19,8 @@ public static class TargetEndpoints
         app.MapPost("/targets/copy", HandleCopyTargets);
         app.MapGet("/targets/{targetId}/revisions", HandleGetTargetRevisions);
         app.MapPut("/targets/{targetId}/product-groups", HandleUpdateProductGroupTargets);
+        app.MapPut("/targets/territory/{territoryId}/{year}/{month}", HandleUpsertTerritoryTarget);
+        app.MapPut("/targets/group/{territoryGroupId}/{year}/{month}", HandleUpsertTerritoryGroupTarget);
         app.MapPut("/targets/{salespersonId}/{year}/{month}", HandleUpsertTarget);
         app.MapGet("/targets", HandleListTargets);
 
@@ -140,6 +142,184 @@ public static class TargetEndpoints
             if (result == null)
             {
                 return Results.Json(new { error = "Salesperson not found" }, statusCode: StatusCodes.Status404NotFound);
+            }
+
+            return Results.Json(new { target = result.Target });
+        }
+    }
+
+    private static async Task<IResult> HandleUpsertTerritoryTarget(
+        int territoryId,
+        string year,
+        string month,
+        HttpContext httpContext,
+        ITargetService targetService,
+        ICurrentUserService currentUserService,
+        CancellationToken ct)
+    {
+        if (RequireManager(currentUserService) is { } roleError)
+        {
+            return roleError;
+        }
+
+        if (!int.TryParse(year, NumberStyles.Integer, CultureInfo.InvariantCulture, out var yearValue))
+        {
+            return TerritoryEndpoints.Invalid("year must be an integer");
+        }
+
+        if (!int.TryParse(month, NumberStyles.Integer, CultureInfo.InvariantCulture, out var monthValue) ||
+            monthValue < 1 || monthValue > 12)
+        {
+            return TerritoryEndpoints.Invalid("month must be an integer between 1 and 12");
+        }
+
+        var parsedBody = await TerritoryEndpoints.ParseBodyAsync(httpContext);
+        if (!parsedBody.Ok)
+        {
+            return parsedBody.Error!;
+        }
+
+        using (parsedBody.Doc)
+        {
+            var root = parsedBody.Doc!.RootElement;
+            if (root.ValueKind != JsonValueKind.Object)
+            {
+                return TerritoryEndpoints.Invalid("Payload must be a JSON object");
+            }
+
+            if (!root.TryGetProperty("revenueTarget", out var revenueProp) ||
+                revenueProp.ValueKind != JsonValueKind.Number ||
+                !revenueProp.TryGetDecimal(out var revenueTarget) || revenueTarget < 0)
+            {
+                return TerritoryEndpoints.Invalid("revenueTarget must be a nonnegative number");
+            }
+
+            if (!root.TryGetProperty("newCustomerTarget", out var newCustomerProp) ||
+                newCustomerProp.ValueKind != JsonValueKind.Number ||
+                !newCustomerProp.TryGetInt32(out var newCustomerTarget) || newCustomerTarget < 0)
+            {
+                return TerritoryEndpoints.Invalid("newCustomerTarget must be a nonnegative integer");
+            }
+
+            string? note = null;
+            var hasNote = false;
+            if (root.TryGetProperty("note", out var noteProp))
+            {
+                hasNote = true;
+                if (noteProp.ValueKind == JsonValueKind.String)
+                {
+                    note = noteProp.GetString();
+                    if (note != null && string.IsNullOrWhiteSpace(note))
+                    {
+                        return TerritoryEndpoints.Invalid("note must not be empty");
+                    }
+                }
+                else if (noteProp.ValueKind != JsonValueKind.Null)
+                {
+                    return TerritoryEndpoints.Invalid("note must be a string or null");
+                }
+            }
+
+            var result = await targetService.UpsertTerritoryTargetAsync(
+                territoryId,
+                yearValue,
+                monthValue,
+                new UpsertTargetInput(revenueTarget, newCustomerTarget, note, hasNote),
+                currentUserService.User!.Id,
+                ct);
+
+            if (result == null)
+            {
+                return Results.Json(new { error = "Territory not found" }, statusCode: StatusCodes.Status404NotFound);
+            }
+
+            return Results.Json(new { target = result.Target });
+        }
+    }
+
+    private static async Task<IResult> HandleUpsertTerritoryGroupTarget(
+        int territoryGroupId,
+        string year,
+        string month,
+        HttpContext httpContext,
+        ITargetService targetService,
+        ICurrentUserService currentUserService,
+        CancellationToken ct)
+    {
+        if (RequireManager(currentUserService) is { } roleError)
+        {
+            return roleError;
+        }
+
+        if (!int.TryParse(year, NumberStyles.Integer, CultureInfo.InvariantCulture, out var yearValue))
+        {
+            return TerritoryEndpoints.Invalid("year must be an integer");
+        }
+
+        if (!int.TryParse(month, NumberStyles.Integer, CultureInfo.InvariantCulture, out var monthValue) ||
+            monthValue < 1 || monthValue > 12)
+        {
+            return TerritoryEndpoints.Invalid("month must be an integer between 1 and 12");
+        }
+
+        var parsedBody = await TerritoryEndpoints.ParseBodyAsync(httpContext);
+        if (!parsedBody.Ok)
+        {
+            return parsedBody.Error!;
+        }
+
+        using (parsedBody.Doc)
+        {
+            var root = parsedBody.Doc!.RootElement;
+            if (root.ValueKind != JsonValueKind.Object)
+            {
+                return TerritoryEndpoints.Invalid("Payload must be a JSON object");
+            }
+
+            if (!root.TryGetProperty("revenueTarget", out var revenueProp) ||
+                revenueProp.ValueKind != JsonValueKind.Number ||
+                !revenueProp.TryGetDecimal(out var revenueTarget) || revenueTarget < 0)
+            {
+                return TerritoryEndpoints.Invalid("revenueTarget must be a nonnegative number");
+            }
+
+            if (!root.TryGetProperty("newCustomerTarget", out var newCustomerProp) ||
+                newCustomerProp.ValueKind != JsonValueKind.Number ||
+                !newCustomerProp.TryGetInt32(out var newCustomerTarget) || newCustomerTarget < 0)
+            {
+                return TerritoryEndpoints.Invalid("newCustomerTarget must be a nonnegative integer");
+            }
+
+            string? note = null;
+            var hasNote = false;
+            if (root.TryGetProperty("note", out var noteProp))
+            {
+                hasNote = true;
+                if (noteProp.ValueKind == JsonValueKind.String)
+                {
+                    note = noteProp.GetString();
+                    if (note != null && string.IsNullOrWhiteSpace(note))
+                    {
+                        return TerritoryEndpoints.Invalid("note must not be empty");
+                    }
+                }
+                else if (noteProp.ValueKind != JsonValueKind.Null)
+                {
+                    return TerritoryEndpoints.Invalid("note must be a string or null");
+                }
+            }
+
+            var result = await targetService.UpsertTerritoryGroupTargetAsync(
+                territoryGroupId,
+                yearValue,
+                monthValue,
+                new UpsertTargetInput(revenueTarget, newCustomerTarget, note, hasNote),
+                currentUserService.User!.Id,
+                ct);
+
+            if (result == null)
+            {
+                return Results.Json(new { error = "Territory group not found" }, statusCode: StatusCodes.Status404NotFound);
             }
 
             return Results.Json(new { target = result.Target });

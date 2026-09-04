@@ -20,6 +20,8 @@ public interface IHospitalRegistryService
     Task<HospitalRegistryLinksResponse> ListRegistryLinksAsync(string? status, CancellationToken cancellationToken = default);
 
     Task<HospitalRegistryLinkResponse> UpdateRegistryLinkAsync(int hospitalId, UpdateRegistryLinkRequest request, int reviewedById, CancellationToken cancellationToken = default);
+
+    Task<RegistryImportResultDto> ImportHospitalRegistryAsync(byte[] fileBytes, string fileName, int fileSizeBytes, int uploadedById, CancellationToken cancellationToken = default);
 }
 
 public interface ITierWeightService

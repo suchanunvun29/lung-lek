@@ -181,3 +181,40 @@ public class TierWeightsResponse
 {
     public List<TierWeightDto> Weights { get; set; } = new();
 }
+
+public class RegistryImportLinksSummaryDto
+{
+    public int Linked { get; set; }
+    public int Unreviewed { get; set; }
+}
+
+public class RegistryImportBatchDto
+{
+    public int Id { get; set; }
+    public string FileName { get; set; } = string.Empty;
+    public int FileSizeBytes { get; set; }
+    public int UploadedById { get; set; }
+    public SalesEvaluation.Contracts.Common.UserSummaryDto? UploadedBy { get; set; }
+    public string StartedAt { get; set; } = string.Empty;
+    public string? FinishedAt { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public object? SheetsFound { get; set; }
+    public object? SheetsImported { get; set; }
+    public int TotalRows { get; set; }
+    public int InsertedRows { get; set; }
+    public int UpdatedRows { get; set; }
+    public int SkippedRows { get; set; }
+    public int ErrorRows { get; set; }
+    public string Mode { get; set; } = "APPEND";
+    public object? TargetPeriods { get; set; }
+    public int RemovedRows { get; set; }
+    public int? ConfirmedById { get; set; }
+    public object? PeriodsTouched { get; set; }
+    public string? ErrorMessage { get; set; }
+}
+
+public class RegistryImportResultDto
+{
+    public RegistryImportBatchDto ImportBatch { get; set; } = null!;
+    public RegistryImportLinksSummaryDto Links { get; set; } = new();
+}
