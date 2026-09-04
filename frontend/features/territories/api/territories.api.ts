@@ -101,13 +101,14 @@ export function listUnassignedTerritoryHospitals(token: string) {
   );
 }
 
-export function getDerivedTarget(token: string, salespersonId: number, year: number, month: number) {
+export function getDerivedTarget(token: string, salespersonId: number, year: number, month: number, signal?: AbortSignal) {
   return request<{ derivedTarget: DerivedTarget }>(
     `/targets/derived/${salespersonId}/${year}/${month}`,
-    { method: "GET" },
+    { method: "GET", signal },
     token
   );
 }
+
 
 export function listTerritoryGroups(token: string) {
   return request<{ territoryGroups: TerritoryGroup[] }>("/territory-groups", { method: "GET" }, token);

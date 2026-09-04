@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { getDerivedTarget } from "@/features/territories/api/territories.api";
 import { getSalespersonKpi, getTeamKpi } from "@/features/kpi/api/kpi.api";
 import { listSalespeople } from "@/features/master-data/api/master-data.api";
 import { getErrorMessage } from "@/lib/api-client";
+import { useAbortableEffect } from "@/lib/useAbortableEffect";
 import { computeTeamAverageScores } from "@/lib/kpiLabels";
 import { DrillDownMetric, DerivedTarget, PeriodKey, Salesperson, SalespersonKpiResponse } from "@/lib/types";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -61,55 +62,68 @@ export default function DashboardPage() {
       });
   }, [token, currentUser]);
 
-  const loadDashboard = useCallback(async () => {
-    if (!token) return;
-    setLoading(true);
-    try {
-      const teamData = await getTeamKpi(token, period);
-      if (teamData.reason === "ACCOUNT_NOT_LINKED") {
-        setAccountNotLinked(true);
-        setKpi(null);
-        setTeamAverages({});
+  useAbortableEffect(
+    async (signal) => {
+      if (!token) return;
+      setLoading(true);
+      try {
+        const teamData = await getTeamKpi(token, period, signal);
+        if (signal.aborted) return;
+        if (teamData.reason === "ACCOUNT_NOT_LINKED") {
+          setAccountNotLinked(true);
+          setKpi(null);
+          setTeamAverages({});
+          setLoadError(null);
+          return;
+        }
+        setAccountNotLinked(false);
+        if (!salespersonId) return;
+        const kpiData = await getSalespersonKpi(token, Number(salespersonId), period, signal);
+        if (signal.aborted) return;
+        setKpi(kpiData);
+        setTeamAverages(computeTeamAverageScores(teamData.results));
         setLoadError(null);
-        return;
+      } catch (err) {
+        if (!signal.aborted) {
+          setLoadError(getErrorMessage(err, "โหลด Dashboard ไม่สำเร็จ"));
+        }
+      } finally {
+        if (!signal.aborted) {
+          setLoading(false);
+        }
       }
-      setAccountNotLinked(false);
-      if (!salespersonId) return;
-      const kpiData = await getSalespersonKpi(token, Number(salespersonId), period);
-      setKpi(kpiData);
-      setTeamAverages(computeTeamAverageScores(teamData.results));
-      setLoadError(null);
-    } catch (err) {
-      setLoadError(getErrorMessage(err, "โหลด Dashboard ไม่สำเร็จ"));
-    } finally {
-      setLoading(false);
-    }
-  }, [token, salespersonId, period]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void loadDashboard();
-  }, [loadDashboard]);
+    },
+    [token, salespersonId, period]
+  );
 
   // GET /targets/derived is monthly-only (/:year/:month), so the card renders for MONTH
   // periods only — a quarter/year selection has no single month to derive from. The fetch
   // is independent of loadDashboard: a failed derive must never break the rest of the page.
-  const loadDerivedTarget = useCallback(async () => {
-    if (!token || !salespersonId || period.periodType !== "MONTH") return;
-    setDerivedTarget(null);
-    setDerivedError(false);
-    try {
-      const data = await getDerivedTarget(token, Number(salespersonId), period.year, period.periodNumber);
-      setDerivedTarget(data.derivedTarget);
-    } catch {
-      setDerivedError(true);
-    }
-  }, [token, salespersonId, period]);
+  useAbortableEffect(
+    async (signal) => {
+      if (!token || !salespersonId || period.periodType !== "MONTH") return;
+      setDerivedTarget(null);
+      setDerivedError(false);
+      try {
+        const data = await getDerivedTarget(
+          token,
+          Number(salespersonId),
+          period.year,
+          period.periodNumber,
+          signal
+        );
+        if (!signal.aborted) {
+          setDerivedTarget(data.derivedTarget);
+        }
+      } catch {
+        if (!signal.aborted) {
+          setDerivedError(true);
+        }
+      }
+    },
+    [token, salespersonId, period]
+  );
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void loadDerivedTarget();
-  }, [loadDerivedTarget]);
 
   const revenueMetric = kpi?.composite.metrics.find((m) => m.metric === "REVENUE_VS_TARGET");
 

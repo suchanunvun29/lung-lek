@@ -11,6 +11,20 @@ export class ApiError extends Error {
   }
 }
 
+export class RequestAbortedError extends Error {
+  constructor(message = "Request was cancelled") {
+    super(message);
+    this.name = "RequestAbortedError";
+  }
+}
+
+export function isAbortError(error: unknown): boolean {
+  if (error instanceof RequestAbortedError) return true;
+  if (error instanceof DOMException && error.name === "AbortError") return true;
+  if (error instanceof Error && error.name === "AbortError") return true;
+  return false;
+}
+
 export const GENERIC_ERROR_MESSAGE = "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง";
 
 export async function request<T>(
@@ -25,45 +39,67 @@ export async function request<T>(
     ...options.headers,
   };
 
-  const res = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
-  const data = await res.json().catch(() => ({}));
+  try {
+    const res = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers,
+    });
+    const data = await res.json().catch(() => ({}));
 
-  if (!res.ok) {
-    throw new ApiError(
-      res.status,
-      typeof data.error === "string" ? data.error : GENERIC_ERROR_MESSAGE
-    );
+    if (!res.ok) {
+      throw new ApiError(
+        res.status,
+        typeof data.error === "string" ? data.error : GENERIC_ERROR_MESSAGE
+      );
+    }
+
+    return data as T;
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw new RequestAbortedError();
+    }
+    throw error;
   }
-
-  return data as T;
 }
 
-export async function downloadFile(path: string, token: string): Promise<void> {
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+export async function downloadFile(
+  path: string,
+  token: string,
+  signal?: AbortSignal
+): Promise<void> {
+  try {
+    const res = await fetch(`${API_BASE_URL}${path}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal,
+    });
 
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new ApiError(
-      res.status,
-      typeof data.error === "string" ? data.error : GENERIC_ERROR_MESSAGE
-    );
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new ApiError(
+        res.status,
+        typeof data.error === "string" ? data.error : GENERIC_ERROR_MESSAGE
+      );
+    }
+
+    const blob = await res.blob();
+    const disposition = res.headers.get("Content-Disposition") ?? "";
+    const match = disposition.match(/filename="?([^";]+)"?/);
+    const filename = match ? decodeURIComponent(match[1]) : "report.xlsx";
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw new RequestAbortedError();
+    }
+    throw error;
   }
-
-  const blob = await res.blob();
-  const disposition = res.headers.get("Content-Disposition") ?? "";
-  const match = disposition.match(/filename="?([^";]+)"?/);
-  const filename = match ? decodeURIComponent(match[1]) : "report.xlsx";
-
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
 }
 
 export function periodQueryParams(period: PeriodKey): string {
@@ -83,6 +119,8 @@ export const KNOWN_ERROR_TRANSLATIONS: Record<string, string> = {
   "Invalid or expired token": "เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่อีกครั้ง",
   "User not found or inactive": "บัญชีนี้ถูกปิดใช้งานหรือไม่พบในระบบ",
   "Forbidden: insufficient role": "คุณไม่มีสิทธิ์ทำรายการนี้",
+  "Forbidden": "คุณไม่มีสิทธิ์เข้าถึงข้อมูลนี้",
+  "Not found": "ไม่พบข้อมูลหรือฟังก์ชันนี้ในระบบ",
   "File is required (field name: file)": "กรุณาเลือกไฟล์ก่อนอัปโหลด",
   "Only .xlsx files are supported": "รองรับเฉพาะไฟล์ .xlsx เท่านั้น",
   "Hospital not found": "ไม่พบโรงพยาบาลนี้",
@@ -93,8 +131,12 @@ export const KNOWN_ERROR_TRANSLATIONS: Record<string, string> = {
 };
 
 export function getErrorMessage(error: unknown, fallback: string): string {
+  if (isAbortError(error)) {
+    return "";
+  }
   if (error instanceof ApiError) {
     return KNOWN_ERROR_TRANSLATIONS[error.message] ?? error.message ?? fallback;
   }
   return fallback;
 }
+

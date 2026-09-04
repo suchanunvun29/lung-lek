@@ -1,7 +1,19 @@
 @import "tailwindcss";
 
+/* ==========================================================================
+   WACC Design System Tokens
+   Single source of truth for surfaces, borders, text, brand, status, and layout tokens.
+   Future WACC palette alignment replaces values here without touching components.
+   ========================================================================== */
+
 :root {
-  --background: #ffffff;
+  /* Surfaces */
+  --surface-sunken: #f8fafc;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-subtle: #f1f5f9;
+
+  --background: #f8fafc;
   --foreground: #0f172a;
 
   --card: #ffffff;
@@ -10,8 +22,32 @@
   --popover: #ffffff;
   --popover-foreground: #0f172a;
 
+  /* Borders */
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --input: #cbd5e1;
+  --ring: #2563eb;
+
+  /* Text & Typography */
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b; /* WCAG AA compliant contrast (> 4.5:1 on white) */
+
+  --type-page-title: 1.5rem; /* 24px / 600 */
+  --type-section-title: 1rem; /* 16px / 600 */
+  --type-body: 0.875rem; /* 14px / 400 */
+  --type-small: 0.8125rem; /* 13px / 400 */
+  --type-caption: 0.75rem; /* 12px / 500 */
+  --type-kpi-lg: 2rem; /* 32px / 600 tabular */
+  --type-kpi-md: 1.375rem; /* 22px / 600 tabular */
+  --type-numeric: 0.875rem; /* 14px / 500 tabular */
+
+  /* Brand / Primary */
   --primary: #2563eb;
+  --primary-hover: #1d4ed8;
   --primary-foreground: #ffffff;
+  --primary-fg: #ffffff;
+  --primary-subtle: #eff6ff;
 
   --secondary: #f1f5f9;
   --secondary-foreground: #0f172a;
@@ -22,86 +58,155 @@
   --accent: #f1f5f9;
   --accent-foreground: #0f172a;
 
-  --destructive: #ef4444;
+  /* Status Colors (paired with -subtle variants) */
+  --success: #059669;
+  --success-foreground: #ffffff;
+  --success-subtle: #ecfdf5;
+
+  --warning: #d97706;
+  --warning-foreground: #ffffff;
+  --warning-subtle: #fffbeb;
+
+  --danger: #dc2626;
+  --danger-foreground: #ffffff;
+  --danger-subtle: #fef2f2;
+  --destructive: #dc2626;
   --destructive-foreground: #ffffff;
 
-  --success: #10b981;
-  --success-foreground: #ffffff;
+  --info: #0284c7;
+  --info-foreground: #ffffff;
+  --info-subtle: #f0f9ff;
 
-  --warning: #f59e0b;
-  --warning-foreground: #ffffff;
+  --restricted: #7c3aed;
+  --restricted-foreground: #ffffff;
+  --restricted-subtle: #f5f3ff;
 
-  --border: #e2e8f0;
-  --input: #e2e8f0;
-  --ring: #2563eb;
+  /* Charts */
+  --chart-1: #2563eb;
+  --chart-2: #059669;
+  --chart-3: #d97706;
+  --chart-4: #dc2626;
+  --chart-5: #7c3aed;
+  --chart-6: #0891b2;
+  --chart-7: #db2777;
+  --chart-8: #64748b;
 
+  /* Radius scale */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-full: 9999px;
   --radius: 0.5rem;
+
+  /* Elevation scale */
+  --elevation-0: 0 0 #0000;
+  --elevation-1: 0 4px 12px rgb(15 23 42 / 0.08);
+  --elevation-2: 0 12px 32px rgb(15 23 42 / 0.16);
+
+  /* Layout widths */
+  --content-standard: 1200px;
+  --content-wide: 100%;
 }
 
 @theme inline {
+  --color-surface-sunken: var(--surface-sunken);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-subtle: var(--surface-subtle);
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
+
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+
   --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-fg: var(--primary-fg);
+  --color-primary-subtle: var(--primary-subtle);
+
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
+
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
+  --color-success-subtle: var(--success-subtle);
+
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
+  --color-warning-subtle: var(--warning-subtle);
 
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --color-danger: var(--danger);
+  --color-danger-foreground: var(--danger-foreground);
+  --color-danger-subtle: var(--danger-subtle);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
 
-  --font-sans: var(--font-geist-sans, ui-sans-serif, system-ui, sans-serif);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-info-subtle: var(--info-subtle);
+
+  --color-restricted: var(--restricted);
+  --color-restricted-foreground: var(--restricted-foreground);
+  --color-restricted-subtle: var(--restricted-subtle);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
+  --color-chart-7: var(--chart-7);
+  --color-chart-8: var(--chart-8);
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-full: var(--radius-full);
+
+  --shadow-elevation-0: var(--elevation-0);
+  --shadow-elevation-1: var(--elevation-1);
+  --shadow-elevation-2: var(--elevation-2);
+
+  --font-sans: var(--font-sans, var(--font-ibm-plex-sans-thai, var(--font-geist-sans, ui-sans-serif, system-ui, sans-serif)));
   --font-mono: var(--font-geist-mono, ui-monospace, monospace);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #090d16;
-    --foreground: #f8fafc;
+@utility tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
 
-    --card: #0f172a;
-    --card-foreground: #f8fafc;
+@utility font-numeric {
+  font-size: var(--type-numeric);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
 
-    --popover: #0f172a;
-    --popover-foreground: #f8fafc;
+@utility font-kpi-lg {
+  font-size: var(--type-kpi-lg);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
 
-    --primary: #3b82f6;
-    --primary-foreground: #ffffff;
-
-    --secondary: #1e293b;
-    --secondary-foreground: #f8fafc;
-
-    --muted: #1e293b;
-    --muted-foreground: #94a3b8;
-
-    --accent: #1e293b;
-    --accent-foreground: #f8fafc;
-
-    --destructive: #ef4444;
-    --destructive-foreground: #ffffff;
-
-    --border: #334155;
-    --input: #334155;
-    --ring: #3b82f6;
-  }
+@utility font-kpi-md {
+  font-size: var(--type-kpi-md);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 body {

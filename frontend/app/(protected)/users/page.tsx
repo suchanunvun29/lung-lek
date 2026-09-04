@@ -17,6 +17,7 @@ import { getErrorMessage } from "@/lib/api-client";
 import { useAuthStore } from "@/store/useAuthStore";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/shared/feedback/ConfirmDialog";
 
 const ROLE_LABEL_TH: Record<string, string> = {
   MANAGER: "ผู้จัดการ",
@@ -37,6 +38,7 @@ export default function UsersPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isCreateOpen, setCreateOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
+  const [resetUserTarget, setResetUserTarget] = useState<AppUser | null>(null);
   const [tempPassword, setTempPassword] = useState<TemporaryPasswordState | null>(null);
   const [busyUserId, setBusyUserId] = useState<number | null>(null);
   const unlinkedSalespersonUsers = users.filter((user) => user.role === "SALESPERSON" && !user.isSalespersonLinked);
@@ -102,12 +104,12 @@ export default function UsersPage() {
 
   async function handleResetPassword(target: AppUser) {
     if (!token) return;
-    if (!window.confirm(`ยืนยันรีเซ็ตรหัสผ่านของ ${target.displayName}?`)) return;
 
     setBusyUserId(target.id);
     try {
       const data = await resetUserPassword(token, target.id);
       setTempPassword({ email: target.email, temporaryPassword: data.temporaryPassword });
+      setResetUserTarget(null);
       void loadUsers();
     } catch (err) {
       window.alert(getErrorMessage(err, "รีเซ็ตรหัสผ่านไม่สำเร็จ กรุณาลองใหม่"));
@@ -224,7 +226,7 @@ export default function UsersPage() {
                     <button
                       type="button"
                       disabled={busyUserId === rowUser.id}
-                      onClick={() => void handleResetPassword(rowUser)}
+                      onClick={() => setResetUserTarget(rowUser)}
                       className="text-zinc-700 hover:underline disabled:opacity-50 cursor-pointer"
                     >
                       รีเซ็ตรหัสผ่าน
@@ -246,6 +248,20 @@ export default function UsersPage() {
         </table>
       </div>
 
+      {resetUserTarget && (
+        <ConfirmDialog
+          title="ยืนยันรีเซ็ตรหัสผ่าน"
+          description={`คุณต้องการรีเซ็ตรหัสผ่านของ ${resetUserTarget.displayName} (${resetUserTarget.email}) หรือไม่?`}
+          consequence="รหัสผ่านปัจจุบันจะถูกยกเลิกทันที และระบบจะสร้างรหัสผ่านชั่วคราวใหม่ให้ผู้ใช้นำไปเปลี่ยนในการเข้าสู่ระบบครั้งถัดไป"
+          confirmLabel="รีเซ็ตรหัสผ่าน"
+          cancelLabel="ยกเลิก"
+          tone="danger"
+          pending={busyUserId === resetUserTarget.id}
+          onConfirm={() => handleResetPassword(resetUserTarget)}
+          onCancel={() => setResetUserTarget(null)}
+        />
+      )}
+
       {isCreateOpen && (
         <Modal title="สร้างบัญชีใหม่" onClose={() => setCreateOpen(false)}>
           <CreateUserForm onSubmit={handleCreate} onCancel={() => setCreateOpen(false)} />
@@ -264,3 +280,4 @@ export default function UsersPage() {
     </div>
   );
 }
+

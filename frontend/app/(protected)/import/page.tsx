@@ -13,6 +13,7 @@ import {
 } from "@/features/import";
 import { getErrorMessage } from "@/lib/api-client";
 import { ImportBatch, ImportMode, PeriodDryRunPreview, PeriodTouched } from "@/lib/types";
+import { InlineMessage } from "@/components/shared/feedback/InlineMessage";
 import { useAuthStore } from "@/store/useAuthStore";
 import { Button } from "@/components/ui/button";
 
@@ -41,7 +42,13 @@ export default function ImportPage() {
   const [isConfirming, setIsConfirming] = useState(false);
 
   if (currentUser?.role !== "MANAGER") {
-    return <div className="mx-auto max-w-2xl p-6"><p className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">หน้านี้สำหรับผู้จัดการเท่านั้น</p></div>;
+    return (
+      <div className="mx-auto max-w-2xl p-6">
+        <InlineMessage variant="warning">
+          หน้านี้สำหรับผู้จัดการเท่านั้น
+        </InlineMessage>
+      </div>
+    );
   }
 
   async function handleUpload(file: File) {

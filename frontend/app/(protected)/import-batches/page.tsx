@@ -7,6 +7,8 @@ import { getErrorMessage } from "@/lib/api-client";
 import { ImportBatch } from "@/lib/types";
 import { IMPORT_STATUS_BADGE_CLASS, IMPORT_STATUS_LABEL_TH, formatFileSize } from "@/lib/importLabels";
 import { useAuthStore } from "@/store/useAuthStore";
+import { EmptyState } from "@/components/shared/feedback/EmptyState";
+import { SkeletonTable } from "@/components/shared/feedback/Skeleton";
 
 export default function ImportBatchesPage() {
   const token = useAuthStore((state) => state.token);
@@ -36,36 +38,51 @@ export default function ImportBatchesPage() {
     <div className="mx-auto max-w-5xl p-4 sm:p-6">
       <h1 className="text-2xl font-semibold text-zinc-900">ประวัติการนำเข้าข้อมูล</h1>
 
-      {loadError && <p className="mt-4 text-sm text-red-600">{loadError}</p>}
+      {loadError && (
+        <div className="mt-4">
+          <EmptyState
+            variant="error"
+            title="เกิดข้อผิดพลาดในการโหลดข้อมูล"
+            description={loadError}
+            onRetry={() => {
+              setLoading(true);
+              void loadBatches();
+            }}
+          />
+        </div>
+      )}
 
-      <div className="mt-6 overflow-x-auto rounded-lg border border-zinc-200 bg-white">
-        <table className="min-w-full divide-y divide-zinc-200 text-sm">
-          <thead className="bg-zinc-50 text-left text-xs font-medium uppercase tracking-wide text-zinc-500">
-            <tr>
-              <th className="px-4 py-3">ไฟล์</th>
-              <th className="px-4 py-3">อัปโหลดโดย</th>
-              <th className="px-4 py-3">เวลา</th>
-              <th className="px-4 py-3">สถานะ</th>
-              <th className="px-4 py-3 text-right">นำเข้า/อัปเดต/ผิดพลาด</th>
-              <th className="px-4 py-3 text-right">ลบออก</th>
-              <th className="px-4 py-3 text-right">รายละเอียด</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-100">
-            {loading && (
+      {loading && (
+        <div className="mt-6">
+          <SkeletonTable rows={5} columns={7} />
+        </div>
+      )}
+
+      {!loading && !loadError && batches.length === 0 && (
+        <div className="mt-6">
+          <EmptyState
+            variant="empty"
+            title="ยังไม่มีประวัติการนำเข้าข้อมูล"
+            description="เมื่อมีการอัปโหลดไฟล์นำเข้าข้อมูล รายการประวัติและผลการประมวลผลจะปรากฏที่นี่"
+          />
+        </div>
+      )}
+
+      {!loading && !loadError && batches.length > 0 && (
+        <div className="mt-6 overflow-x-auto rounded-lg border border-zinc-200 bg-white" aria-live="polite">
+          <table className="min-w-full divide-y divide-zinc-200 text-sm">
+            <thead className="bg-zinc-50 text-left text-xs font-medium uppercase tracking-wide text-zinc-500">
               <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-zinc-400">
-                  กำลังโหลด...
-                </td>
+                <th className="px-4 py-3">ไฟล์</th>
+                <th className="px-4 py-3">อัปโหลดโดย</th>
+                <th className="px-4 py-3">เวลา</th>
+                <th className="px-4 py-3">สถานะ</th>
+                <th className="px-4 py-3 text-right">นำเข้า/อัปเดต/ผิดพลาด</th>
+                <th className="px-4 py-3 text-right">ลบออก</th>
+                <th className="px-4 py-3 text-right">รายละเอียด</th>
               </tr>
-            )}
-            {!loading && batches.length === 0 && !loadError && (
-              <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-zinc-400">
-                  ยังไม่มีประวัติการนำเข้า
-                </td>
-              </tr>
-            )}
+            </thead>
+            <tbody className="divide-y divide-zinc-100">
             {batches.map((batch) => (
               <tr key={batch.id}>
                 <td className="px-4 py-3">
@@ -97,6 +114,8 @@ export default function ImportBatchesPage() {
           </tbody>
         </table>
       </div>
+      )}
     </div>
   );
 }
+
