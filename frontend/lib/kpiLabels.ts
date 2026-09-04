@@ -82,6 +82,17 @@ export function formatLeaderboardValue(criteria: LeaderboardCriteria, value: num
   return `${value.toLocaleString("th-TH")} ราย`;
 }
 
+/** Average composite across the team, counting only computable composites — feeds the dashboard's Level-1 score tile "เทียบค่าเฉลี่ยทีม" (WACC-P1-001). */
+export function computeTeamAverageComposite(
+  results: TeamKpiResultRow[]
+): number | null {
+  const scores = results
+    .map((row) => row.composite.composite)
+    .filter((score): score is number => score !== null);
+  if (scores.length === 0) return null;
+  return scores.reduce((sum, score) => sum + score, 0) / scores.length;
+}
+
 /** Average score per scored metric across the team, counting only entries where that metric is computable — used for the dashboard's "เทียบค่าเฉลี่ยทีม". */
 export function computeTeamAverageScores(
   results: TeamKpiResultRow[]

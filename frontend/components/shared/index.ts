@@ -2,6 +2,7 @@ export * from "./data-table/Pagination";
 export * from "./data-table/DataTable";
 export * from "./data-table/RestrictedValue";
 export * from "./kpi/MetricReason";
+export * from "./kpi/KpiTile";
 export * from "./filters/FilterBar";
 export * from "./filters/FilterDrawer";
 export * from "./export/ExportButton";
