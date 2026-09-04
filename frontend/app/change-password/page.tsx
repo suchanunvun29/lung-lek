@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -34,7 +34,7 @@ export default function ForcedChangePasswordPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[var(--surface-sunken)] p-4">
+    <main aria-label="เปลี่ยนรหัสผ่าน" className="flex min-h-screen items-center justify-center bg-[var(--surface-sunken)] p-4">
       <Card className="w-full max-w-sm p-6 shadow-[var(--shadow-elevation-1)] border-[var(--border)] bg-[var(--surface)]">
         <CardHeader className="p-0 pb-4">
           <CardTitle className="text-xl font-semibold text-[var(--text-primary)]">
@@ -51,6 +51,6 @@ export default function ForcedChangePasswordPage() {
           />
         </CardContent>
       </Card>
-    </div>
+    </main>
   );
 }

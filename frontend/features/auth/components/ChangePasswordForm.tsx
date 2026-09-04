@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { FormEvent, useState } from "react";
 import { changePassword } from "@/features/auth/api/auth.api";
@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { FormField } from "@/components/shared/form/FormField";
 import { Alert } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
+import { announce } from "@/components/shared/feedback/LiveRegion";
 
 // Matches MIN_PASSWORD_LENGTH in backend/src/validators/auth.validators.ts
 const MIN_PASSWORD_LENGTH = 8;
@@ -57,15 +58,19 @@ export function ChangePasswordForm({ onSuccess, submitLabel }: ChangePasswordFor
     }
 
     setLoading(true);
+    announce("กำลังเปลี่ยนรหัสผ่าน...", "polite");
     try {
       await changePassword(token, currentPassword, newPassword);
       updateUser({ mustChangePassword: false });
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
+      announce("เปลี่ยนรหัสผ่านเรียบร้อยแล้ว", "polite");
       onSuccess();
     } catch (err) {
-      setFormError(getErrorMessage(err, "เปลี่ยนรหัสผ่านไม่สำเร็จ กรุณาลองใหม่"));
+      const msg = getErrorMessage(err, "เปลี่ยนรหัสผ่านไม่สำเร็จ กรุณาลองใหม่");
+      setFormError(msg);
+      announce(msg, "assertive");
     } finally {
       setLoading(false);
     }

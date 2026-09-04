@@ -35,6 +35,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/shared/feedback/ConfirmDialog";
 import { Search } from "lucide-react";
+import { announce } from "@/components/shared/feedback/LiveRegion";
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 
@@ -147,6 +148,7 @@ export function TargetsGrid({
     if (savingAll) return;
     setSavingAll(true);
     setBulkFailures(null);
+    announce(`กำลังบันทึกเป้าหมายทั้งหมด ${dirtyEntries.length} รายการ...`, "polite");
     const failures: BulkFailure[] = [];
     for (const [key, draft] of dirtyEntries) {
       const [ownerId, month] = key.split("-").map(Number) as [number, number];
@@ -176,6 +178,22 @@ export function TargetsGrid({
     }
     setBulkFailures(failures.length > 0 ? failures : null);
     setSavingAll(false);
+    if (failures.length === 0) {
+      announce("บันทึกเป้าหมายทั้งหมดเรียบร้อยแล้ว", "polite");
+    } else {
+      announce(`บันทึกเป้าหมายไม่สำเร็จ ${failures.length} รายการ`, "assertive");
+    }
+  }
+
+  async function handleSaveSingle(ownerId: number, month: number, input: TargetCellInput) {
+    announce("กำลังบันทึกเป้าหมาย...", "polite");
+    const res = await onSave(ownerId, month, input);
+    if (res) {
+      announce("บันทึกเป้าหมายเรียบร้อยแล้ว", "polite");
+    } else {
+      announce("บันทึกเป้าหมายไม่สำเร็จ", "assertive");
+    }
+    return res;
   }
 
   function renderCell(owner: GridOwner, month: number, wide = false) {
@@ -188,7 +206,7 @@ export function TargetsGrid({
         saving={savingKey === key || savingAll}
         draft={drafts[key] ?? null}
         onDraftChange={(draft) => setDraft(key, draft)}
-        onSave={(input) => onSave(owner.id, month, input)}
+        onSave={(input) => handleSaveSingle(owner.id, month, input)}
         onOpenProductGroups={target && onOpenProductGroups ? () => onOpenProductGroups(target) : undefined}
         onViewHistory={target && onViewHistory ? () => onViewHistory(target) : undefined}
         wide={wide}
@@ -317,8 +335,10 @@ export function TargetsGrid({
       {/* ── Mobile / small tablet (<1024px): per-owner vertical view ── */}
       <div className="space-y-3 lg:hidden">
         <div className="flex items-center gap-2 text-sm">
-          <label className="shrink-0 font-medium text-text-secondary">{ownerNoun}</label>
+          <label htmlFor="targets-mobile-owner-select" className="shrink-0 font-medium text-text-secondary">{ownerNoun}</label>
           <Select
+            id="targets-mobile-owner-select"
+            aria-label={`เลือก${ownerNoun}`}
             value={String(mobileOwner?.id ?? "")}
             onChange={(e) => setMobileOwnerId(Number(e.target.value))}
             className="w-auto flex-1"

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { ScoringWeightInput } from "@/features/settings/api/settings.api";
@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
 import { FormField } from "@/components/shared/form/FormField";
 import { AlertCircle, CheckCircle2, Info } from "lucide-react";
+import { announce } from "@/components/shared/feedback/LiveRegion";
 
 export interface ScoringWeightsFormProps {
   weights: ScoringWeight[];
@@ -68,12 +69,14 @@ export function ScoringWeightsForm({ weights, onSubmit }: ScoringWeightsFormProp
     e.preventDefault();
     setSubmitting(true);
     setError(null);
+    announce("กำลังบันทึกน้ำหนักคะแนน...", "polite");
     try {
       await onSubmit(
         SCORED_METRIC_ORDER.map((metric) => ({ metric, weight: values[metric] })),
         note.trim() || null
       );
       setNote("");
+      announce("บันทึกน้ำหนักคะแนนเรียบร้อยแล้ว", "polite");
     } catch {
       setError("บันทึกไม่สำเร็จ กรุณาลองใหม่");
     } finally {

@@ -13,7 +13,7 @@ using Microsoft.Extensions.Logging;
 public class GeminiApiClient
 {
     private const string ApiBase = "https://generativelanguage.googleapis.com/v1beta/models";
-    private const string DefaultModel = "gemini-1.5-flash";
+    private const string DefaultModel = "gemini-2.5-flash-lite";
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(15);
 
     private readonly IConfiguration _configuration;

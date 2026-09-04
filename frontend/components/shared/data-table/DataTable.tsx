@@ -267,67 +267,70 @@ export function DataTable<Row>({
         </div>
       )}
 
-      {loading ? (
-        <SkeletonTable rows={6} columns={columns.length + (selectable ? 1 : 0)} />
-      ) : error ? (
-        <EmptyState
-          variant="error"
-          title="เกิดข้อผิดพลาดในการโหลดข้อมูล"
-          description={error}
-          onRetry={onRetry}
-        />
-      ) : visibleRows.length === 0 ? (
-        isFilteredEmpty ? (
+      <div aria-live="polite" aria-busy={loading}>
+        {loading ? (
+          <SkeletonTable rows={6} columns={columns.length + (selectable ? 1 : 0)} />
+        ) : error ? (
           <EmptyState
-            variant="filtered"
-            title="ไม่พบรายการที่ตรงกับการค้นหา"
-            description={`ไม่มีรายการที่ตรงกับ "${query.trim()}"`}
-            onResetFilters={() => setQuery("")}
+            variant="error"
+            title="เกิดข้อผิดพลาดในการโหลดข้อมูล"
+            description={error}
+            onRetry={onRetry}
           />
+        ) : visibleRows.length === 0 ? (
+          isFilteredEmpty ? (
+            <EmptyState
+              variant="filtered"
+              title="ไม่พบรายการที่ตรงกับการค้นหา"
+              description={`ไม่มีรายการที่ตรงกับ "${query.trim()}"`}
+              onResetFilters={() => setQuery("")}
+            />
+          ) : (
+            <EmptyState variant="empty" title={emptyTitle} description={emptyDescription} />
+          )
         ) : (
-          <EmptyState variant="empty" title={emptyTitle} description={emptyDescription} />
-        )
-      ) : (
-        <div aria-live="polite">
-          <p className="sr-only">
-            {serverPaginated
-              ? `ทั้งหมด ${(total ?? 0).toLocaleString("th-TH")} รายการ หน้า ${page}`
-              : `แสดง ${visibleRows.length.toLocaleString("th-TH")} จาก ${rows.length.toLocaleString("th-TH")} รายการ`}
-          </p>
+          <div>
+            <p className="sr-only">
+              {serverPaginated
+                ? `ทั้งหมด ${(total ?? 0).toLocaleString("th-TH")} รายการ หน้า ${page}`
+                : `แสดง ${visibleRows.length.toLocaleString("th-TH")} จาก ${rows.length.toLocaleString("th-TH")} รายการ`}
+            </p>
 
-          {/* Table — 768px up. Sticky header + optional frozen first column live
-              inside this scroll container, so both work wherever the grid scrolls. */}
-          <div className="hidden max-h-[70vh] overflow-auto rounded-lg border border-border bg-surface md:block">
-            <table className="min-w-full divide-y divide-border text-sm">
-              <caption className="sr-only">{caption}</caption>
-              <thead>
-                <tr>
-                  {selectable && (
-                    <th
-                      scope="col"
-                      className={cn(
-                        "sticky top-0 z-10 w-12 bg-surface-subtle px-3 align-middle text-center",
-                        rowHeightClass,
-                        frozenFirstColumn && "left-0 z-20 border-r border-border"
-                      )}
-                    >
-                      <input
-                        type="checkbox"
-                        aria-label="เลือกทั้งหมดในหน้านี้"
-                        checked={visibleRows.length > 0 && visibleRows.every((r) => selectedIds.has(getRowId(r)))}
-                        onChange={(e) => {
-                          const next = new Set(selectedIds);
-                          if (e.target.checked) {
-                            visibleRows.forEach((r) => next.add(getRowId(r)));
-                          } else {
-                            visibleRows.forEach((r) => next.delete(getRowId(r)));
-                          }
-                          updateSelection(next);
-                        }}
-                        className="h-4 w-4 rounded border-border text-primary focus:ring-ring cursor-pointer"
-                      />
-                    </th>
-                  )}
+            {/* Table — 768px up. Sticky header + optional frozen first column live
+                inside this scroll container, so both work wherever the grid scrolls. */}
+            <div className="hidden max-h-[70vh] overflow-auto rounded-lg border border-border bg-surface md:block">
+              <table className="min-w-full divide-y divide-border text-sm">
+                <caption className="sr-only">{caption}</caption>
+                <thead>
+                  <tr>
+                    {selectable && (
+                      <th
+                        scope="col"
+                        className={cn(
+                          "sticky top-0 z-10 w-12 bg-surface-subtle px-1 align-middle text-center",
+                          rowHeightClass,
+                          frozenFirstColumn && "left-0 z-20 border-r border-border"
+                        )}
+                      >
+                        <label className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            aria-label="เลือกทั้งหมดในหน้านี้"
+                            checked={visibleRows.length > 0 && visibleRows.every((r) => selectedIds.has(getRowId(r)))}
+                            onChange={(e) => {
+                              const next = new Set(selectedIds);
+                              if (e.target.checked) {
+                                visibleRows.forEach((r) => next.add(getRowId(r)));
+                              } else {
+                                visibleRows.forEach((r) => next.delete(getRowId(r)));
+                              }
+                              updateSelection(next);
+                            }}
+                            className="h-4 w-4 rounded border-border text-primary focus:ring-ring cursor-pointer"
+                          />
+                        </label>
+                      </th>
+                    )}
                   {columns.map((column, index) => {
                     const isSorted = sort?.key === column.key;
                     const ariaSort = isSorted
@@ -388,27 +391,29 @@ export function DataTable<Row>({
                       {selectable && (
                         <td
                           className={cn(
-                            "w-12 px-3 align-middle text-center",
+                            "w-12 px-1 align-middle text-center",
                             rowHeightClass,
                             frozenFirstColumn && "sticky left-0 z-[1] bg-surface border-r border-border group-hover:bg-surface-subtle"
                           )}
                         >
-                          <input
-                            type="checkbox"
-                            aria-label={`เลือกรายการ ${rowKey}`}
-                            checked={selectedIds.has(getRowId(row))}
-                            onChange={(e) => {
-                              const next = new Set(selectedIds);
-                              const id = getRowId(row);
-                              if (e.target.checked) {
-                                next.add(id);
-                              } else {
-                                next.delete(id);
-                              }
-                              updateSelection(next);
-                            }}
-                            className="h-4 w-4 rounded border-border text-primary focus:ring-ring cursor-pointer"
-                          />
+                          <label className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              aria-label={`เลือกรายการ ${rowKey}`}
+                              checked={selectedIds.has(getRowId(row))}
+                              onChange={(e) => {
+                                const next = new Set(selectedIds);
+                                const id = getRowId(row);
+                                if (e.target.checked) {
+                                  next.add(id);
+                                } else {
+                                  next.delete(id);
+                                }
+                                updateSelection(next);
+                              }}
+                              className="h-4 w-4 rounded border-border text-primary focus:ring-ring cursor-pointer"
+                            />
+                          </label>
                         </td>
                       )}
                       {columns.map((column, index) => {
@@ -453,7 +458,7 @@ export function DataTable<Row>({
               return (
                 <div key={rowKey} className="p-4">
                   {selectable && (
-                    <label className="mb-3 flex items-center gap-2 border-b border-border pb-2 text-xs font-medium text-text-secondary cursor-pointer">
+                    <label className="mb-3 flex min-h-[44px] items-center gap-2 border-b border-border pb-2 text-xs font-medium text-text-secondary cursor-pointer">
                       <input
                         type="checkbox"
                         aria-label={`เลือกรายการ ${rowKey}`}
@@ -533,6 +538,7 @@ export function DataTable<Row>({
           </div>
         </div>
       )}
+      </div>
 
       {showServerPagination && (
         <div className="mt-4">

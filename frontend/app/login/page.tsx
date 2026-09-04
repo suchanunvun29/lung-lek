@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -52,7 +52,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[var(--surface-sunken)] p-4">
+    <main aria-label="เข้าสู่ระบบ" className="flex min-h-screen items-center justify-center bg-[var(--surface-sunken)] p-4">
       <Card className="w-full max-w-sm p-6 shadow-[var(--shadow-elevation-1)] border-[var(--border)] bg-[var(--surface)]">
         <CardHeader className="p-0 pb-4">
           <CardTitle className="text-xl font-semibold text-[var(--text-primary)]">
@@ -115,6 +115,6 @@ export default function LoginPage() {
           </p>
         </CardContent>
       </Card>
-    </div>
+    </main>
   );
 }

@@ -14,6 +14,7 @@
 import { useState } from "react";
 import { Sidebar } from "@/components/shared/navigation/Sidebar";
 import { AppHeader } from "@/components/shared/layout/AppHeader";
+import { LiveRegion } from "@/components/shared/feedback/LiveRegion";
 import { useAuthStore } from "@/store/useAuthStore";
 import type { BreadcrumbSegment } from "@/components/shared/navigation/Breadcrumb";
 
@@ -45,6 +46,9 @@ export function AppShell({ children, breadcrumbSegments }: AppShellProps) {
         ข้ามไปยังเนื้อหาหลัก
       </a>
 
+      {/* Global accessible live regions for async notifications */}
+      <LiveRegion />
+
       <div className="flex min-h-screen">
         {/* Sidebar (desktop persistent + mobile drawer) */}
         <Sidebar
@@ -62,6 +66,7 @@ export function AppShell({ children, breadcrumbSegments }: AppShellProps) {
 
           <main
             id="main-content"
+            aria-label="เนื้อหาหลัก"
             className="flex-1 bg-[var(--surface-sunken)]"
             tabIndex={-1}
           >

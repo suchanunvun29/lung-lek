@@ -208,6 +208,7 @@ export default function TerritoryProductsPage() {
       <PageHeader
         title="อันดับสินค้ารายเขต"
         description="เรียงตามยอดขายของเขตในงวดที่เลือก"
+        controls={false}
         primaryAction={
           <ExportButton
             onExport={exportFile}

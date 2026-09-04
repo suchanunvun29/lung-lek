@@ -26,7 +26,6 @@ import {
   computeTeamAverageComposite,
   computeTeamAverageScores,
   formatScore,
-  periodLabelTh,
 } from "@/lib/kpiLabels";
 import { DrillDownMetric, DerivedTarget, Salesperson, SalespersonKpiResponse } from "@/lib/types";
 import { formatMoney } from "@/lib/importLabels";
@@ -243,7 +242,6 @@ export default function DashboardPage() {
       <PageHeader
         title={title}
         description="ยอดสะสมเทียบเป้า แนวโน้ม และ KPI เทียบค่าเฉลี่ยทีม"
-        meta={`งวด: ${periodLabelTh(period)}`}
       />
 
       {loadError && !loading && (

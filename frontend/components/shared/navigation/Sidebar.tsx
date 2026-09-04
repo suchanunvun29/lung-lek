@@ -79,7 +79,7 @@ export function Sidebar({ role, drawerOpen = false, onDrawerClose }: SidebarProp
     <div className="flex h-full flex-col overflow-hidden">
       {/* Brand / logo row */}
       <div
-        className="flex h-14 shrink-0 items-center border-b border-[var(--border)] px-3"
+        className="flex h-14 shrink-0 items-center border-b border-[var(--border)] px-4"
         style={{ minWidth: collapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH }}
       >
         {!collapsed && (

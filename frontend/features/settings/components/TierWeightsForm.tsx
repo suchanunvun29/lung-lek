@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { TierWeightRow } from "@/lib/types";
@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
-import { AlertCircle, Info } from "lucide-react";
+import { Info, AlertCircle } from "lucide-react";
+import { announce } from "@/components/shared/feedback/LiveRegion";
 
 export interface TierWeightsFormProps {
   weights: TierWeightRow[];
@@ -16,9 +17,13 @@ export interface TierWeightsFormProps {
 const TIER_WEIGHT_STEP = 0.001;
 
 export function TierWeightsForm({ weights, onSubmit }: TierWeightsFormProps) {
-  const [valuesByTier, setValuesByTier] = useState<Record<string, number>>(() =>
-    Object.fromEntries(weights.map((row) => [row.tier, Number(row.weight)]))
-  );
+  const [valuesByTier, setValuesByTier] = useState<Record<string, number>>(() => {
+    const map: Record<string, number> = {};
+    weights.forEach((w) => {
+      map[w.tier] = Number(w.weight);
+    });
+    return map;
+  });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,10 +48,13 @@ export function TierWeightsForm({ weights, onSubmit }: TierWeightsFormProps) {
     }
     setSubmitting(true);
     setError(null);
+    announce("กำลังบันทึกน้ำหนักทุกระดับ...", "polite");
     try {
       await onSubmit(weights.map((row) => ({ tier: row.tier, weight: valuesByTier[row.tier] })));
+      announce("บันทึกน้ำหนักทุกระดับเรียบร้อยแล้ว", "polite");
     } catch {
       setError("บันทึกไม่สำเร็จ กรุณาลองใหม่");
+      announce("บันทึกน้ำหนักทุกระดับไม่สำเร็จ กรุณาลองใหม่", "assertive");
     } finally {
       setSubmitting(false);
     }

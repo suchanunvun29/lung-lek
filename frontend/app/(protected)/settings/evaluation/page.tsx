@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -16,6 +16,7 @@ import { PageHeader } from "@/components/shared/layout/PageHeader";
 import { Alert } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { Skeleton } from "@/components/shared/feedback/Skeleton";
+import { announce } from "@/components/shared/feedback/LiveRegion";
 
 export default function EvaluationSettingsPage() {
   const token = useAuthStore((state) => state.token);
@@ -49,10 +50,17 @@ export default function EvaluationSettingsPage() {
   async function handleSubmit(input: EvaluationSettingUpdateInput) {
     if (!token) return;
     setSaveSuccess(false);
-    const data = await updateEvaluationSetting(token, input);
-    setSetting(data.setting);
-    setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 4000);
+    announce("กำลังบันทึกค่าคงที่ของการประเมิน...", "polite");
+    try {
+      const data = await updateEvaluationSetting(token, input);
+      setSetting(data.setting);
+      setSaveSuccess(true);
+      announce("บันทึกค่าคงที่ของการประเมินเรียบร้อยแล้ว", "polite");
+      setTimeout(() => setSaveSuccess(false), 4000);
+    } catch (err) {
+      announce("บันทึกค่าคงที่ของการประเมินไม่สำเร็จ", "assertive");
+      throw err;
+    }
   }
 
   return (
@@ -74,7 +82,11 @@ export default function EvaluationSettingsPage() {
       )}
 
       {saveSuccess && (
-        <div className="mb-6 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--success-subtle)] p-3 text-sm font-medium text-[var(--success)]">
+        <div
+          role="status"
+          aria-live="polite"
+          className="mb-6 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--success-subtle)] p-3 text-sm font-medium text-[var(--success)]"
+        >
           บันทึกค่าคงที่ของการประเมินเรียบร้อยแล้ว
         </div>
       )}

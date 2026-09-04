@@ -128,12 +128,27 @@ export function TargetCell({
 
   return (
     <div
-      className={`${wide ? "w-full" : "w-32"} rounded border p-1.5 text-xs ${
+      role={canEdit ? "button" : undefined}
+      tabIndex={canEdit && !saving ? 0 : undefined}
+      aria-label={
+        canEdit
+          ? target
+            ? `เป้ายอดขาย ${formatTargetMoney(target.revenueTarget)} บาท ลูกค้าใหม่ ${target.newCustomerTarget} ราย กดเพื่อแก้ไข`
+            : "ยังไม่ได้ตั้งเป้า กดเพื่อตั้งเป้า"
+          : undefined
+      }
+      className={`${wide ? "w-full" : "w-32"} rounded border p-1.5 text-xs transition-colors ${
         target
           ? "border-transparent bg-surface"
           : "border-dashed border-warning/40 bg-warning-subtle"
-      } ${canEdit && !saving ? "cursor-pointer hover:border-border-strong hover:bg-surface-subtle" : ""}`}
+      } ${canEdit && !saving ? "cursor-pointer hover:border-border-strong hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1" : ""}`}
       onClick={startEdit}
+      onKeyDown={(e) => {
+        if (canEdit && !saving && (e.key === "Enter" || e.key === " ")) {
+          e.preventDefault();
+          startEdit();
+        }
+      }}
     >
       {target ? (
         <>

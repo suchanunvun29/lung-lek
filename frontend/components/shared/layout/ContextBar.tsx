@@ -84,7 +84,7 @@ export function ContextBar() {
   if (!showPeriod && !showSalesperson && !showTerritory) return null;
 
   return (
-    <div className="flex flex-wrap items-center gap-3 text-sm">
+    <div className="flex flex-wrap items-center gap-2.5 text-sm">
       {showPeriod && (
         <PeriodSelector value={period} onChange={setPeriod} />
       )}
@@ -92,16 +92,18 @@ export function ContextBar() {
       {showTerritory && territories.length > 0 && (
         territories.length === 1 ? (
           /* Auto-select: sole option renders as text */
-          <span className="font-medium text-[var(--text-secondary)]">
+          <span className="text-xs font-medium text-text-secondary px-2.5 py-1 bg-surface-subtle rounded-[var(--radius-md)] border border-border shrink-0">
             {territories[0].name}
           </span>
         ) : (
-          <div className="flex items-center gap-2">
-            <label className="font-medium text-[var(--text-muted)]">เขต</label>
+          <div className="inline-flex items-center gap-1.5 shrink-0">
+            <label htmlFor="context-territory-select" className="text-xs font-medium text-[var(--text-muted)] shrink-0">เขต</label>
             <select
+              id="context-territory-select"
+              aria-label="เลือกเขตการขาย"
               value={territoryId ?? ""}
               onChange={(e) => setTerritoryId(Number(e.target.value) || null)}
-              className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+              className="h-8 rounded-[var(--radius-md)] border border-border-strong bg-surface px-2.5 py-1 text-xs text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-primary shrink-0"
             >
               {territories.map((t) => (
                 <option key={t.id} value={t.id}>
@@ -116,16 +118,18 @@ export function ContextBar() {
       {showSalesperson && salespeople.length > 0 && (
         salespeople.length === 1 ? (
           /* Auto-select: sole option renders as text */
-          <span className="font-medium text-[var(--text-secondary)]">
+          <span className="text-xs font-medium text-text-secondary px-2.5 py-1 bg-surface-subtle rounded-[var(--radius-md)] border border-border shrink-0">
             {salespeople[0].displayName}
           </span>
         ) : (
-          <div className="flex items-center gap-2">
-            <label className="font-medium text-[var(--text-muted)]">มุมมอง</label>
+          <div className="inline-flex items-center gap-1.5 shrink-0">
+            <label htmlFor="context-salesperson-select" className="text-xs font-medium text-[var(--text-muted)] shrink-0">มุมมอง</label>
             <select
+              id="context-salesperson-select"
+              aria-label="เลือกมุมมองพนักงานขาย"
               value={salespersonId ?? ""}
               onChange={(e) => setSalespersonId(Number(e.target.value) || null)}
-              className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+              className="h-8 rounded-[var(--radius-md)] border border-border-strong bg-surface px-2.5 py-1 text-xs text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-primary shrink-0"
             >
               {salespeople.map((sp) => (
                 <option key={sp.id} value={sp.id}>

@@ -19,7 +19,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     };
 
     const sizeStyles: Record<NonNullable<ButtonProps["size"]>, string> = {
-      default: "h-9 px-4 py-2 text-sm",
+      default: "h-9 min-h-11 lg:min-h-9 px-4 py-2 text-sm",
       sm: "h-8 px-3 text-xs rounded-md min-h-11 lg:min-h-8",
       lg: "h-11 px-8 text-base rounded-md",
       icon: "h-9 w-9 p-0 min-h-11 min-w-11 lg:min-h-9 lg:min-w-9",

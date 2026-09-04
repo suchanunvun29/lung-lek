@@ -15,7 +15,6 @@ import { Menu, User, LogOut, Settings } from "lucide-react";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useContextStore } from "@/store/useContextStore";
 import { Breadcrumb } from "@/components/shared/navigation/Breadcrumb";
-import { ContextBar } from "@/components/shared/layout/ContextBar";
 import {
   DropdownMenu,
   DropdownTrigger,
@@ -51,34 +50,31 @@ export function AppHeader({ onMenuToggle, breadcrumbSegments }: AppHeaderProps) 
   }
 
   return (
-    <header className="sticky top-0 z-30 border-b border-[var(--border)] bg-[var(--surface)]">
+    <header className="sticky top-0 z-30 h-14 border-b border-[var(--border)] bg-[var(--surface)]">
       {/* Main header row */}
-      <div className="flex h-14 items-center gap-3 px-3 sm:px-4">
-        {/* Hamburger — visible below lg breakpoint */}
-        <button
-          type="button"
-          aria-label="เปิดเมนู"
-          onClick={onMenuToggle}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--radius-md)] text-[var(--text-muted)] hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary)] transition-colors lg:hidden"
-        >
-          <Menu size={20} aria-hidden="true" />
-        </button>
+      <div className="flex h-full items-center justify-between gap-3 px-4 sm:px-6">
+        <div className="flex items-center gap-3 overflow-hidden">
+          {/* Hamburger — visible below lg breakpoint */}
+          <button
+            type="button"
+            aria-label="เปิดเมนู"
+            onClick={onMenuToggle}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-md)] text-[var(--text-muted)] hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary)] transition-colors lg:hidden cursor-pointer"
+          >
+            <Menu size={20} aria-hidden="true" />
+          </button>
 
-        {/* Breadcrumb — fills available space */}
-        <div className="flex-1 overflow-hidden">
-          <Breadcrumb segments={breadcrumbSegments} />
-        </div>
-
-        {/* Context controls — hidden on mobile, shown on sm+ */}
-        <div className="hidden sm:flex items-center gap-3">
-          <ContextBar />
+          {/* Breadcrumb */}
+          <div className="overflow-hidden">
+            <Breadcrumb segments={breadcrumbSegments} />
+          </div>
         </div>
 
         {/* Profile menu */}
         {user && (
           <DropdownMenu>
             <DropdownTrigger
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--primary-subtle)] text-[var(--primary)] hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--primary-subtle)] text-[var(--primary)] hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] cursor-pointer"
             >
               <User size={18} aria-hidden="true" />
               <span className="sr-only">เมนูโปรไฟล์</span>
@@ -101,11 +97,6 @@ export function AppHeader({ onMenuToggle, breadcrumbSegments }: AppHeaderProps) 
             </DropdownContent>
           </DropdownMenu>
         )}
-      </div>
-
-      {/* Mobile context row — full-width, shown only on mobile */}
-      <div className="sm:hidden border-t border-[var(--border)] px-3 py-2">
-        <ContextBar />
       </div>
     </header>
   );

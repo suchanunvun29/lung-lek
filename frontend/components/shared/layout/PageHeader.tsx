@@ -13,7 +13,10 @@
  * All existing Thai wording is preserved — PageHeader receives it as a prop.
  */
 
+"use client";
+
 import type { ReactNode } from "react";
+import { ContextBar } from "@/components/shared/layout/ContextBar";
 
 export interface PageHeaderProps {
   /** The page title — <h1> at --type-page-title (1.5rem / 600). */
@@ -27,6 +30,13 @@ export interface PageHeaderProps {
   secondaryActions?: ReactNode[];
   /** Optional metadata line (e.g. "แสดง 50 จาก 200 รายการ"). */
   meta?: ReactNode;
+  /**
+   * Optional contextual controls / filter toolbar (e.g. PeriodSelector, Switchers).
+   * - If undefined: automatically renders <ContextBar /> when route has context controls configured.
+   * - If null or false: explicitly suppresses context controls.
+   * - If a ReactNode: renders the provided custom controls.
+   */
+  controls?: ReactNode | false | null;
 }
 
 export function PageHeader({
@@ -35,11 +45,15 @@ export function PageHeader({
   primaryAction,
   secondaryActions,
   meta,
+  controls,
 }: PageHeaderProps) {
+  const hasExplicitControls = controls !== undefined;
+  const showControls = controls !== null && controls !== false;
+
   return (
     <div className="mb-6">
-      {/* Title row */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        {/* Title, description, and meta */}
         <div className="flex-1 min-w-0">
           <h1
             className="text-[var(--type-page-title)] font-semibold text-[var(--text-primary)] leading-tight"
@@ -54,23 +68,25 @@ export function PageHeader({
           )}
         </div>
 
-        {/* Actions — desktop: row; hidden on mobile */}
-        {(primaryAction || (secondaryActions && secondaryActions.length > 0)) && (
-          <div className="hidden sm:flex shrink-0 items-center gap-2">
-            {secondaryActions?.map((action, i) => (
-              <span key={i}>{action}</span>
-            ))}
-            {primaryAction && <span>{primaryAction}</span>}
+        {/* Toolbar: contextual controls + actions */}
+        {(showControls || primaryAction || (secondaryActions && secondaryActions.length > 0)) && (
+          <div className="flex flex-wrap items-center gap-3 lg:shrink-0 lg:justify-end">
+            {showControls && (hasExplicitControls ? controls : <ContextBar />)}
+            {secondaryActions && secondaryActions.length > 0 && (
+              <div className="flex items-center gap-2">
+                {secondaryActions.map((action, i) => (
+                  <span key={i}>{action}</span>
+                ))}
+              </div>
+            )}
+            {primaryAction && (
+              <div className="w-full sm:w-auto [&>*]:w-full sm:[&>*]:w-auto">
+                {primaryAction}
+              </div>
+            )}
           </div>
         )}
       </div>
-
-      {/* Mobile: primary action full-width 44px */}
-      {primaryAction && (
-        <div className="mt-3 sm:hidden">
-          <div className="[&>*]:w-full [&>*]:min-h-[44px]">{primaryAction}</div>
-        </div>
-      )}
     </div>
   );
 }

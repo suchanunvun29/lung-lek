@@ -123,6 +123,7 @@ export default function SalesLinesPage() {
     <PageContainer width="wide">
       <PageHeader
         title="ข้อมูลการขาย"
+        controls={false}
         meta={`ยอดรวมของหน้านี้: ${formatMoney(totalAmount)} บาท (${salesLines.length} รายการ จากทั้งหมด ${total.toLocaleString("th-TH")} รายการ)`}
       />
 
