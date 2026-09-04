@@ -106,6 +106,9 @@ public class TargetAndSettingsEndpointsTests : IClassFixture<CustomWebApplicatio
         Assert.True(json.TryGetProperty("target", out var target));
         Assert.Equal("500000", target.GetProperty("revenueTarget").GetString());
         Assert.Equal(_factory.TerritoryId1, target.GetProperty("territoryId").GetInt32());
+        // Rule E — a territory target must carry Scope = TERRITORY (regression: EF sentinel
+        // silently stored SALESPERSON when the scope column was omitted from the INSERT).
+        Assert.Equal("TERRITORY", target.GetProperty("scope").GetString());
     }
 
     [Fact]
@@ -150,5 +153,6 @@ public class TargetAndSettingsEndpointsTests : IClassFixture<CustomWebApplicatio
         Assert.True(json.TryGetProperty("target", out var target));
         Assert.Equal("1500000", target.GetProperty("revenueTarget").GetString());
         Assert.Equal(_factory.TerritoryGroupId1, target.GetProperty("territoryGroupId").GetInt32());
+        Assert.Equal("TERRITORY_GROUP", target.GetProperty("scope").GetString());
     }
 }

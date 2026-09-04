@@ -1,72 +1,99 @@
 "use client";
 
+/**
+ * HospitalNameReviewTable — WACC-P1-009
+ *
+ * The hospital name-review queue on DataTable (client-side search; the endpoint
+ * returns the full list). "รวม" (MERGED) no longer acts directly — it asks the
+ * page to open a ConfirmDialog naming both records; "แยกถาวร" (KEPT_SEPARATE)
+ * stays a single click because it deletes nothing.
+ */
+
 import { useState } from "react";
 import { HospitalNameReview } from "@/lib/types";
 import { Button } from "@/components/ui/button";
+import { DataTable, type DataTableColumn } from "@/components/shared/data-table/DataTable";
 
 export interface HospitalNameReviewTableProps {
   reviews: HospitalNameReview[];
-  onDecide: (review: HospitalNameReview, decision: "MERGED" | "KEPT_SEPARATE") => Promise<void>;
+  /** KEPT_SEPARATE — runs immediately, not destructive. */
+  onDecide: (review: HospitalNameReview, decision: "KEPT_SEPARATE") => Promise<void>;
+  /** MERGED — asks the page to confirm first; the page sends the payload. */
+  onRequestMerge: (review: HospitalNameReview) => void;
 }
 
-export function HospitalNameReviewTable({ reviews, onDecide }: HospitalNameReviewTableProps) {
+export function HospitalNameReviewTable({ reviews, onDecide, onRequestMerge }: HospitalNameReviewTableProps) {
   const [busyId, setBusyId] = useState<number | null>(null);
 
-  async function handleDecision(review: HospitalNameReview, decision: "MERGED" | "KEPT_SEPARATE") {
+  async function keepSeparate(review: HospitalNameReview) {
     setBusyId(review.id);
     try {
-      await onDecide(review, decision);
+      await onDecide(review, "KEPT_SEPARATE");
     } finally {
       setBusyId(null);
     }
   }
 
+  function renderActions(review: HospitalNameReview, compact: boolean) {
+    return (
+      <div className={`gap-2 ${compact ? "flex w-full flex-col" : "flex flex-wrap"}`}>
+        <Button
+          type="button"
+          variant="success"
+          size={compact ? "default" : "sm"}
+          disabled={busyId === review.id}
+          onClick={() => onRequestMerge(review)}
+          className={compact ? "min-h-[44px] w-full" : ""}
+        >
+          รวมเป็นชื่อเดียวกัน
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size={compact ? "default" : "sm"}
+          disabled={busyId === review.id}
+          onClick={() => void keepSeparate(review)}
+          className={compact ? "min-h-[44px] w-full" : ""}
+        >
+          คนละชื่อกัน — แยกถาวร
+        </Button>
+      </div>
+    );
+  }
+
+  const columns: DataTableColumn<HospitalNameReview>[] = [
+    {
+      key: "names",
+      header: "ชื่อที่พบในไฟล์",
+      mobileRole: "identity",
+      render: (review) => (
+        <div className="space-y-0.5">
+          <p className="font-medium text-zinc-900">{review.sampleRawA}</p>
+          <p className="text-zinc-600">{review.sampleRawB}</p>
+        </div>
+      ),
+    },
+    {
+      key: "actions",
+      header: "การตัดสินใจ",
+      render: (review) => renderActions(review, false),
+    },
+  ];
+
   return (
-    <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
-      <table className="min-w-full divide-y divide-zinc-200 text-sm">
-        <thead className="bg-zinc-50 text-left text-xs font-medium uppercase tracking-wide text-zinc-500">
-          <tr>
-            <th className="px-4 py-3">ชื่อที่พบ</th>
-            <th className="px-4 py-3">การตัดสินใจ</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-zinc-100">
-          {reviews.length === 0 && (
-            <tr><td colSpan={2} className="px-4 py-6 text-center text-zinc-400">ไม่มีชื่อโรงพยาบาลที่รอยืนยัน</td></tr>
-          )}
-          {reviews.map((review) => (
-            <tr key={review.id}>
-              <td className="px-4 py-3">
-                <p className="font-medium text-zinc-900">{review.sampleRawA}</p>
-                <p className="mt-1 text-zinc-600">{review.sampleRawB}</p>
-              </td>
-              <td className="px-4 py-3">
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant="success"
-                    size="sm"
-                    disabled={busyId === review.id}
-                    onClick={() => void handleDecision(review, "MERGED")}
-                  >
-                    รวม
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={busyId === review.id}
-                    onClick={() => void handleDecision(review, "KEPT_SEPARATE")}
-                  >
-                    แยกถาวร
-                  </Button>
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <DataTable
+      columns={columns}
+      rows={reviews}
+      getRowId={(review) => review.id}
+      caption="คิวตรวจสอบชื่อโรงพยาบาลที่ซ้ำกัน"
+      searchable
+      searchPredicate={(review, query) =>
+        review.sampleRawA.toLowerCase().includes(query) || review.sampleRawB.toLowerCase().includes(query)
+      }
+      searchPlaceholder="ค้นหาชื่อโรงพยาบาล…"
+      emptyTitle="ไม่มีชื่อโรงพยาบาลที่รอยืนยัน"
+      rowAction={(review) => renderActions(review, true)}
+    />
   );
 }
 

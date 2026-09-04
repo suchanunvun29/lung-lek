@@ -99,7 +99,7 @@ function collectActionItems({
         churned.hospitals.length > 0
           ? `ลูกค้า ${churned.count} แห่งไม่สั่งซื้อมาแล้ว ${formatKpiNumber(worstMonths)} เดือนขึ้นไป`
           : `ลูกค้า ${churned.count} แห่งไม่สั่งซื้อมาแล้วเกินเกณฑ์ที่กำหนด`,
-      href: "/my-territory",
+      href: "/my-territory?tab=churned",
     });
   }
 

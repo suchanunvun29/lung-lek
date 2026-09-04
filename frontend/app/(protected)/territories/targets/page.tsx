@@ -1,25 +1,47 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { listTerritories } from "@/features/territories/api/territories.api";
-import { listTargets, upsertTerritoryTarget } from "@/features/targets/api/targets.api";
-import { getErrorMessage } from "@/lib/api-client";
-import { Target, Territory } from "@/lib/types";
-import { useAuthStore } from "@/store/useAuthStore";
-import { Input } from "@/components/ui/input";
+/**
+ * /territories/targets — WACC-P1-014
+ *
+ * Territory targets migrated onto the shared TargetsGrid (one grid, three owner
+ * types), saving through PUT /targets/territory/{id}/{year}/{month} restored by
+ * WACC-P0-003. Read-open like /targets: SALESPERSON sees a read-only grid,
+ * editing is MANAGER-only (canEdit). Product-group targets do not apply to the
+ * territory scope, so no product-group action is offered here.
+ *
+ * Business rules preserved: a written Target carries territoryId only with
+ * Scope = TERRITORY (rule E), and a territory with no active owner stays
+ * flagged Unassigned downstream (rule D) — neither is computed on this screen.
+ */
 
-const MONTHS = Array.from({ length: 12 }, (_, index) => index + 1);
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { listTerritories } from "@/features/territories/api/territories.api";
+import { TargetsGrid, targetKey, listTargets, upsertTerritoryTarget } from "@/features/targets";
+import { Target, Territory } from "@/lib/types";
+import { getErrorMessage } from "@/lib/api-client";
+import { useAuthStore } from "@/store/useAuthStore";
+import { Select } from "@/components/ui/select";
+
+const YEAR_OFFSETS = [-1, 0, 1];
 
 export default function TerritoryTargetsPage() {
+  const router = useRouter();
   const token = useAuthStore((state) => state.token);
   const canEdit = useAuthStore((state) => state.user?.role === "MANAGER");
-  const [year, setYear] = useState(new Date().getFullYear());
+
+  const currentYear = new Date().getFullYear();
+  const [year, setYear] = useState(currentYear);
   const [territories, setTerritories] = useState<Territory[]>([]);
   const [targets, setTargets] = useState<Target[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [savingKey, setSavingKey] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!token) return;
+    setLoading(true);
     try {
       const [territoryData, targetData] = await Promise.all([
         listTerritories(token),
@@ -27,9 +49,11 @@ export default function TerritoryTargetsPage() {
       ]);
       setTerritories(territoryData.territories);
       setTargets(targetData.targets);
-      setError(null);
+      setLoadError(null);
     } catch (err) {
-      setError(getErrorMessage(err, "โหลดเป้าระดับเขตไม่สำเร็จ"));
+      setLoadError(getErrorMessage(err, "โหลดเป้าระดับเขตไม่สำเร็จ"));
+    } finally {
+      setLoading(false);
     }
   }, [token, year]);
 
@@ -38,104 +62,89 @@ export default function TerritoryTargetsPage() {
     void load();
   }, [load]);
 
-  async function save(territoryId: number, month: number, _current: Target | undefined, revenueRaw: string, customersRaw: string) {
-    if (!token || !canEdit) return;
-    const revenueTarget = Number(revenueRaw);
-    const newCustomerTarget = Number(customersRaw);
-    if (!Number.isFinite(revenueTarget) || !Number.isFinite(newCustomerTarget)) return;
+  const targetsByKey = useMemo(() => {
+    const map = new Map<string, Target>();
+    targets.forEach((t) => {
+      if (t.territoryId) map.set(targetKey(t.territoryId, t.month), t);
+    });
+    return map;
+  }, [targets]);
+
+  async function handleSaveTarget(
+    territoryId: number,
+    month: number,
+    input: { revenueTarget: number; newCustomerTarget: number }
+  ): Promise<boolean> {
+    if (!token) return false;
+    const key = targetKey(territoryId, month);
+    setSavingKey(key);
+    setActionError(null);
     try {
-      await upsertTerritoryTarget(token, territoryId, year, month, { revenueTarget, newCustomerTarget });
-      await load();
+      const data = await upsertTerritoryTarget(token, territoryId, year, month, input);
+      const territory = territories.find((item) => item.id === territoryId);
+      setTargets((prev) => [
+        ...prev.filter((t) => !(t.territoryId === territoryId && t.month === month)),
+        {
+          ...data.target,
+          territory: territory ? { id: territory.id, name: territory.name } : undefined,
+        },
+      ]);
+      return true;
     } catch (err) {
-      setError(getErrorMessage(err, "บันทึกเป้าระดับเขตไม่สำเร็จ"));
+      setActionError(getErrorMessage(err, "บันทึกเป้าระดับเขตไม่สำเร็จ"));
+      return false;
+    } finally {
+      setSavingKey(null);
     }
   }
 
   return (
-    <div className="mx-auto max-w-7xl p-4 sm:p-6">
-      <h1 className="text-2xl font-semibold text-zinc-900">ตั้งเป้าระดับเขต</h1>
-      <p className="mt-1 text-sm text-zinc-600">เป้าระดับเขตแยกจากเป้ารายคน และกรอกได้เฉพาะผู้จัดการ</p>
-      <label className="mt-4 inline-flex items-center gap-2 text-sm">
-        ปี
-        <Input
-          type="number"
-          value={year}
+    <div className="mx-auto max-w-6xl p-4 sm:p-6">
+      <h1 className="text-2xl font-semibold text-zinc-900">เป้ารายเขต</h1>
+      <p className="mt-1 text-sm text-zinc-600">
+        เป้าระดับเขตแยกจากเป้ารายคน — พนักงานขายที่ไม่ได้ตั้งเป้าเองจะได้เป้าจากเขตที่รับผิดชอบ
+        {!canEdit && " (ดูได้เท่านั้น การแก้ไขสงวนไว้สำหรับผู้จัดการ)"}
+      </p>
+
+      <div className="mt-4 flex items-center gap-2 text-sm">
+        <label className="font-medium text-zinc-600">ปี</label>
+        <Select
+          value={String(year)}
           onChange={(e) => setYear(Number(e.target.value))}
-          className="w-24"
-        />
-      </label>
-      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-      <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-200 bg-white">
-        <table className="w-full text-left text-sm">
-          <thead className="border-b bg-zinc-50">
-            <tr>
-              <th className="p-3">เขต</th>
-              {MONTHS.map((month) => (
-                <th key={month} className="min-w-40 p-3">
-                  เดือน {month}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {territories
-              .filter((item) => item.isActive)
-              .map((territory) => (
-                <tr key={territory.id} className="border-b align-top">
-                  <td className="whitespace-nowrap p-3 font-medium">{territory.name}</td>
-                  {MONTHS.map((month) => {
-                    const target = targets.find((item) => item.territoryId === territory.id && item.month === month);
-                    return (
-                      <td key={month} className="p-2">
-                        <TargetEditor
-                          target={target}
-                          disabled={!canEdit}
-                          onSave={(revenue, customers) => void save(territory.id, month, target, revenue, customers)}
-                        />
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-          </tbody>
-        </table>
+          className="w-auto"
+        >
+          {YEAR_OFFSETS.map((offset) => {
+            const y = currentYear + offset;
+            return (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            );
+          })}
+        </Select>
       </div>
-    </div>
-  );
-}
 
-function TargetEditor({
-  target,
-  disabled,
-  onSave,
-}: {
-  target?: Target;
-  disabled: boolean;
-  onSave: (revenue: string, customers: string) => void;
-}) {
-  const [revenue, setRevenue] = useState(target?.revenueTarget ?? "");
-  const [customers, setCustomers] = useState(target?.newCustomerTarget?.toString() ?? "");
+      {loadError && <p className="mt-4 text-sm text-red-600">{loadError}</p>}
+      {actionError && <p className="mt-4 text-sm text-red-600">{actionError}</p>}
 
-  return (
-    <div className="space-y-1">
-      <Input
-        aria-label="เป้ายอดขาย"
-        disabled={disabled}
-        value={revenue}
-        onChange={(e) => setRevenue(e.target.value)}
-        onBlur={() => onSave(String(revenue), String(customers))}
-        placeholder="ยอดขาย"
-        className="w-full text-xs"
-      />
-      <Input
-        aria-label="เป้าลูกค้าใหม่"
-        disabled={disabled}
-        value={customers}
-        onChange={(e) => setCustomers(e.target.value)}
-        onBlur={() => onSave(String(revenue), String(customers))}
-        placeholder="ลูกค้าใหม่"
-        className="w-full text-xs"
-      />
+      <div className="mt-4">
+        {loading ? (
+          <p className="text-zinc-400">กำลังโหลด...</p>
+        ) : (
+          <TargetsGrid
+            key={year}
+            ownerNoun="เขต"
+            owners={territories
+              .filter((territory) => territory.isActive)
+              .map((territory) => ({ id: territory.id, displayName: territory.name }))}
+            targetsByKey={targetsByKey}
+            canEdit={canEdit}
+            savingKey={savingKey}
+            onSave={handleSaveTarget}
+            onViewHistory={(target) => router.push(`/targets/${target.id}/revisions`)}
+          />
+        )}
+      </div>
     </div>
   );
 }

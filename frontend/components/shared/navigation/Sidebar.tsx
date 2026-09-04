@@ -25,6 +25,7 @@ import {
   isGroupActive,
   isItemActive,
 } from "./navigation.config";
+import { useQueueCounts, type QueueBadgeKey } from "./useQueueCounts";
 import type { UserRole } from "@/lib/types";
 
 const SIDEBAR_COLLAPSED_KEY = "sidebar-collapsed";
@@ -40,6 +41,14 @@ export interface SidebarProps {
 
 export function Sidebar({ role, drawerOpen = false, onDrawerClose }: SidebarProps) {
   const pathname = usePathname();
+  // WACC-P1-015 — lazy queue counts (fetched once after first paint, MANAGER only).
+  const queueCounts = useQueueCounts(role);
+
+  function badgeValueFor(badgeKey?: string): number | undefined {
+    if (!badgeKey || !(badgeKey in queueCounts)) return undefined;
+    const value = queueCounts[badgeKey as QueueBadgeKey];
+    return typeof value === "number" ? value : undefined;
+  }
 
   // Collapse state — persisted, only relevant at ≥1280px.
   const [collapsed, setCollapsed] = useState<boolean>(() => {
@@ -108,15 +117,27 @@ export function Sidebar({ role, drawerOpen = false, onDrawerClose }: SidebarProp
                 {visibleItems.map((item) => {
                   const active = isItemActive(item, pathname);
                   const Icon = item.icon;
+                  const badge = badgeValueFor(item.badgeKey);
 
                   return (
                     <li key={item.href}>
                       <Link
                         href={item.href}
                         aria-current={active ? "page" : undefined}
-                        title={collapsed ? item.label : undefined}
+                        aria-label={
+                          badge !== undefined
+                            ? `${item.label} มี ${badge.toLocaleString("th-TH")} รายการรอจัดการ`
+                            : undefined
+                        }
+                        title={
+                          collapsed
+                            ? badge !== undefined
+                              ? `${item.label} (${badge.toLocaleString("th-TH")})`
+                              : item.label
+                            : undefined
+                        }
                         className={[
-                          "flex items-center gap-3 rounded-[var(--radius-md)] px-2 py-2 text-sm font-medium transition-colors",
+                          "relative flex items-center gap-3 rounded-[var(--radius-md)] px-2 py-2 text-sm font-medium transition-colors",
                           "min-h-[40px]",
                           active
                             ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
@@ -125,13 +146,22 @@ export function Sidebar({ role, drawerOpen = false, onDrawerClose }: SidebarProp
                             : "text-[var(--text-secondary)] hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary)]",
                         ].join(" ")}
                       >
-                        <Icon
-                          size={18}
-                          className="shrink-0"
-                          aria-hidden="true"
-                        />
-                        {!collapsed && (
-                          <span className="truncate">{item.label}</span>
+                        <span className="relative shrink-0">
+                          <Icon size={18} aria-hidden="true" />
+                          {/* Collapsed: a dot carries the signal; the count lives in the
+                              accessible name (aria-label / title) above. */}
+                          {collapsed && badge !== undefined && (
+                            <span
+                              className="absolute -right-1.5 -top-1 flex h-2.5 w-2.5 rounded-full bg-danger ring-2 ring-[var(--surface)]"
+                              aria-hidden="true"
+                            />
+                          )}
+                        </span>
+                        {!collapsed && <span className="truncate">{item.label}</span>}
+                        {!collapsed && badge !== undefined && (
+                          <span className="ml-auto inline-flex min-w-[20px] items-center justify-center rounded-full bg-danger px-1.5 py-0.5 text-[11px] font-semibold leading-none text-danger-foreground">
+                            {badge > 99 ? "99+" : badge.toLocaleString("th-TH")}
+                          </span>
                         )}
                       </Link>
                     </li>

@@ -158,7 +158,9 @@ export default function TargetsPage() {
           <p className="text-zinc-400">กำลังโหลด...</p>
         ) : (
           <TargetsGrid
-            salespeople={salespeople}
+            key={year}
+            ownerNoun="พนักงานขาย"
+            owners={salespeople.map((sp) => ({ id: sp.id, displayName: sp.displayName }))}
             targetsByKey={targetsByKey}
             canEdit={canEdit}
             savingKey={savingKey}

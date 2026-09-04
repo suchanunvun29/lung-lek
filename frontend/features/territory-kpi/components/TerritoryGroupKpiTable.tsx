@@ -1,5 +1,18 @@
+"use client";
+
+/**
+ * TerritoryGroupKpiTable — WACC-P1-012
+ *
+ * The group view on DataTable (client-side sort + search). Group rows are
+ * TERRITORY_FULL only when the payload says so — the viewer has FULL on every
+ * member territory — and visibility is read from the row, never inferred
+ * (business rule G: a group's numbers are the sum of its member territories).
+ */
+
 import { formatMoney } from "@/lib/importLabels";
 import { TerritoryGroupKpiRow } from "@/lib/types";
+import { DataTable, type DataTableColumn } from "@/components/shared/data-table/DataTable";
+import { RestrictedValue } from "@/components/shared/data-table/RestrictedValue";
 
 export interface TerritoryGroupKpiTableProps {
   groups: TerritoryGroupKpiRow[];
@@ -14,54 +27,94 @@ function ownerLabel(owners: string[]) {
 }
 
 export function TerritoryGroupKpiTable({ groups }: TerritoryGroupKpiTableProps) {
-  if (!groups.length) return null;
+  const columns: DataTableColumn<TerritoryGroupKpiRow>[] = [
+    {
+      key: "name",
+      header: "กลุ่มเขต",
+      mobileRole: "identity",
+      sortable: true,
+      sortValue: (row) => row.name,
+      render: (row) => <span className="font-medium text-zinc-900">{row.name}</span>,
+    },
+    {
+      key: "owners",
+      header: "ผู้ดูแล",
+      priority: 3,
+      sortable: true,
+      sortValue: (row) => row.ownerNames.join(", ") || null,
+      render: (row) => <span className="text-zinc-600">{ownerLabel(row.ownerNames)}</span>,
+    },
+    {
+      key: "revenue",
+      header: "ยอดรวม",
+      numeric: true,
+      sortable: true,
+      sortValue: (row) => (row.visibility === "TERRITORY_FULL" ? row.revenue : null),
+      render: (row) =>
+        row.visibility === "TERRITORY_FULL" ? (
+          formatMoney(row.revenue)
+        ) : (
+          <RestrictedValue visibility={row.visibility} />
+        ),
+    },
+    {
+      key: "target",
+      header: "เป้ารวม",
+      numeric: true,
+      priority: 3,
+      sortable: true,
+      sortValue: (row) => (row.visibility === "TERRITORY_FULL" ? row.revenueTarget : null),
+      render: (row) =>
+        row.visibility !== "TERRITORY_FULL" ? (
+          <RestrictedValue visibility={row.visibility} label="จำกัดตามสิทธิ์" />
+        ) : row.revenueTarget === null ? (
+          "—"
+        ) : (
+          formatMoney(row.revenueTarget)
+        ),
+    },
+    {
+      key: "achievement",
+      header: "% ถึงเป้า",
+      numeric: true,
+      priority: 3,
+      sortable: true,
+      sortValue: (row) => (row.visibility === "TERRITORY_FULL" ? row.achievementPercent : null),
+      render: (row) =>
+        row.visibility !== "TERRITORY_FULL" ? (
+          <RestrictedValue visibility={row.visibility} label="จำกัดตามสิทธิ์" />
+        ) : (
+          percentage(row.achievementPercent)
+        ),
+    },
+    {
+      key: "composite",
+      header: "คะแนนรวม",
+      numeric: true,
+      sortable: true,
+      mobileRole: "metric",
+      sortValue: (row) => row.compositeScore,
+      render: (row) => (
+        <div>
+          <p className="font-semibold text-zinc-900">
+            {row.compositeScore === null ? "—" : row.compositeScore.toLocaleString("th-TH", { maximumFractionDigits: 1 })}
+          </p>
+          <p className="mt-1 text-xs text-zinc-500">{row.computedMetricLabel}</p>
+        </div>
+      ),
+    },
+  ];
+
   return (
-    <section>
-      <h2 className="text-lg font-semibold text-zinc-900">เป้ารวมกลุ่มเขต</h2>
-      <p className="mt-1 text-sm text-zinc-600">ยอดของกลุ่มเป็นผลรวมของเขตสมาชิก จึงไม่รวมซ้ำในยอดรวมตารางเขตด้านบน</p>
-      <div className="mt-3 overflow-x-auto rounded-lg border border-zinc-200 bg-white">
-        <table className="min-w-full divide-y divide-zinc-200 text-sm">
-          <thead className="bg-zinc-50 text-left text-xs font-medium uppercase tracking-wide text-zinc-500">
-            <tr>
-              <th className="px-4 py-3">กลุ่มเขต</th>
-              <th className="px-4 py-3">ผู้ดูแล</th>
-              <th className="px-4 py-3 text-right">ยอดรวม</th>
-              <th className="px-4 py-3 text-right">เป้ารวม</th>
-              <th className="px-4 py-3 text-right">% ถึงเป้า</th>
-              <th className="px-4 py-3">คะแนนรวม</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-100">
-            {groups.map((group) => {
-              const full = group.visibility === "TERRITORY_FULL";
-              return (
-                <tr key={group.territoryId}>
-                  <td className="px-4 py-3 font-medium text-zinc-900">{group.name}</td>
-                  <td className="px-4 py-3 text-zinc-600">{ownerLabel(group.ownerNames)}</td>
-                  {full ? (
-                    <>
-                      <td className="px-4 py-3 text-right">{formatMoney(group.revenue)}</td>
-                      <td className="px-4 py-3 text-right">{group.revenueTarget === null ? "—" : formatMoney(group.revenueTarget)}</td>
-                      <td className="px-4 py-3 text-right">{percentage(group.achievementPercent)}</td>
-                    </>
-                  ) : (
-                    <>
-                      <td className="px-4 py-3 text-zinc-400">—</td>
-                      <td className="px-4 py-3 text-zinc-400">—</td>
-                      <td className="px-4 py-3 text-zinc-400">—</td>
-                    </>
-                  )}
-                  <td className="px-4 py-3">
-                    <p className="font-semibold text-zinc-900">{group.compositeScore === null ? "—" : group.compositeScore.toLocaleString("th-TH", { maximumFractionDigits: 1 })}</p>
-                    <p className="mt-1 text-xs text-zinc-500">{group.computedMetricLabel}</p>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </section>
+    <DataTable
+      columns={columns}
+      rows={groups}
+      getRowId={(row) => row.territoryId}
+      caption="KPI กลุ่มเขต — ยอดของกลุ่มเป็นผลรวมของเขตสมาชิก"
+      searchable
+      searchPlaceholder="ค้นหากลุ่มเขต…"
+      emptyTitle="ไม่มีข้อมูลกลุ่มเขตในรอบที่เลือก"
+    />
   );
 }
 

@@ -126,7 +126,11 @@ public class TargetConfiguration : IEntityTypeConfiguration<Target>
 
         builder.HasKey(t => t.Id);
 
-        builder.Property(t => t.Scope).HasDefaultValue(TargetScope.SALESPERSON);
+        // The DB column default is SALESPERSON, but the enum declares TERRITORY = 0, which is
+        // EF's sentinel by default — a Target written with Scope = TERRITORY was therefore
+        // omitted from the INSERT and silently stored as SALESPERSON (business rule E broken).
+        // Declare SALESPERSON as the sentinel so every other scope value is always sent.
+        builder.Property(t => t.Scope).HasSentinel(TargetScope.SALESPERSON).HasDefaultValue(TargetScope.SALESPERSON);
         builder.Property(t => t.RevenueTarget).HasPrecision(14, 2).HasDefaultValue(0m);
         builder.Property(t => t.NewCustomerTarget).HasDefaultValue(0);
         builder.Property(t => t.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");

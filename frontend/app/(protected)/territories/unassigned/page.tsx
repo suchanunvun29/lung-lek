@@ -9,6 +9,7 @@ import {
 import { getErrorMessage } from "@/lib/api-client";
 import { Territory, UnassignedTerritoryHospital } from "@/lib/types";
 import { useAuthStore } from "@/store/useAuthStore";
+import { refreshQueueCounts } from "@/components/shared/navigation/useQueueCounts";
 import { Select } from "@/components/ui/select";
 
 export default function UnassignedTerritoriesPage() {
@@ -47,6 +48,8 @@ export default function UnassignedTerritoriesPage() {
     try {
       await moveHospitalToTerritory(token, hospitalId, Number(territoryId));
       await load();
+      // WACC-P1-015 — the unassigned count just dropped; refresh the sidebar badge.
+      void refreshQueueCounts(token);
     } catch (err) {
       setError(getErrorMessage(err, "ผูกเขตให้โรงพยาบาลไม่สำเร็จ"));
     }

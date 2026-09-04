@@ -1,17 +1,27 @@
 "use client";
 
+/**
+ * TerritoryKpiTable — WACC-P1-012
+ *
+ * The territory view on DataTable (client-side sort + search). Masked rows are
+ * decided by the payload's `visibility` field only: anything that is not
+ * TERRITORY_FULL renders RestrictedValue — never inferred from a null/empty
+ * value. Drill-down ("ดูที่มา") is unchanged and stays the row action.
+ */
+
 import { formatMoney } from "@/lib/importLabels";
 import { metricLabelTh } from "@/lib/kpiLabels";
 import { DrillDownMetric, TerritoryKpiRow } from "@/lib/types";
+import { DataTable, type DataTableColumn } from "@/components/shared/data-table/DataTable";
+import { RestrictedValue } from "@/components/shared/data-table/RestrictedValue";
 
 export interface TerritoryKpiTableProps {
   territories: TerritoryKpiRow[];
   onDrillDown: (territory: TerritoryKpiRow, metric: DrillDownMetric) => void;
 }
 
-function formatPercent(value: number | null, fallbackLabel: string | null) {
-  if (value !== null) return `${value.toLocaleString("th-TH", { maximumFractionDigits: 1 })}%`;
-  return fallbackLabel ?? "ยังไม่ได้ตั้งเป้า";
+function formatPercent(value: number) {
+  return `${value.toLocaleString("th-TH", { maximumFractionDigits: 1 })}%`;
 }
 
 function ownerLabel(ownerNames: string[]) {
@@ -19,97 +29,154 @@ function ownerLabel(ownerNames: string[]) {
 }
 
 export function TerritoryKpiTable({ territories, onDrillDown }: TerritoryKpiTableProps) {
-  return (
-    <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
-      <table className="min-w-full divide-y divide-zinc-200 text-sm">
-        <thead className="bg-zinc-50 text-left text-xs font-medium uppercase tracking-wide text-zinc-500">
-          <tr>
-            <th className="px-4 py-3">อันดับ</th>
-            <th className="px-4 py-3">เขต</th>
-            <th className="px-4 py-3">ผู้ดูแล</th>
-            <th className="px-4 py-3 text-right">ยอดขาย</th>
-            <th className="px-4 py-3 text-right">เป้า</th>
-            <th className="px-4 py-3 text-right">% ถึงเป้า</th>
-            <th className="px-4 py-3">KPI</th>
-            <th className="px-4 py-3">คะแนนรวม</th>
-            <th className="px-4 py-3">รายละเอียด</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-zinc-100">
-          {territories.length === 0 && (
-            <tr><td colSpan={9} className="px-4 py-6 text-center text-zinc-400">ไม่มีข้อมูลเขตในรอบที่เลือก</td></tr>
+  const columns: DataTableColumn<TerritoryKpiRow>[] = [
+    {
+      key: "rank",
+      header: "อันดับ",
+      numeric: true,
+      priority: 3,
+      mobileRole: "hidden",
+      sortable: true,
+      sortValue: (row) => row.rank,
+      render: (row) => <span className="font-medium text-zinc-700">{row.rank}</span>,
+    },
+    {
+      key: "name",
+      header: "เขต",
+      mobileRole: "identity",
+      sortable: true,
+      sortValue: (row) => row.name,
+      render: (row) => <span className="font-medium text-zinc-900">{row.name}</span>,
+    },
+    {
+      key: "owners",
+      header: "ผู้ดูแล",
+      priority: 3,
+      sortable: true,
+      sortValue: (row) => row.ownerNames.join(", ") || null,
+      render: (row) => <span className="text-zinc-600">{ownerLabel(row.ownerNames)}</span>,
+    },
+    {
+      key: "revenue",
+      header: "ยอดขาย",
+      numeric: true,
+      sortable: true,
+      sortValue: (row) => (row.visibility === "TERRITORY_FULL" ? row.revenue : null),
+      render: (row) =>
+        row.visibility === "TERRITORY_FULL" ? (
+          formatMoney(row.revenue)
+        ) : (
+          <RestrictedValue visibility={row.visibility} />
+        ),
+    },
+    {
+      key: "target",
+      header: "เป้า",
+      numeric: true,
+      priority: 3,
+      sortable: true,
+      sortValue: (row) => (row.visibility === "TERRITORY_FULL" ? row.target : null),
+      render: (row) => {
+        if (row.visibility !== "TERRITORY_FULL") return <RestrictedValue visibility={row.visibility} label="จำกัดตามสิทธิ์" />;
+        if (row.target === null) {
+          return <span className="text-xs text-amber-700">{row.targetLabel ?? "ยังไม่ได้ตั้งเป้า"}</span>;
+        }
+        return formatMoney(row.target);
+      },
+    },
+    {
+      key: "achievement",
+      header: "% ถึงเป้า",
+      numeric: true,
+      sortable: true,
+      sortValue: (row) => (row.visibility === "TERRITORY_FULL" ? row.achievementPercent : null),
+      render: (row) => {
+        if (row.visibility !== "TERRITORY_FULL") return <RestrictedValue visibility={row.visibility} label="จำกัดตามสิทธิ์" />;
+        if (row.achievementPercent === null) {
+          return <span className="text-xs text-amber-700">{row.targetLabel ?? "ยังไม่ได้ตั้งเป้า"}</span>;
+        }
+        return <span className="font-semibold">{formatPercent(row.achievementPercent)}</span>;
+      },
+    },
+    {
+      key: "metrics",
+      header: "KPI",
+      mobileRole: "meta",
+      render: (row) => {
+        if (row.visibility !== "TERRITORY_FULL") return <RestrictedValue visibility={row.visibility} label="จำกัดตามสิทธิ์" />;
+        return (
+          <div className="min-w-52 space-y-1">
+            {row.metrics.map((metric) => (
+              <p key={metric.metric} className="text-xs text-zinc-600">
+                {metricLabelTh(metric.metric)}:{" "}
+                {metric.computable ? `${metric.score?.toLocaleString("th-TH", { maximumFractionDigits: 1 })} คะแนน` : metric.reason}
+              </p>
+            ))}
+          </div>
+        );
+      },
+    },
+    {
+      key: "composite",
+      header: "คะแนนรวม",
+      numeric: true,
+      sortable: true,
+      mobileRole: "metric",
+      sortValue: (row) => row.compositeScore,
+      render: (row) => (
+        <div>
+          {row.compositeScore !== null ? (
+            <p className="font-medium text-zinc-900">{row.compositeScore.toLocaleString("th-TH", { maximumFractionDigits: 1 })}</p>
+          ) : (
+            <p className="max-w-44 text-xs text-amber-700">
+              {row.visibility === "TERRITORY_FULL" ? row.message ?? "ยังไม่มีคะแนนรวมในงวดนี้" : "ยังไม่มีคะแนนรวมในงวดนี้"}
+            </p>
           )}
-          {territories.map((territory) => {
-            const isFull = territory.visibility === "TERRITORY_FULL";
-            const scoreMessage = territory.visibility === "TERRITORY_FULL" ? territory.message : null;
-            return (
-              <tr key={territory.territoryId}>
-                <td className="px-4 py-3 font-medium text-zinc-700">{territory.rank}</td>
-                <td className="px-4 py-3 font-medium text-zinc-900">{territory.name}</td>
-                <td className="px-4 py-3 text-zinc-600">{ownerLabel(territory.ownerNames)}</td>
-                {isFull ? (
-                  <>
-                    <td className="px-4 py-3 text-right text-zinc-700">{formatMoney(territory.revenue)}</td>
-                    <td className="px-4 py-3 text-right text-zinc-700">
-                      {territory.target === null ? (
-                        <span className="text-xs text-amber-700">{territory.targetLabel ?? "ยังไม่ได้ตั้งเป้า"}</span>
-                      ) : (
-                        formatMoney(territory.target)
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right font-semibold text-zinc-900">
-                      {territory.achievementPercent !== null ? (
-                        <span className="text-base">{formatPercent(territory.achievementPercent, null)}</span>
-                      ) : (
-                        <span className="text-xs font-normal text-amber-700">{formatPercent(null, territory.targetLabel)}</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="min-w-52 space-y-1">
-                        {territory.metrics.map((metric) => (
-                          <p key={metric.metric} className="text-xs text-zinc-600">
-                            {metricLabelTh(metric.metric)}:{" "}
-                            {metric.computable ? `${metric.score?.toLocaleString("th-TH", { maximumFractionDigits: 1 })} คะแนน` : metric.reason}
-                          </p>
-                        ))}
-                      </div>
-                    </td>
-                  </>
-                ) : (
-                  <>
-                    <td className="px-4 py-3 text-zinc-400">—</td>
-                    <td className="px-4 py-3 text-zinc-400">—</td>
-                    <td className="px-4 py-3 text-zinc-400">—</td>
-                    <td className="px-4 py-3 text-zinc-400">—</td>
-                  </>
-                )}
-                <td className="px-4 py-3">
-                  {territory.compositeScore !== null ? (
-                    <p className="font-medium text-zinc-900">{territory.compositeScore.toLocaleString("th-TH", { maximumFractionDigits: 1 })}</p>
-                  ) : (
-                    <p className="max-w-44 text-xs text-amber-700">{scoreMessage ?? "ยังไม่มีคะแนนรวมในงวดนี้"}</p>
-                  )}
-                  <p className="mt-1 text-xs text-zinc-500">{territory.computedMetricLabel}</p>
-                </td>
-                <td className="px-4 py-3">
-                  {isFull ? (
-                    <button
-                      type="button"
-                      onClick={() => onDrillDown(territory, "REVENUE_VS_TARGET")}
-                      className="text-sm font-medium text-zinc-700 hover:underline cursor-pointer"
-                    >
-                      ดูที่มา
-                    </button>
-                  ) : (
-                    <span className="text-zinc-400">—</span>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+          <p className="mt-1 text-xs text-zinc-500">{row.computedMetricLabel}</p>
+        </div>
+      ),
+    },
+    {
+      key: "detail",
+      header: "รายละเอียด",
+      render: (row) =>
+        row.visibility === "TERRITORY_FULL" ? (
+          <button
+            type="button"
+            onClick={() => onDrillDown(row, "REVENUE_VS_TARGET")}
+            className="text-sm font-medium text-zinc-700 hover:underline cursor-pointer"
+          >
+            ดูที่มา
+          </button>
+        ) : (
+          <span className="text-zinc-400">—</span>
+        ),
+    },
+  ];
+
+  return (
+    <DataTable
+      columns={columns}
+      rows={territories}
+      getRowId={(row) => row.territoryId}
+      caption="KPI รายเขต — ยอดขาย เป้า และคะแนนรวมของแต่ละเขต"
+      searchable
+      searchPlaceholder="ค้นหาเขต…"
+      emptyTitle="ไม่มีข้อมูลเขตในรอบที่เลือก"
+      rowAction={(row) =>
+        row.visibility === "TERRITORY_FULL" ? (
+          <button
+            type="button"
+            onClick={() => onDrillDown(row, "REVENUE_VS_TARGET")}
+            className="min-h-[44px] w-full rounded-md border border-border px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 cursor-pointer"
+          >
+            ดูที่มา
+          </button>
+        ) : (
+          <span className="text-zinc-400">—</span>
+        )
+      }
+    />
   );
 }
 
