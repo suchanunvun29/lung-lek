@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { ForbiddenState } from "@/components/shared/auth/ForbiddenState";
 import {
   HospitalRegistryTable,
   listHospitalRegistries,
@@ -86,7 +87,7 @@ export default function HospitalRegistryPage() {
   }, [loadRegistries]);
 
   if (user?.role !== "MANAGER") {
-    return <div className="mx-auto max-w-4xl p-4 sm:p-6"><p className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">หน้านี้สำหรับผู้จัดการเท่านั้น</p></div>;
+    return <ForbiddenState reason="หน้านี้สำหรับผู้จัดการเท่านั้น" />;
   }
 
   async function handleUpload(file: File) {

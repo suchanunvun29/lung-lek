@@ -9,6 +9,8 @@ import { IMPORT_STATUS_BADGE_CLASS, IMPORT_STATUS_LABEL_TH, formatFileSize } fro
 import { useAuthStore } from "@/store/useAuthStore";
 import { EmptyState } from "@/components/shared/feedback/EmptyState";
 import { SkeletonTable } from "@/components/shared/feedback/Skeleton";
+import { PageContainer } from "@/components/shared/layout/PageContainer";
+import { PageHeader } from "@/components/shared/layout/PageHeader";
 
 export default function ImportBatchesPage() {
   const token = useAuthStore((state) => state.token);
@@ -35,8 +37,8 @@ export default function ImportBatchesPage() {
   }, [loadBatches]);
 
   return (
-    <div className="mx-auto max-w-5xl p-4 sm:p-6">
-      <h1 className="text-2xl font-semibold text-zinc-900">ประวัติการนำเข้าข้อมูล</h1>
+    <PageContainer width="wide">
+      <PageHeader title="ประวัติการนำเข้าข้อมูล" />
 
       {loadError && (
         <div className="mt-4">
@@ -115,7 +117,7 @@ export default function ImportBatchesPage() {
         </table>
       </div>
       )}
-    </div>
+    </PageContainer>
   );
 }
 

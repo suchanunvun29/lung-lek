@@ -13,7 +13,7 @@ import {
 } from "@/features/import";
 import { getErrorMessage } from "@/lib/api-client";
 import { ImportBatch, ImportMode, PeriodDryRunPreview, PeriodTouched } from "@/lib/types";
-import { InlineMessage } from "@/components/shared/feedback/InlineMessage";
+import { ForbiddenState } from "@/components/shared/auth/ForbiddenState";
 import { useAuthStore } from "@/store/useAuthStore";
 import { Button } from "@/components/ui/button";
 
@@ -42,13 +42,7 @@ export default function ImportPage() {
   const [isConfirming, setIsConfirming] = useState(false);
 
   if (currentUser?.role !== "MANAGER") {
-    return (
-      <div className="mx-auto max-w-2xl p-6">
-        <InlineMessage variant="warning">
-          หน้านี้สำหรับผู้จัดการเท่านั้น
-        </InlineMessage>
-      </div>
-    );
+    return <ForbiddenState reason="หน้านี้สำหรับผู้จัดการเท่านั้น" />;
   }
 
   async function handleUpload(file: File) {

@@ -18,6 +18,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { ForbiddenState } from "@/components/shared/auth/ForbiddenState";
 
 const YEAR_OFFSETS = [-1, 0, 1];
 const MONTHS = Array.from({ length: 12 }, (_, index) => index + 1);
@@ -189,11 +190,7 @@ export default function TargetAssistPage() {
   }
 
   if (!isManager) {
-    return (
-      <div className="mx-auto max-w-4xl p-4 sm:p-6">
-        <p className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">หน้านี้สำหรับผู้จัดการเท่านั้น</p>
-      </div>
-    );
+    return <ForbiddenState reason="หน้านี้สำหรับผู้จัดการเท่านั้น" />;
   }
 
   const windowLabel =

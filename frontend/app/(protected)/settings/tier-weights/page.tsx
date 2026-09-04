@@ -5,6 +5,7 @@ import { TierWeightsForm, getTierWeights, updateTierWeights } from "@/features/s
 import { getErrorMessage } from "@/lib/api-client";
 import { TierWeightRow } from "@/lib/types";
 import { useAuthStore } from "@/store/useAuthStore";
+import { ForbiddenState } from "@/components/shared/auth/ForbiddenState";
 
 export default function TierWeightsSettingsPage() {
   const token = useAuthStore((state) => state.token);
@@ -44,11 +45,7 @@ export default function TierWeightsSettingsPage() {
   }
 
   if (!isManager) {
-    return (
-      <div className="mx-auto max-w-4xl p-4 sm:p-6">
-        <p className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">หน้านี้สำหรับผู้จัดการเท่านั้น</p>
-      </div>
-    );
+    return <ForbiddenState reason="หน้านี้สำหรับผู้จัดการเท่านั้น" />;
   }
 
   return (

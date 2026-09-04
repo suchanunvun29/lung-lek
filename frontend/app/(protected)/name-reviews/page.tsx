@@ -16,6 +16,7 @@ import { listSalespeople } from "@/features/master-data";
 import { getErrorMessage } from "@/lib/api-client";
 import { HospitalNameReview, SalesmanNameReview, SalesmanNameRule } from "@/lib/types";
 import { useAuthStore } from "@/store/useAuthStore";
+import { ForbiddenState } from "@/components/shared/auth/ForbiddenState";
 
 type Tab = "hospitals" | "credits" | "salesmen";
 
@@ -54,12 +55,7 @@ export default function NameReviewsPage() {
   }, [token, user?.role]);
 
   if (user?.role !== "MANAGER") {
-    return (
-      <div className="mx-auto max-w-5xl p-4 sm:p-6">
-        <h1 className="text-2xl font-semibold text-zinc-900">ยืนยันชื่อซ้ำ</h1>
-        <p className="mt-2 text-sm text-zinc-600">หน้านี้สำหรับผู้จัดการเท่านั้น</p>
-      </div>
-    );
+    return <ForbiddenState reason="หน้านี้สำหรับผู้จัดการเท่านั้น" />;
   }
 
   async function handleHospitalDecision(review: HospitalNameReview, decision: "MERGED" | "KEPT_SEPARATE") {

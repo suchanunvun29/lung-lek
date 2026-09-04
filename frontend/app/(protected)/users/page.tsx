@@ -18,6 +18,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/shared/feedback/ConfirmDialog";
+import { ForbiddenState } from "@/components/shared/auth/ForbiddenState";
 
 const ROLE_LABEL_TH: Record<string, string> = {
   MANAGER: "ผู้จัดการ",
@@ -62,13 +63,7 @@ export default function UsersPage() {
   }, [loadUsers]);
 
   if (currentUser?.role !== "MANAGER") {
-    return (
-      <div className="mx-auto max-w-2xl p-6">
-        <p className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
-          หน้านี้สำหรับผู้จัดการเท่านั้น
-        </p>
-      </div>
-    );
+    return <ForbiddenState reason="หน้านี้สำหรับผู้จัดการเท่านั้น" />;
   }
 
   async function handleCreate(input: CreateUserInput) {
