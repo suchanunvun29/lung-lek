@@ -35,12 +35,17 @@ public class GeminiApiClient
     public async Task<GeminiCallResult> CallGeminiAsync(string prompt, CancellationToken cancellationToken = default)
     {
         var apiKey = _configuration["Gemini:ApiKey"];
+        if (string.IsNullOrWhiteSpace(apiKey)) apiKey = _configuration["GEMINI_API_KEY"];
+        if (string.IsNullOrWhiteSpace(apiKey)) apiKey = Environment.GetEnvironmentVariable("GEMINI_API_KEY");
         if (string.IsNullOrWhiteSpace(apiKey))
             throw new InvalidOperationException("GEMINI_API_KEY ไม่ได้ตั้งค่าไว้");
 
-        var model = _configuration["Gemini:Model"]?.Trim()
+        var model = _configuration["Gemini:Model"]
+                    ?? _configuration["GEMINI_MODEL"]
+                    ?? Environment.GetEnvironmentVariable("GEMINI_MODEL")
                     ?? DefaultModel;
         if (string.IsNullOrWhiteSpace(model)) model = DefaultModel;
+        model = model.Trim();
 
         var url = $"{ApiBase}/{model}:generateContent?key={apiKey}";
 

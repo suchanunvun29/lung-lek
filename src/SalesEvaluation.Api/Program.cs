@@ -9,6 +9,8 @@ using SalesEvaluation.Application;
 using SalesEvaluation.Infrastructure;
 using Serilog;
 
+LoadDotEnv();
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Structured logging with Serilog
@@ -96,4 +98,53 @@ app.MapFallback((HttpContext context) =>
 
 app.Run();
 
-public partial class Program { }
+public partial class Program
+{
+    private static void LoadDotEnv()
+    {
+        var searchDirs = new[] { Directory.GetCurrentDirectory(), AppContext.BaseDirectory };
+        foreach (var dir in searchDirs)
+        {
+            var current = new DirectoryInfo(dir);
+            while (current != null)
+            {
+                var envFile = Path.Combine(current.FullName, ".env");
+                if (File.Exists(envFile))
+                {
+                    foreach (var rawLine in File.ReadAllLines(envFile))
+                    {
+                        var line = rawLine.Trim();
+                        if (string.IsNullOrEmpty(line) || line.StartsWith('#'))
+                            continue;
+
+                        var eqIdx = line.IndexOf('=');
+                        if (eqIdx <= 0)
+                            continue;
+
+                        var key = line[..eqIdx].Trim();
+                        var val = line[(eqIdx + 1)..].Trim();
+
+                        if (val.Length >= 2 &&
+                            ((val.StartsWith('"') && val.EndsWith('"')) ||
+                             (val.StartsWith('\'') && val.EndsWith('\''))))
+                        {
+                            val = val[1..^1];
+                        }
+
+                        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable(key)))
+                        {
+                            Environment.SetEnvironmentVariable(key, val);
+                        }
+
+                        if (key == "GEMINI_API_KEY" && string.IsNullOrEmpty(Environment.GetEnvironmentVariable("Gemini__ApiKey")))
+                        {
+                            Environment.SetEnvironmentVariable("Gemini__ApiKey", val);
+                        }
+                    }
+                    return;
+                }
+                current = current.Parent;
+            }
+        }
+    }
+}
