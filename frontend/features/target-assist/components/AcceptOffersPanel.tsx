@@ -37,8 +37,8 @@ function OfferRow({
 
   return (
     <tr>
-      <td className="whitespace-nowrap px-4 py-3 font-medium text-zinc-900">{total.territoryName}</td>
-      <td className="px-4 py-3 text-zinc-500">{formatTargetMoney(total.suggestedTotal)}</td>
+      <td className="whitespace-nowrap px-4 py-3 font-medium text-text-primary">{total.territoryName}</td>
+      <td className="px-4 py-3 text-text-muted font-numeric">{formatTargetMoney(total.suggestedTotal)}</td>
       <td className="px-4 py-3">
         <Input
           type="number"
@@ -49,10 +49,10 @@ function OfferRow({
             setSaved(false);
             setRevenueRaw(e.target.value);
           }}
-          className={`w-40 text-right ${saved ? "border-emerald-300 bg-emerald-50" : "border-zinc-300"}`}
+          className={`w-40 text-right ${saved ? "border-success/40 bg-success-subtle" : ""}`}
         />
       </td>
-      <td className="px-4 py-3 text-zinc-600">
+      <td className="px-4 py-3 text-text-secondary font-numeric">
         {existing ? formatTargetMoney(existing.revenueTarget) : "ยังไม่มีเป้า"}
       </td>
       <td className="px-4 py-3 text-right">
@@ -61,7 +61,7 @@ function OfferRow({
           size="sm"
           disabled={!valid || saving}
           onClick={() => void handleSave()}
-          className="bg-zinc-900 text-white hover:bg-zinc-800 text-xs px-3 py-1.5"
+          className="text-xs px-3 py-1.5"
         >
           {saving ? "กำลังบันทึก..." : "รับข้อเสนอ"}
         </Button>
@@ -80,17 +80,17 @@ export function AcceptOffersPanel({ totals, existingByTerritoryId, savingTerrito
   }
 
   return (
-    <section className="rounded-lg border border-zinc-200 bg-white">
-      <header className="border-b border-zinc-200 bg-zinc-50 px-4 py-3">
-        <h3 className="text-base font-semibold text-zinc-900">รับข้อเสนอเข้าเป้ารายเขต</h3>
-        <p className="mt-1 text-sm text-zinc-600">
-          ค่าที่เสนอ = Σ suggested ทุกภาค + unmappedBase · แก้ตัวเลขก่อนบันทึกได้ ·
+    <section className="rounded-lg border border-border bg-surface shadow-xs">
+      <header className="border-b border-border bg-surface-subtle/70 px-4 py-3">
+        <h3 className="text-base font-semibold text-text-primary">รับข้อเสนอเข้าเป้ารายเขต</h3>
+        <p className="mt-1 text-xs text-text-muted">
+          ค่าที่เสนอ = Σ suggested ทุกภาค + ยอดที่ระบุภาคไม่ได้ · แก้ตัวเลขก่อนบันทึกได้ ·
           เขียนผ่านเป้ารายเขต (TERRITORY) เดิม และไม่แก้เป้าลูกค้าใหม่ของเขต
         </p>
       </header>
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-zinc-200 text-sm">
-          <thead className="text-left text-xs font-medium uppercase tracking-wide text-zinc-500">
+      <div className="overflow-x-auto max-h-[35vh] overflow-y-auto">
+        <table className="min-w-full divide-y divide-border text-sm">
+          <thead className="sticky top-0 z-10 bg-surface-subtle text-left text-xs font-semibold uppercase tracking-wide text-text-secondary">
             <tr>
               <th className="px-4 py-3">เขต</th>
               <th className="px-4 py-3">ระบบเสนอ</th>
@@ -101,7 +101,7 @@ export function AcceptOffersPanel({ totals, existingByTerritoryId, savingTerrito
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-zinc-100">
+          <tbody className="divide-y divide-border">
             {totals.map((total) => (
               <OfferRow
                 key={total.territoryId}

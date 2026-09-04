@@ -1,13 +1,15 @@
 import React from "react";
 import { Badge, BadgeProps } from "@/components/ui/badge";
-import { ImportStatus, ImportIssueLevel, RegistryLinkStatus, HospitalNameReviewStatus } from "@/lib/types";
+import { ImportStatus, ImportIssueLevel, RegistryLinkStatus, HospitalNameReviewStatus, TargetChangeType } from "@/lib/types";
 import { IMPORT_STATUS_LABEL_TH, IMPORT_ISSUE_LEVEL_LABEL_TH } from "@/lib/importLabels";
+import { TARGET_CHANGE_TYPE_LABEL_TH } from "@/lib/targetLabels";
 
 export type StatusBadgeType =
   | { type: "importStatus"; value: ImportStatus }
   | { type: "importIssueLevel"; value: ImportIssueLevel }
   | { type: "registryLinkStatus"; value: RegistryLinkStatus }
-  | { type: "nameReviewStatus"; value: HospitalNameReviewStatus };
+  | { type: "nameReviewStatus"; value: HospitalNameReviewStatus }
+  | { type: "targetChangeType"; value: TargetChangeType };
 
 const REGISTRY_LINK_LABEL_TH: Record<RegistryLinkStatus, string> = {
   UNREVIEWED: "รอตรวจสอบ",
@@ -57,6 +59,13 @@ export function StatusBadge({ status, customLabel, className, ...props }: Status
       if (status.value === "MERGED") variant = "info";
       else if (status.value === "KEPT_SEPARATE") variant = "success";
       else variant = "warning";
+      break;
+    }
+    case "targetChangeType": {
+      label = label ?? (TARGET_CHANGE_TYPE_LABEL_TH[status.value] ?? status.value);
+      if (status.value === "CREATE") variant = "success";
+      else if (status.value === "UPDATE") variant = "info";
+      else variant = "destructive";
       break;
     }
   }

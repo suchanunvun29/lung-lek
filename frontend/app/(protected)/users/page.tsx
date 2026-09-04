@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { MoreVertical, KeyRound, UserX, UserCheck } from "lucide-react";
 import {
   CreateUserInput,
   UpdateUserInput,
@@ -17,8 +18,22 @@ import { getErrorMessage } from "@/lib/api-client";
 import { useAuthStore } from "@/store/useAuthStore";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/shared/feedback/ConfirmDialog";
 import { ForbiddenState } from "@/components/shared/auth/ForbiddenState";
+import { PageContainer } from "@/components/shared/layout/PageContainer";
+import { PageHeader } from "@/components/shared/layout/PageHeader";
+import { Breadcrumb } from "@/components/shared/navigation/Breadcrumb";
+import { DataTable, DataTableColumn } from "@/components/shared/data-table/DataTable";
+import { FilterBar, FilterChip } from "@/components/shared/filters/FilterBar";
+import {
+  DropdownMenu,
+  DropdownTrigger,
+  DropdownContent,
+  DropdownItem,
+  DropdownSeparator,
+} from "@/components/shared/navigation/DropdownMenu";
+import { InlineMessage } from "@/components/shared/feedback/InlineMessage";
 
 const ROLE_LABEL_TH: Record<string, string> = {
   MANAGER: "ผู้จัดการ",
@@ -40,9 +55,13 @@ export default function UsersPage() {
   const [isCreateOpen, setCreateOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
   const [resetUserTarget, setResetUserTarget] = useState<AppUser | null>(null);
+  const [toggleActiveTarget, setToggleActiveTarget] = useState<AppUser | null>(null);
   const [tempPassword, setTempPassword] = useState<TemporaryPasswordState | null>(null);
   const [busyUserId, setBusyUserId] = useState<number | null>(null);
-  const unlinkedSalespersonUsers = users.filter((user) => user.role === "SALESPERSON" && !user.isSalespersonLinked);
+
+  // Filters
+  const [roleFilter, setRoleFilter] = useState<string>("ALL");
+  const [onlyUnlinked, setOnlyUnlinked] = useState(false);
 
   const loadUsers = useCallback(async () => {
     if (!token) return;
@@ -68,30 +87,39 @@ export default function UsersPage() {
 
   async function handleCreate(input: CreateUserInput) {
     if (!token) return;
-    const data = await createUser(token, input);
-    setUsers((prev) => [...prev, data.user]);
-    setTempPassword({ email: data.user.email, temporaryPassword: data.temporaryPassword });
-    setCreateOpen(false);
+    try {
+      const data = await createUser(token, input);
+      setUsers((prev) => [...prev, data.user]);
+      setTempPassword({ email: data.user.email, temporaryPassword: data.temporaryPassword });
+      setCreateOpen(false);
+      setLoadError(null);
+    } catch (err) {
+      setLoadError(getErrorMessage(err, "สร้างบัญชีผู้ใช้ไม่สำเร็จ"));
+    }
   }
 
   async function handleUpdate(id: number, input: UpdateUserInput) {
     if (!token) return;
-    const data = await updateUser(token, id, input);
-    setUsers((prev) => prev.map((u) => (u.id === id ? data.user : u)));
-    setEditingUser(null);
+    try {
+      const data = await updateUser(token, id, input);
+      setUsers((prev) => prev.map((u) => (u.id === id ? data.user : u)));
+      setEditingUser(null);
+      setLoadError(null);
+    } catch (err) {
+      setLoadError(getErrorMessage(err, "บันทึกการแก้ไขไม่สำเร็จ"));
+    }
   }
 
   async function handleToggleActive(target: AppUser) {
     if (!token) return;
-    const action = target.isActive ? "ปิดใช้งาน" : "เปิดใช้งาน";
-    if (!window.confirm(`ยืนยัน${action}บัญชีของ ${target.displayName}?`)) return;
-
     setBusyUserId(target.id);
     try {
       const data = await updateUser(token, target.id, { isActive: !target.isActive });
       setUsers((prev) => prev.map((u) => (u.id === target.id ? data.user : u)));
+      setToggleActiveTarget(null);
+      setLoadError(null);
     } catch (err) {
-      window.alert(getErrorMessage(err, "ทำรายการไม่สำเร็จ กรุณาลองใหม่"));
+      setLoadError(getErrorMessage(err, "ทำรายการไม่สำเร็จ กรุณาลองใหม่"));
     } finally {
       setBusyUserId(null);
     }
@@ -99,36 +127,240 @@ export default function UsersPage() {
 
   async function handleResetPassword(target: AppUser) {
     if (!token) return;
-
     setBusyUserId(target.id);
     try {
       const data = await resetUserPassword(token, target.id);
       setTempPassword({ email: target.email, temporaryPassword: data.temporaryPassword });
       setResetUserTarget(null);
+      setLoadError(null);
       void loadUsers();
     } catch (err) {
-      window.alert(getErrorMessage(err, "รีเซ็ตรหัสผ่านไม่สำเร็จ กรุณาลองใหม่"));
+      setLoadError(getErrorMessage(err, "รีเซ็ตรหัสผ่านไม่สำเร็จ กรุณาลองใหม่"));
     } finally {
       setBusyUserId(null);
     }
   }
 
-  return (
-    <div className="mx-auto max-w-5xl p-4 sm:p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-zinc-900">จัดการบัญชีผู้ใช้งาน</h1>
-        <Button
+  // Filter logic
+  const unlinkedSalespersonUsers = users.filter(
+    (user) => user.role === "SALESPERSON" && !user.isSalespersonLinked
+  );
+  const unlinkedCount = unlinkedSalespersonUsers.length;
+
+  const filteredUsers = users.filter((user) => {
+    if (roleFilter !== "ALL" && user.role !== roleFilter) return false;
+    if (onlyUnlinked && (user.role !== "SALESPERSON" || user.isSalespersonLinked)) return false;
+    return true;
+  });
+
+  const filterChips: FilterChip[] = [];
+  if (roleFilter !== "ALL") {
+    filterChips.push({
+      key: "role",
+      label: `บทบาท: ${ROLE_LABEL_TH[roleFilter] ?? roleFilter}`,
+      onRemove: () => setRoleFilter("ALL"),
+    });
+  }
+  if (onlyUnlinked) {
+    filterChips.push({
+      key: "unlinked",
+      label: `ยังไม่ผูกพนักงานขาย (${unlinkedCount})`,
+      onRemove: () => setOnlyUnlinked(false),
+    });
+  }
+
+  const columns: DataTableColumn<AppUser>[] = [
+    {
+      key: "displayName",
+      header: "ชื่อที่แสดง",
+      priority: 1,
+      mobileRole: "identity",
+      sortable: true,
+      sortValue: (u) => u.displayName,
+      render: (u) => (
+        <button
           type="button"
-          onClick={() => setCreateOpen(true)}
-          className="bg-zinc-900 text-white hover:bg-zinc-800"
-          size="sm"
+          onClick={() => setEditingUser(u)}
+          className="font-semibold text-text-primary hover:text-primary hover:underline text-left cursor-pointer transition-colors"
         >
-          + สร้างบัญชีใหม่
-        </Button>
+          {u.displayName}
+        </button>
+      ),
+    },
+    {
+      key: "email",
+      header: "อีเมล",
+      priority: 2, // Retained on tablet, hidden below 768px
+      mobileRole: "meta",
+      sortable: true,
+      sortValue: (u) => u.email,
+      render: (u) => <span className="text-text-secondary">{u.email}</span>,
+    },
+    {
+      key: "role",
+      header: "บทบาท",
+      priority: 1,
+      mobileRole: "identity",
+      sortable: true,
+      sortValue: (u) => u.role,
+      render: (u) => (
+        <span className="rounded bg-surface-subtle px-2 py-0.5 text-xs font-medium text-text-secondary border border-border">
+          {ROLE_LABEL_TH[u.role] ?? u.role}
+        </span>
+      ),
+    },
+    {
+      key: "status",
+      header: "สถานะ",
+      priority: 1,
+      mobileRole: "metric",
+      sortable: true,
+      sortValue: (u) => (u.isActive ? 1 : 0),
+      render: (u) => (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span
+            className={`rounded-full px-2 py-0.5 text-xs font-medium border ${
+              u.isActive
+                ? "bg-success-subtle border-success/30 text-success"
+                : "bg-surface-subtle border-border text-text-muted"
+            }`}
+          >
+            {u.isActive ? "ใช้งาน" : "ปิดใช้งาน"}
+          </span>
+          {u.mustChangePassword && (
+            <span className="rounded-full bg-warning-subtle border border-warning/30 px-2 py-0.5 text-xs font-medium text-warning">
+              รอเปลี่ยนรหัสผ่าน
+            </span>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: "salesperson",
+      header: "พนักงานขายที่ผูก",
+      priority: 3, // Hidden on tablet
+      mobileRole: "meta",
+      sortable: true,
+      sortValue: (u) => u.salesperson?.displayName ?? "",
+      render: (u) => {
+        if (u.salesperson) {
+          return <span className="text-text-primary">{u.salesperson.displayName}</span>;
+        }
+        if (u.role === "SALESPERSON") {
+          return (
+            <button
+              type="button"
+              onClick={() => setEditingUser(u)}
+              className="text-warning text-xs font-medium bg-warning-subtle hover:bg-warning/20 px-2 py-0.5 rounded border border-warning/30 underline cursor-pointer transition-colors"
+            >
+              ยังไม่ผูกข้อมูล (คลิกเพื่อผูก)
+            </button>
+          );
+        }
+        return <span className="text-text-muted">-</span>;
+      },
+    },
+    {
+      key: "lastLoginAt",
+      header: "เข้าสู่ระบบล่าสุด",
+      priority: 3, // Hidden on tablet
+      mobileRole: "meta",
+      sortable: true,
+      sortValue: (u) => u.lastLoginAt ?? "",
+      render: (u) => (
+        <span className="text-xs text-text-muted">
+          {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString("th-TH") : "ยังไม่เคยเข้าใช้งาน"}
+        </span>
+      ),
+    },
+    {
+      key: "actions",
+      header: <span className="sr-only">การจัดการ</span>,
+      align: "right",
+      priority: 1,
+      mobileRole: "meta",
+      render: (u) => (
+        <div className="flex items-center justify-end gap-2">
+          {/* One primary action per row: Edit */}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setEditingUser(u)}
+            className="text-xs px-2.5 py-1"
+          >
+            แก้ไข
+          </Button>
+
+          {/* Secondary actions in accessible DropdownMenu */}
+          <DropdownMenu>
+            <DropdownTrigger
+              className="flex h-8 w-8 items-center justify-center rounded-md text-text-muted hover:bg-surface-subtle hover:text-text-primary transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring border border-border cursor-pointer"
+            >
+              <MoreVertical size={16} aria-hidden="true" />
+              <span className="sr-only">เมนูเพิ่มเติมสำหรับ {u.displayName}</span>
+            </DropdownTrigger>
+            <DropdownContent align="right">
+              <DropdownItem
+                onClick={() => setResetUserTarget(u)}
+                className="gap-2 text-xs"
+              >
+                <KeyRound size={14} aria-hidden="true" />
+                รีเซ็ตรหัสผ่าน
+              </DropdownItem>
+              <DropdownSeparator />
+              <DropdownItem
+                onClick={() => setToggleActiveTarget(u)}
+                dangerous={u.isActive}
+                className="gap-2 text-xs"
+              >
+                {u.isActive ? (
+                  <>
+                    <UserX size={14} aria-hidden="true" />
+                    ปิดใช้งานบัญชี
+                  </>
+                ) : (
+                  <>
+                    <UserCheck size={14} aria-hidden="true" />
+                    เปิดใช้งานบัญชี
+                  </>
+                )}
+              </DropdownItem>
+            </DropdownContent>
+          </DropdownMenu>
+        </div>
+      ),
+    },
+  ];
+
+  return (
+    <PageContainer width="standard">
+      {/* Breadcrumb */}
+      <div className="mb-4">
+        <Breadcrumb
+          segments={[
+            { label: "การตั้งค่า" },
+            { label: "จัดการบัญชีผู้ใช้งาน" },
+          ]}
+        />
       </div>
 
+      <PageHeader
+        title="จัดการบัญชีผู้ใช้งาน"
+        description="สร้าง แก้ไข รีเซ็ตรหัสผ่าน และควบคุมการเข้าถึงระบบของผู้ใช้งานในองค์กร"
+        primaryAction={
+          <Button
+            type="button"
+            onClick={() => setCreateOpen(true)}
+            size="sm"
+          >
+            + สร้างบัญชีใหม่
+          </Button>
+        }
+      />
+
       {tempPassword && (
-        <div className="mt-4">
+        <div className="mb-6">
           <TemporaryPasswordNotice
             email={tempPassword.email}
             temporaryPassword={tempPassword.temporaryPassword}
@@ -137,112 +369,82 @@ export default function UsersPage() {
         </div>
       )}
 
-      {loadError && <p className="mt-4 text-sm text-red-600">{loadError}</p>}
-
-      {unlinkedSalespersonUsers.length > 0 && (
-        <section className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-4">
-          <h2 className="font-semibold text-amber-900">บัญชีพนักงานขายที่ยังไม่ผูกข้อมูลพนักงาน</h2>
-          <p className="mt-1 text-sm text-amber-800">บัญชีเหล่านี้จะยังเปิดดูข้อมูลส่วนตัวไม่ได้จนกว่าจะผูกกับพนักงานขาย</p>
-          <ul className="mt-3 space-y-2 text-sm text-amber-900">
-            {unlinkedSalespersonUsers.map((user) => (
-              <li key={user.id} className="flex flex-wrap items-center justify-between gap-2">
-                <span>{user.displayName} · {user.email}</span>
-                <button type="button" onClick={() => setEditingUser(user)} className="font-medium underline cursor-pointer">ไปผูกพนักงานขาย</button>
-              </li>
-            ))}
-          </ul>
-        </section>
+      {loadError && (
+        <div className="mb-6">
+          <InlineMessage variant="destructive">{loadError}</InlineMessage>
+        </div>
       )}
 
-      <div className="mt-6 overflow-x-auto rounded-lg border border-zinc-200 bg-white">
-        <table className="min-w-full divide-y divide-zinc-200 text-sm">
-          <thead className="bg-zinc-50 text-left text-xs font-medium uppercase tracking-wide text-zinc-500">
-            <tr>
-              <th className="px-4 py-3">ชื่อที่แสดง</th>
-              <th className="px-4 py-3">อีเมล</th>
-              <th className="px-4 py-3">บทบาท</th>
-              <th className="px-4 py-3">สถานะ</th>
-              <th className="px-4 py-3">พนักงานขายที่ผูก</th>
-              <th className="px-4 py-3">เข้าสู่ระบบล่าสุด</th>
-              <th className="px-4 py-3 text-right">การดำเนินการ</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-100">
-            {loading && (
-              <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-zinc-400">
-                  กำลังโหลด...
-                </td>
-              </tr>
-            )}
-            {!loading && users.length === 0 && !loadError && (
-              <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-zinc-400">
-                  ยังไม่มีผู้ใช้ในระบบ
-                </td>
-              </tr>
-            )}
-            {users.map((rowUser) => (
-              <tr key={rowUser.id}>
-                <td className="px-4 py-3 font-medium text-zinc-900">{rowUser.displayName}</td>
-                <td className="px-4 py-3 text-zinc-600">{rowUser.email}</td>
-                <td className="px-4 py-3 text-zinc-600">{ROLE_LABEL_TH[rowUser.role]}</td>
-                <td className="px-4 py-3">
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                      rowUser.isActive
-                        ? "bg-emerald-100 text-emerald-700"
-                        : "bg-zinc-200 text-zinc-600"
-                    }`}
-                  >
-                    {rowUser.isActive ? "ใช้งาน" : "ปิดใช้งาน"}
-                  </span>
-                  {rowUser.mustChangePassword && (
-                    <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
-                      รอเปลี่ยนรหัสผ่าน
-                    </span>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-zinc-600">
-                  {rowUser.salesperson ? rowUser.salesperson.displayName : "-"}
-                </td>
-                <td className="px-4 py-3 text-zinc-600">
-                  {rowUser.lastLoginAt ? new Date(rowUser.lastLoginAt).toLocaleString("th-TH") : "ยังไม่เคยเข้าใช้งาน"}
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex justify-end gap-3 text-sm">
-                    <button
-                      type="button"
-                      onClick={() => setEditingUser(rowUser)}
-                      className="text-zinc-700 hover:underline cursor-pointer"
-                    >
-                      แก้ไข
-                    </button>
-                    <button
-                      type="button"
-                      disabled={busyUserId === rowUser.id}
-                      onClick={() => setResetUserTarget(rowUser)}
-                      className="text-zinc-700 hover:underline disabled:opacity-50 cursor-pointer"
-                    >
-                      รีเซ็ตรหัสผ่าน
-                    </button>
-                    <button
-                      type="button"
-                      disabled={busyUserId === rowUser.id || rowUser.id === currentUser?.id}
-                      onClick={() => void handleToggleActive(rowUser)}
-                      title={rowUser.id === currentUser?.id ? "ไม่สามารถปิดใช้งานบัญชีตัวเองได้" : undefined}
-                      className="text-red-600 hover:underline disabled:opacity-50 cursor-pointer"
-                    >
-                      {rowUser.isActive ? "ปิดใช้งาน" : "เปิดใช้งาน"}
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {/* FilterBar with role filter and unlinked salesperson chip */}
+      <div className="mb-4">
+        <FilterBar
+          chips={filterChips}
+          onReset={() => {
+            setRoleFilter("ALL");
+            setOnlyUnlinked(false);
+          }}
+        >
+          <label className="flex items-center gap-2">
+            <span className="text-xs font-medium text-text-secondary">บทบาท</span>
+            <Select
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value)}
+              className="w-auto text-sm"
+            >
+              <option value="ALL">ทุกลำดับ/บทบาท</option>
+              <option value="MANAGER">ผู้จัดการ</option>
+              <option value="SALESPERSON">พนักงานขาย</option>
+            </Select>
+          </label>
+
+          {unlinkedCount > 0 && (
+            <Button
+              type="button"
+              variant={onlyUnlinked ? "default" : "outline"}
+              size="sm"
+              onClick={() => setOnlyUnlinked((v) => !v)}
+              className="text-xs"
+            >
+              ยังไม่ผูกพนักงานขาย ({unlinkedCount})
+            </Button>
+          )}
+        </FilterBar>
       </div>
 
+      {/* DataTable with client-side sort, search, and mobile cards */}
+      <DataTable<AppUser>
+        caption="รายชื่อบัญชีผู้ใช้งานในระบบ"
+        columns={columns}
+        rows={filteredUsers}
+        getRowId={(u) => u.id}
+        loading={loading}
+        searchable
+        searchPlaceholder="ค้นหาชื่อ, อีเมล, พนักงานขาย..."
+        searchPredicate={(user, query) => {
+          const q = query.toLowerCase();
+          return (
+            user.displayName.toLowerCase().includes(q) ||
+            user.email.toLowerCase().includes(q) ||
+            (user.salesperson?.displayName?.toLowerCase().includes(q) ?? false) ||
+            (ROLE_LABEL_TH[user.role]?.toLowerCase().includes(q) ?? false)
+          );
+        }}
+        rowAction={(u) => (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => setEditingUser(u)}
+            className="w-full min-h-[44px]"
+          >
+            แก้ไขบัญชี
+          </Button>
+        )}
+        emptyTitle="ไม่พบข้อมูลผู้ใช้"
+        emptyDescription="ไม่มีรายชื่อผู้ใช้งานที่ตรงกับเงื่อนไขการค้นหาหรือตัวกรองในขณะนี้"
+      />
+
+      {/* ConfirmDialog on Reset Password */}
       {resetUserTarget && (
         <ConfirmDialog
           title="ยืนยันรีเซ็ตรหัสผ่าน"
@@ -257,12 +459,37 @@ export default function UsersPage() {
         />
       )}
 
+      {/* ConfirmDialog on Deactivate / Activate */}
+      {toggleActiveTarget && (
+        <ConfirmDialog
+          title={toggleActiveTarget.isActive ? "ยืนยันปิดใช้งานบัญชี" : "ยืนยันเปิดใช้งานบัญชี"}
+          description={
+            toggleActiveTarget.isActive
+              ? `คุณต้องการปิดใช้งานบัญชีของ ${toggleActiveTarget.displayName} (${toggleActiveTarget.email}) หรือไม่?`
+              : `คุณต้องการเปิดใช้งานบัญชีของ ${toggleActiveTarget.displayName} (${toggleActiveTarget.email}) หรือไม่?`
+          }
+          consequence={
+            toggleActiveTarget.isActive
+              ? "ผู้ใช้รายนี้จะไม่สามารถเข้าสู่ระบบได้จนกว่าจะเปิดใช้งานอีกครั้ง"
+              : undefined
+          }
+          confirmLabel={toggleActiveTarget.isActive ? "ปิดใช้งาน" : "เปิดใช้งาน"}
+          cancelLabel="ยกเลิก"
+          tone={toggleActiveTarget.isActive ? "danger" : "default"}
+          pending={busyUserId === toggleActiveTarget.id}
+          onConfirm={() => handleToggleActive(toggleActiveTarget)}
+          onCancel={() => setToggleActiveTarget(null)}
+        />
+      )}
+
+      {/* Modal for Create User */}
       {isCreateOpen && (
         <Modal title="สร้างบัญชีใหม่" onClose={() => setCreateOpen(false)}>
           <CreateUserForm onSubmit={handleCreate} onCancel={() => setCreateOpen(false)} />
         </Modal>
       )}
 
+      {/* Modal for Edit User */}
       {editingUser && (
         <Modal title={`แก้ไขบัญชี: ${editingUser.displayName}`} onClose={() => setEditingUser(null)}>
           <EditUserForm
@@ -272,7 +499,6 @@ export default function UsersPage() {
           />
         </Modal>
       )}
-    </div>
+    </PageContainer>
   );
 }
-
