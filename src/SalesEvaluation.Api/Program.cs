@@ -33,17 +33,35 @@ builder.Services.Configure<JsonOptions>(options =>
     options.SerializerOptions.Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping;
 });
 
-// Configure CORS — origins are set in appsettings.json under "AllowedOrigins"
-var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>();
+// Configure CORS — origins can be configured via environment variable ALLOWED_ORIGINS (comma/semicolon-separated)
+// or in appsettings.json under "AllowedOrigins".
+var configuredOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+var envOrigins = Environment.GetEnvironmentVariable("ALLOWED_ORIGINS")
+    ?? builder.Configuration["ALLOWED_ORIGINS"]
+    ?? Environment.GetEnvironmentVariable("CORS_ORIGINS")
+    ?? builder.Configuration["CORS_ORIGINS"]
+    ?? Environment.GetEnvironmentVariable("AllowedOrigins")
+    ?? builder.Configuration["AllowedOrigins"];
+
+var envOriginsList = !string.IsNullOrWhiteSpace(envOrigins)
+    ? envOrigins.Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+    : Array.Empty<string>();
+
+var allowedOriginsList = configuredOrigins
+    .Concat(envOriginsList)
+    .Where(s => !string.IsNullOrWhiteSpace(s))
+    .Select(s => s.Trim())
+    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .ToList();
+
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        if (allowedOrigins is { Length: > 0 })
-            policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod();
-        else
-            // Development fallback — must be overridden in production via AllowedOrigins config
-            policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod();
+        policy.SetIsOriginAllowed(origin => MatchesOrigin(origin, allowedOriginsList))
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .WithExposedHeaders("Content-Disposition");
     });
 });
 
@@ -146,5 +164,58 @@ public partial class Program
                 current = current.Parent;
             }
         }
+    }
+
+    public static bool MatchesOrigin(string origin, IReadOnlyList<string> configuredOrigins)
+    {
+        if (string.IsNullOrWhiteSpace(origin))
+            return false;
+
+        if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+            return false;
+
+        // Localhost on any port is always allowed for local development convenience
+        if (uri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
+            uri.Host.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        // Automatic support for Vercel preview & production deployments
+        if (uri.Host.Equals("vercel.app", StringComparison.OrdinalIgnoreCase) ||
+            uri.Host.EndsWith(".vercel.app", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        // If no origins configured, allow all
+        if (configuredOrigins.Count == 0)
+            return true;
+
+        var normalizedOrigin = origin.TrimEnd('/');
+
+        foreach (var pattern in configuredOrigins)
+        {
+            var p = pattern.Trim().TrimEnd('/');
+            if (p == "*")
+                return true;
+
+            if (string.Equals(p, normalizedOrigin, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            // Wildcard matching (e.g. https://*.mydomain.com or *.mydomain.com)
+            if (p.Contains('*'))
+            {
+                var pHost = p.Replace("https://", "").Replace("http://", "").Split(':')[0];
+                var regex = "^" + System.Text.RegularExpressions.Regex.Escape(pHost)
+                    .Replace("\\*", ".*") + "$";
+                if (System.Text.RegularExpressions.Regex.IsMatch(uri.Host, regex, System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 }

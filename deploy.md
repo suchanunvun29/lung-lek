@@ -59,6 +59,7 @@
    - `ASPNETCORE_ENVIRONMENT`: `Production`
    - `ASPNETCORE_URLS`: `http://+:4000`
    - `PORT`: `4000`
+   - `ALLOWED_ORIGINS`: Origins ที่อนุญาต เช่น `https://lung-h879gbq96-vunsen.vercel.app` (ระบบรองรับ `*.vercel.app` และ `localhost` อัตโนมัติ)
 3. เมื่อ Deploy เสร็จ จะได้ URL สำหรับ Backend API เช่น:
    `https://sales-evaluation-api.onrender.com`
 
