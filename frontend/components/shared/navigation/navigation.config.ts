@@ -57,7 +57,6 @@ import {
   UserCheck,
   Hospital,
   Trophy,
-  FileText,
   Users,
   MapPin,
   Crosshair,
@@ -86,11 +85,11 @@ export const NAV_GROUPS: NavGroup[] = [
   // ── 2. ผลงาน (Performance) ───────────────────────────────
   {
     label: "ผลงาน",
-    basePath: "/kpi",
+    basePath: "/performance",
     items: [
       {
-        href: "/kpi",
-        label: "ผลงานรายบุคคล",      // renamed from "ผลการประเมิน" per design
+        href: "/performance/individual",
+        label: "ผลงานรายบุคคล",      // merged from /kpi + /reports/individual per WACC-P1-005
         icon: TrendingUp,
         showPeriodSelector: true,
         showSalespersonSelector: true,
@@ -100,13 +99,6 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Leaderboard",
         icon: Trophy,
         showPeriodSelector: true,
-      },
-      {
-        href: "/reports/individual",
-        label: "รายงานรายบุคคล",
-        icon: FileText,
-        showPeriodSelector: true,
-        showSalespersonSelector: true,
       },
       {
         href: "/reports/team-overview",

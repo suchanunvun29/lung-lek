@@ -1,35 +1,85 @@
 "use client";
 
+/**
+ * Leaderboard ระดับเขต — Pattern B — WACC-P1-008
+ *
+ * The leaderboard ranks "target units" (territories / territory groups); rendering
+ * follows the server's per-unit `visibility` level — no role checks live here and
+ * no masking decision does either. Every cell the server withholds renders
+ * `RestrictedValue`, keyed strictly on `visibility === "TERRITORY_RANK_ONLY"` —
+ * never on a value being null/empty (zero and "no data" are legitimate), so a
+ * restricted cell is visibly and textually distinct from an empty one.
+ *
+ * Business rules preserved untouched:
+ *  • F — standard competition ranking (1, 2, 2, 4); the row order IS the rank order,
+ *    so this table adds no client-side sorting.
+ *  • G — territories inside a group appear only as detail under the group row
+ *    (the group's member disclosure), never as their own ranked rows.
+ * The unranked block carries an explicit heading and each unit's criterion reason
+ * where the payload carries one (rank-only units get the restriction marker — the
+ * reason itself is withheld by the server and the UI must not guess it).
+ *
+ * The criterion switcher is the Tabs primitive; period comes from the shell's
+ * ContextBar; Export is the header's secondary action via ExportButton.
+ */
+
 import { useCallback, useEffect, useState } from "react";
 import {
   LeaderboardPeopleModal,
-  LeaderboardUnitRow,
+  LeaderboardUnitNameCell,
   exportTerritoryLeaderboard,
   getTerritoryLeaderboard,
 } from "@/features/leaderboard";
-import { PeriodSelector } from "@/features/kpi";
 import { getErrorMessage } from "@/lib/api-client";
-import { LEADERBOARD_CRITERIA_LABEL_TH, LEADERBOARD_CRITERIA_ORDER } from "@/lib/kpiLabels";
-import { LeaderboardCriteria, LeaderboardUnit, PeriodKey, TerritoryLeaderboardResponse } from "@/lib/types";
+import { formatMoney } from "@/lib/importLabels";
+import { LEADERBOARD_CRITERIA_LABEL_TH, LEADERBOARD_CRITERIA_ORDER, periodLabelTh } from "@/lib/kpiLabels";
+import { LeaderboardCriteria, LeaderboardUnit, TerritoryLeaderboardResponse } from "@/lib/types";
 import { useAuthStore } from "@/store/useAuthStore";
-import { ExportButton } from "@/components/shared/export/ExportButton";
+import { useContextStore } from "@/store/useContextStore";
+import {
+  DataTable,
+  DataTableColumn,
+  ExportButton,
+  MetricReason,
+  PageContainer,
+  PageHeader,
+  RestrictedValue,
+} from "@/components/shared";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-function defaultPeriod(): PeriodKey {
-  const now = new Date();
-  return { periodType: "MONTH", year: now.getFullYear(), periodNumber: now.getMonth() + 1 };
+const RANK_MEDAL: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" };
+
+function rankLabel(rank: number | null): string {
+  if (rank === null) return "—";
+  return RANK_MEDAL[rank] ?? String(rank);
 }
 
-/** Module F2 — the leaderboard ranks "target units" (territories / territory groups), replacing
- *  Phase 5's person-ranked leaderboard entirely (Territory KPI Rules ข้อ 12). Rendering follows
- *  the server's visibility level per unit; no role checks live here. */
+function achievementText(unit: LeaderboardUnit): string {
+  const percent = unit.visibility === "TERRITORY_FULL" ? unit.achievementPercent : undefined;
+  if (percent === null || percent === undefined) return "—";
+  return `${percent.toFixed(1)}%`;
+}
+
+function targetText(unit: LeaderboardUnit): string {
+  if (unit.visibility !== "TERRITORY_FULL") return "";
+  if (unit.targetLabel) return unit.targetLabel;
+  if (unit.achievementPercent !== null && unit.achievementPercent !== undefined) {
+    return `${unit.achievementPercent.toFixed(1)}% ของเป้า ${formatMoney(unit.target ?? 0)}`;
+  }
+  return "ยังไม่ได้ตั้งเป้า";
+}
+
 export default function LeaderboardPage() {
   const token = useAuthStore((state) => state.token);
+  const period = useContextStore((state) => state.period);
 
   const [criteria, setCriteria] = useState<LeaderboardCriteria>("COMPOSITE");
-  const [period, setPeriod] = useState<PeriodKey>(defaultPeriod());
   const [data, setData] = useState<TerritoryLeaderboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
   const [drillDownUnit, setDrillDownUnit] = useState<LeaderboardUnit | null>(null);
 
   const load = useCallback(async () => {
@@ -40,6 +90,7 @@ export default function LeaderboardPage() {
       setData(response);
       setLoadError(null);
     } catch (error) {
+      setData(null);
       setLoadError(getErrorMessage(error, "โหลด Leaderboard ไม่สำเร็จ"));
     } finally {
       setLoading(false);
@@ -49,7 +100,7 @@ export default function LeaderboardPage() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
-  }, [load]);
+  }, [load, reloadNonce]);
 
   async function exportBoard() {
     if (!token) return;
@@ -58,89 +109,202 @@ export default function LeaderboardPage() {
     await exportTerritoryLeaderboard(token, criteria, period);
   }
 
-  return (
-    <div className="mx-auto max-w-5xl p-4 sm:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+  const rankedUnits = data?.ranked ?? [];
+
+  const columns: DataTableColumn<LeaderboardUnit>[] = [
+    {
+      key: "rank",
+      header: "อันดับ",
+      render: (unit) => (
+        <span className="font-semibold text-zinc-900" aria-label={`อันดับ ${unit.rank ?? "ไม่ได้จัดอันดับ"}`}>
+          {rankLabel(unit.rank)}
+        </span>
+      ),
+      priority: 1,
+      mobileRole: "identity",
+    },
+    {
+      key: "unit",
+      header: "หน่วยเป้า",
+      render: (unit) => <LeaderboardUnitNameCell unit={unit} />,
+      priority: 1,
+      mobileRole: "identity",
+    },
+    {
+      key: "criterionValue",
+      header: "คะแนน / ค่าตามเกณฑ์",
+      numeric: true,
+      render: (unit) => (
         <div>
-          <h1 className="text-2xl font-semibold text-zinc-900">Leaderboard ระดับเขต</h1>
-          <p className="mt-1 text-sm text-zinc-600">จัดอันดับหน่วยเป้า (เขต/กลุ่มเขต) — เลือกเกณฑ์และช่วงเวลาได้</p>
+          <p className="font-semibold text-zinc-900">
+            {unit.compositeScore !== null ? unit.compositeScore.toFixed(2) : "—"}
+          </p>
+          <p className="text-xs text-zinc-500">{unit.computedMetricLabel}</p>
         </div>
-        <ExportButton onExport={exportBoard} />
-      </div>
+      ),
+      priority: 1,
+      mobileRole: "metric",
+    },
+    {
+      key: "achievement",
+      header: "% ถึงเป้า",
+      numeric: true,
+      render: (unit) =>
+        // Keyed on the wire visibility only — a FULL unit with no percent shows "—",
+        // a rank-only unit gets the restriction marker. Never inferred from the value.
+        unit.visibility === "TERRITORY_FULL" ? (
+          <span className="text-zinc-700">{achievementText(unit)}</span>
+        ) : (
+          <RestrictedValue visibility={unit.visibility} />
+        ),
+      priority: 2,
+      mobileRole: "meta",
+    },
+    {
+      key: "revenue",
+      header: "ยอดขาย",
+      numeric: true,
+      render: (unit) =>
+        unit.visibility === "TERRITORY_FULL" ? (
+          <span className="text-zinc-700">{formatMoney(unit.revenue ?? 0)}</span>
+        ) : (
+          <RestrictedValue visibility={unit.visibility} />
+        ),
+      priority: 3,
+      mobileRole: "meta",
+    },
+    {
+      key: "target",
+      header: "เป้า",
+      render: (unit) =>
+        unit.visibility === "TERRITORY_FULL" ? (
+          <span className="text-xs text-zinc-600">{targetText(unit)}</span>
+        ) : (
+          <RestrictedValue visibility={unit.visibility} />
+        ),
+      priority: 3,
+      mobileRole: "meta",
+    },
+    {
+      key: "owners",
+      header: "ผู้ดูแล",
+      render: (unit) => <span className="text-xs text-zinc-500">{unit.ownerNames.join(", ")}</span>,
+      priority: 3,
+      mobileRole: "meta",
+    },
+    {
+      // Desktop/tablet drill-down trigger — DataTable's rowAction only renders on
+      // <768px cards, so the button is a column too ("hidden" keeps it out of the
+      // card details there, where rowAction already shows it).
+      key: "people",
+      header: "รายบุคคล",
+      align: "right",
+      render: (unit) =>
+        unit.unitType === "TERRITORY" ? (
+          <Button type="button" variant="outline" size="sm" onClick={() => setDrillDownUnit(unit)}>
+            ดูรายบุคคล
+          </Button>
+        ) : null,
+      priority: 2,
+      mobileRole: "hidden",
+    },
+  ];
 
-      <div className="mt-4 flex flex-wrap gap-1" role="group" aria-label="เกณฑ์จัดอันดับ">
-        {LEADERBOARD_CRITERIA_ORDER.map((option) => (
-          <button
-            key={option}
-            type="button"
-            onClick={() => setCriteria(option)}
-            className={`rounded px-3 py-1.5 text-sm font-medium cursor-pointer ${
-              option === criteria ? "bg-zinc-900 text-white" : "border border-zinc-300 text-zinc-700 hover:bg-zinc-100"
-            }`}
-          >
-            {LEADERBOARD_CRITERIA_LABEL_TH[option]}
-          </button>
-        ))}
-      </div>
+  return (
+    <PageContainer width="wide">
+      <PageHeader
+        title="Leaderboard ระดับเขต"
+        description="จัดอันดับหน่วยเป้า (เขต/กลุ่มเขต) — เลือกเกณฑ์ได้จากแท็บด้านล่าง ช่วงเวลาใช้ตัวเลือกงวดด้านบนของหน้า"
+        secondaryActions={[
+          <ExportButton key="export" onExport={exportBoard} disabled={loading} disabledReason="รอโหลดข้อมูลก่อน" />,
+        ]}
+      />
 
-      <div className="mt-3">
-        <PeriodSelector value={period} onChange={setPeriod} />
-      </div>
+      <Tabs value={criteria} onValueChange={(value) => setCriteria(value as LeaderboardCriteria)}>
+        <TabsList role="group" aria-label="เกณฑ์จัดอันดับ">
+          {LEADERBOARD_CRITERIA_ORDER.map((option) => (
+            <TabsTrigger key={option} value={option}>
+              {LEADERBOARD_CRITERIA_LABEL_TH[option]}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
 
-      {loadError && <p className="mt-4 text-sm text-red-600">{loadError}</p>}
-      {loading && <p className="mt-6 text-zinc-400">กำลังโหลด...</p>}
+      <section className="mt-4">
+        <h2 className="mb-2 text-base font-semibold text-zinc-900">อันดับ</h2>
+        <DataTable
+          columns={columns}
+          rows={rankedUnits}
+          getRowId={(unit) => `${unit.unitType}-${unit.territoryId}`}
+          caption={`อันดับหน่วยเป้า เกณฑ์${LEADERBOARD_CRITERIA_LABEL_TH[criteria]} ${periodLabelTh(period)}`}
+          loading={loading}
+          error={loadError}
+          onRetry={() => setReloadNonce((n) => n + 1)}
+          emptyTitle="ยังไม่มีหน่วยเป้าที่คำนวณเกณฑ์นี้ได้"
+          rowAction={(unit) =>
+            unit.unitType === "TERRITORY" ? (
+              <Button type="button" variant="outline" size="sm" onClick={() => setDrillDownUnit(unit)}>
+                ดูรายบุคคล
+              </Button>
+            ) : undefined
+          }
+        />
+      </section>
 
-      {data && !loading && (
-        <div className="mt-6 space-y-6">
-          <section>
-            <h2 className="mb-2 text-base font-semibold text-zinc-900">อันดับ</h2>
-            <ul className="space-y-2">
-              {data.ranked.length === 0 && <li className="rounded-lg border border-dashed border-zinc-300 p-4 text-sm text-zinc-400">ยังไม่มีหน่วยเป้าที่คำนวณเกณฑ์นี้ได้</li>}
-              {data.ranked.map((unit) => (
-                <LeaderboardUnitRow key={`${unit.unitType}-${unit.territoryId}`} unit={unit} onDrillDown={setDrillDownUnit} />
-              ))}
-            </ul>
-          </section>
+      {data && !loading && data.unranked.length > 0 && (
+        <section className="mt-6">
+          <h2 className="mb-1 text-base font-semibold text-zinc-900">คำนวณเกณฑ์ที่เลือกไม่ได้</h2>
+          <p className="mb-2 text-xs text-zinc-500">
+            หน่วยเป้าเหล่านี้ยังไม่มีอันดับในงวดนี้ เพราะคำนวณค่าตามเกณฑ์ที่เลือกไม่ได้ — เหตุผลรายหน่วยแสดงใต้ชื่อ
+          </p>
+          <ul className="space-y-2">
+            {data.unranked.map((unit) => (
+              <li
+                key={`${unit.unitType}-${unit.territoryId}`}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm"
+              >
+                <LeaderboardUnitNameCell unit={unit} />
+                {unit.visibility === "TERRITORY_FULL" ? (
+                  <MetricReason reason={unit.criterionReason ?? "คำนวณไม่ได้"} className="text-xs" />
+                ) : (
+                  <RestrictedValue visibility={unit.visibility} label="ไม่มีสิทธิ์เห็นตัวเลขของหน่วยนี้" />
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
-          {data.unranked.length > 0 && (
-            <section>
-              <h2 className="mb-2 text-base font-semibold text-zinc-900">คำนวณเกณฑ์ที่เลือกไม่ได้</h2>
-              <ul className="space-y-2">
-                {data.unranked.map((unit) => (
-                  <li key={`${unit.unitType}-${unit.territoryId}`} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm">
-                    <div>
-                      <p className="font-medium text-amber-900">{unit.name}</p>
-                      <p className="text-xs text-amber-700">{unit.ownerNames.join(", ")}</p>
-                    </div>
-                    <span className="text-xs font-medium text-amber-800">{unit.visibility === "TERRITORY_FULL" ? unit.criterionReason ?? "คำนวณไม่ได้" : "ไม่มีสิทธิ์เห็นตัวเลขของหน่วยนี้"}</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-
-          {/* Buckets render only when the server sends them (MANAGER-only per Data Visibility Rules ข้อ 6). */}
-          {data.buckets && (
-            <section className="rounded-lg border border-zinc-200 bg-white p-4">
-              <h2 className="text-base font-semibold text-zinc-900">ยอดนอกการจัดอันดับเขต</h2>
-              <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
-                <div>
-                  <dt className="text-zinc-500">ยอดส่วนบุคคล</dt>
-                  <dd className="mt-1 font-semibold text-zinc-900">{data.buckets.personalBucket.toLocaleString(undefined, { maximumFractionDigits: 2 })}</dd>
-                </div>
-                <div>
-                  <dt className="text-zinc-500">ยอดที่ยังไม่กำหนดเขต ({data.buckets.unassignedHospitalCount} โรงพยาบาล)</dt>
-                  <dd className="mt-1 font-semibold text-zinc-900">{data.buckets.unassignedBucket.toLocaleString(undefined, { maximumFractionDigits: 2 })}</dd>
-                </div>
-              </dl>
-            </section>
-          )}
-        </div>
+      {/* Buckets render only when the server sends them (MANAGER-only per Data Visibility Rules ข้อ 6). */}
+      {data && !loading && data.buckets && (
+        <Card className="mt-6 p-4">
+          <h2 className="text-base font-semibold text-zinc-900">ยอดนอกการจัดอันดับเขต</h2>
+          <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+            <div>
+              <dt className="text-zinc-500">ยอดส่วนบุคคล</dt>
+              <dd className="mt-1 font-semibold text-zinc-900">
+                {data.buckets.personalBucket.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-zinc-500">ยอดที่ยังไม่กำหนดเขต ({data.buckets.unassignedHospitalCount} โรงพยาบาล)</dt>
+              <dd className="mt-1 font-semibold text-zinc-900">
+                {data.buckets.unassignedBucket.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+              </dd>
+            </div>
+          </dl>
+        </Card>
       )}
 
       {drillDownUnit && token && (
-        <LeaderboardPeopleModal token={token} criteria={criteria} period={period} unit={drillDownUnit} onClose={() => setDrillDownUnit(null)} />
+        <LeaderboardPeopleModal
+          token={token}
+          criteria={criteria}
+          period={period}
+          unit={drillDownUnit}
+          onClose={() => setDrillDownUnit(null)}
+        />
       )}
-    </div>
+    </PageContainer>
   );
 }

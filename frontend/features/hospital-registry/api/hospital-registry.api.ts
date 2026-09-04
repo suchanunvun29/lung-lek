@@ -45,14 +45,17 @@ export function updateHospitalRegistryLink(
 
 export function listHospitalRegistries(
   token: string,
-  filter: { q?: string; provinceMappingId?: string; territoryId?: string; page?: number; pageSize?: number } = {}
+  filter: { q?: string; provinceMappingId?: string; territoryId?: string; page?: number; pageSize?: number } = {},
+  signal?: AbortSignal
 ) {
   const params = new URLSearchParams();
-  Object.entries(filter).forEach(([key, value]) => value !== undefined && params.set(key, String(value)));
+  Object.entries(filter).forEach(([key, value]) => {
+    if (value !== undefined && value !== "") params.set(key, String(value));
+  });
   const query = params.toString();
   return request<{ hospitalRegistries: HospitalRegistry[]; total: number; page: number; pageSize: number }>(
     `/hospital-registries${query ? `?${query}` : ""}`,
-    { method: "GET" },
+    { method: "GET", signal },
     token
   );
 }

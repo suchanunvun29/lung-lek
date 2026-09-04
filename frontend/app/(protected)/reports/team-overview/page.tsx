@@ -1,113 +1,167 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { exportTeamOverviewReport, getTeamOverviewReport } from "@/features/reports";
-import { PeriodSelector } from "@/features/kpi";
-import { getErrorMessage } from "@/lib/api-client";
-import { formatScore } from "@/lib/kpiLabels";
-import { PeriodKey, TeamOverviewEntry } from "@/lib/types";
-import { useAuthStore } from "@/store/useAuthStore";
-import { Button } from "@/components/ui/button";
+/**
+ * ภาพรวมทีม — Pattern B — WACC-P1-006
+ *
+ * `PageHeader` (Export as the secondary action) → `DataTable` → footer count.
+ * The endpoint (restored in WACC-P0-002) returns the full visible set for this
+ * viewer's scope — not server-paginated — so sorting and searching happen
+ * client-side over exactly the rows the server returned; no client-side role
+ * filtering and no attempt to widen the set.
+ *
+ * Default order is composite descending — what this screen exists to show —
+ * with the composite and name columns sortable on top. `computedFromLabel`
+ * stays visible per row (business rule B), and a criterion that could not be
+ * computed renders `MetricReason`, never a blank cell.
+ *
+ * Period comes from the shell's ContextBar (useContextStore); the local
+ * PeriodSelector is gone. Ranking deliberately lives only on /leaderboard —
+ * no rank column and no second ranking implementation here.
+ */
 
-function defaultPeriod(): PeriodKey {
-  const now = new Date();
-  return { periodType: "MONTH", year: now.getFullYear(), periodNumber: now.getMonth() + 1 };
-}
+import { useMemo, useState } from "react";
+import { exportTeamOverviewReport, getTeamOverviewReport } from "@/features/reports/api/reports.api";
+import { getErrorMessage } from "@/lib/api-client";
+import { useAbortableEffect } from "@/lib/useAbortableEffect";
+import { formatScore, periodLabelTh, SCORED_METRIC_LABEL_TH, SCORED_METRIC_ORDER } from "@/lib/kpiLabels";
+import { TeamOverviewEntry } from "@/lib/types";
+import { useAuthStore } from "@/store/useAuthStore";
+import { useContextStore } from "@/store/useContextStore";
+import { DataTable, DataTableColumn, ExportButton, PageContainer, PageHeader } from "@/components/shared";
+import { MetricReason } from "@/components/shared/kpi/MetricReason";
 
 export default function TeamOverviewReportPage() {
   const token = useAuthStore((state) => state.token);
+  const period = useContextStore((state) => state.period);
 
-  const [period, setPeriod] = useState<PeriodKey>(defaultPeriod());
   const [results, setResults] = useState<TeamOverviewEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [exporting, setExporting] = useState(false);
-  const [exportError, setExportError] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
 
-  const load = useCallback(async () => {
-    if (!token) return;
-    setLoading(true);
-    try {
-      const data = await getTeamOverviewReport(token, period);
-      setResults(data.results);
-      setLoadError(null);
-    } catch (err) {
-      setLoadError(getErrorMessage(err, "โหลดภาพรวมทีมไม่สำเร็จ"));
-    } finally {
-      setLoading(false);
-    }
-  }, [token, period]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void load();
-  }, [load]);
+  useAbortableEffect(
+    async (signal) => {
+      if (!token) return;
+      setLoading(true);
+      try {
+        const data = await getTeamOverviewReport(token, period, signal);
+        if (signal.aborted) return;
+        setResults(data.results);
+        setLoadError(null);
+      } catch (err) {
+        if (!signal.aborted) {
+          setResults([]);
+          setLoadError(getErrorMessage(err, "โหลดภาพรวมทีมไม่สำเร็จ"));
+        }
+      } finally {
+        if (!signal.aborted) {
+          setLoading(false);
+        }
+      }
+    },
+    // reloadNonce only changes via the error state's retry button.
+    [token, period, reloadNonce]
+  );
 
   async function handleExport() {
     if (!token) return;
-    setExporting(true);
-    setExportError(null);
-    try {
-      await exportTeamOverviewReport(token, period);
-    } catch (err) {
-      setExportError(getErrorMessage(err, "ดาวน์โหลดรายงานไม่สำเร็จ"));
-    } finally {
-      setExporting(false);
-    }
+    // Same parameters as the screen's own query.
+    await exportTeamOverviewReport(token, period);
   }
 
+  // Default order: composite descending, unranked (null composite) last —
+  // DataTable's own sort state starts unset, so this IS the default view.
+  const sortedResults = useMemo(
+    () =>
+      [...results].sort((a, b) => {
+        const va = a.composite.composite;
+        const vb = b.composite.composite;
+        if (va === null && vb === null) return 0;
+        if (va === null) return 1;
+        if (vb === null) return -1;
+        return vb - va;
+      }),
+    [results]
+  );
+
+  const columns: DataTableColumn<TeamOverviewEntry>[] = [
+    {
+      key: "displayName",
+      header: "พนักงานขาย",
+      render: (entry) => <span className="font-medium text-zinc-900">{entry.salesperson.displayName}</span>,
+      sortable: true,
+      sortValue: (entry) => entry.salesperson.displayName,
+      priority: 1,
+      mobileRole: "identity",
+    },
+    {
+      key: "composite",
+      header: "คะแนนรวม",
+      numeric: true,
+      sortable: true,
+      sortValue: (entry) => entry.composite.composite,
+      render: (entry) =>
+        entry.composite.composite !== null ? (
+          <span className="font-semibold text-zinc-900">
+            {formatScore(entry.composite.composite)} <span className="text-xs font-normal text-zinc-400">/ 100</span>
+          </span>
+        ) : (
+          <span className="text-xs text-amber-700">{entry.composite.message ?? "คำนวณไม่ได้"}</span>
+        ),
+      priority: 1,
+      mobileRole: "metric",
+    },
+    {
+      // Business rule B — "คิดจาก N จาก 5 เกณฑ์" per row.
+      key: "computedFrom",
+      header: "คิดจากเกณฑ์",
+      render: (entry) => <span className="text-xs text-zinc-500">{entry.composite.computedFromLabel}</span>,
+      priority: 2,
+      mobileRole: "meta",
+    },
+    ...SCORED_METRIC_ORDER.map((metric, index): DataTableColumn<TeamOverviewEntry> => ({
+      key: metric,
+      header: SCORED_METRIC_LABEL_TH[metric],
+      numeric: true,
+      render: (entry) => {
+        const result = entry.composite.metrics.find((m) => m.metric === metric);
+        if (result?.computable && result.score !== null) {
+          return <span className="text-zinc-700">{formatScore(result.score)}</span>;
+        }
+        // Not-computable criteria show the server's reason, never an empty cell.
+        return <MetricReason reason={result?.reason ?? "คำนวณไม่ได้"} />;
+      },
+      priority: index === 0 ? 2 : 3,
+      mobileRole: "meta",
+    })),
+  ];
+
   return (
-    <div className="mx-auto max-w-3xl p-4 sm:p-6">
-      <h1 className="text-2xl font-semibold text-zinc-900">ภาพรวมทีม</h1>
-      <p className="mt-1 text-sm text-zinc-600">
-        เรียงจากผู้ที่ควรได้รับการช่วยเหลือก่อน (คะแนนรวมต่ำสุดก่อน) — ผู้ที่ยังไม่มีคะแนนรวมจะแสดงต่อท้าย
-      </p>
+    <PageContainer width="standard">
+      <PageHeader
+        title="ภาพรวมทีม"
+        description="คะแนนรวมของพนักงานขายทุกคนในขอบเขตของคุณ เรียงจากคะแนนสูงสุดก่อน — กดหัวคอลัมน์เพื่อเรียงใหม่ได้"
+        meta={`ทั้งหมด ${results.length.toLocaleString("th-TH")} รายการ`}
+        secondaryActions={[
+          <ExportButton key="export" onExport={handleExport} disabled={loading} disabledReason="รอโหลดข้อมูลก่อน" />,
+        ]}
+      />
 
-      <div className="mt-4 flex flex-wrap items-center gap-4">
-        <PeriodSelector value={period} onChange={setPeriod} />
-        <Button
-          type="button"
-          onClick={handleExport}
-          disabled={exporting || loading}
-          className="bg-emerald-700 text-white hover:bg-emerald-800 disabled:opacity-50"
-          size="sm"
-        >
-          {exporting ? "กำลังดาวน์โหลด..." : "Export Excel"}
-        </Button>
-      </div>
-
-      {exportError && <p className="mt-3 text-sm text-red-600">{exportError}</p>}
-      {loadError && <p className="mt-4 text-sm text-red-600">{loadError}</p>}
-      {loading && <p className="mt-6 text-zinc-400">กำลังโหลด...</p>}
-
-      {!loading && !loadError && (
-        <ul className="mt-6 space-y-2">
-          {results.length === 0 && <li className="text-zinc-400">ไม่มีข้อมูล</li>}
-          {results.map((entry, index) => (
-            <li
-              key={entry.salesperson.id}
-              className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-white px-4 py-3"
-            >
-              <div className="flex min-w-0 items-center gap-3">
-                <span className="w-8 shrink-0 text-center text-lg font-semibold text-zinc-500">
-                  {entry.composite.composite !== null ? index + 1 : "-"}
-                </span>
-                <span className="truncate font-medium text-zinc-900">{entry.salesperson.displayName}</span>
-              </div>
-              <div className="shrink-0 text-right">
-                {entry.composite.composite !== null ? (
-                  <>
-                    <span className="font-semibold text-zinc-900">{formatScore(entry.composite.composite)} / 100</span>
-                    <p className="text-xs text-zinc-500">{entry.composite.computedFromLabel}</p>
-                  </>
-                ) : (
-                  <span className="text-xs text-amber-700">{entry.composite.message ?? "คำนวณไม่ได้"}</span>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+      <DataTable
+        columns={columns}
+        rows={sortedResults}
+        getRowId={(entry) => entry.salesperson.id}
+        caption={`ภาพรวมทีม ${periodLabelTh(period)}`}
+        loading={loading}
+        error={loadError}
+        onRetry={() => setReloadNonce((n) => n + 1)}
+        emptyTitle="ยังไม่มีข้อมูลภาพรวมทีมในงวดนี้"
+        searchable
+        searchPredicate={(entry, query) =>
+          entry.salesperson.displayName.toLowerCase().includes(query)
+        }
+        searchPlaceholder="ค้นหาชื่อพนักงานขาย…"
+      />
+    </PageContainer>
   );
 }

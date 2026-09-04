@@ -5,18 +5,18 @@ import {
   TeamOverviewData,
 } from "@/lib/types";
 
-export function getIndividualReport(token: string, salespersonId: string, period: PeriodKey) {
+export function getIndividualReport(token: string, salespersonId: string, period: PeriodKey, signal?: AbortSignal) {
   return request<IndividualReportData>(
     `/reports/individual/${salespersonId}?${periodQueryParams(period)}`,
-    { method: "GET" },
+    { method: "GET", signal },
     token
   );
 }
 
-export function getTeamOverviewReport(token: string, period: PeriodKey) {
+export function getTeamOverviewReport(token: string, period: PeriodKey, signal?: AbortSignal) {
   return request<TeamOverviewData>(
     `/reports/team-overview?${periodQueryParams(period)}`,
-    { method: "GET" },
+    { method: "GET", signal },
     token
   );
 }

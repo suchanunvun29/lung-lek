@@ -2,107 +2,79 @@
 
 import { useState } from "react";
 import { formatMoney } from "@/lib/importLabels";
-import { LeaderboardUnit } from "@/lib/types";
-import { Button } from "@/components/ui/button";
+import { LeaderboardMemberRow, LeaderboardUnit } from "@/lib/types";
+import { RestrictedValue } from "@/components/shared/data-table/RestrictedValue";
 
-const RANK_MEDAL: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" };
-
-function rankLabel(rank: number | null): string {
-  if (rank === null) return "—";
-  return RANK_MEDAL[rank] ?? String(rank);
-}
-
-export interface LeaderboardUnitRowProps {
-  unit: LeaderboardUnit;
-  onDrillDown: (unit: LeaderboardUnit) => void;
-}
-
-/** Renders strictly from server-sent fields — restricted (TERRITORY_RANK_ONLY) units show only
- *  name/owners/rank/score/label, never money or %ถึงเป้า (Data Visibility Rules ข้อ 6). */
-export function LeaderboardUnitRow({ unit, onDrillDown }: LeaderboardUnitRowProps) {
-  const [expanded, setExpanded] = useState(false);
+/**
+ * The identity cell of a leaderboard row — WACC-P1-008.
+ *
+ * Unit name + owners, and for a GROUP unit its member territories as detail
+ * under the group row itself (business rule G: members never become their own
+ * ranked rows). Members render strictly from server-sent fields: a
+ * TERRITORY_FULL member shows its revenue/achievement; a TERRITORY_RANK_ONLY
+ * member renders `RestrictedValue` keyed on its own `visibility` — the money
+ * the server withheld is marked, never silently omitted and never inferred.
+ */
+export function LeaderboardUnitNameCell({ unit }: { unit: LeaderboardUnit }) {
   const isGroup = unit.unitType === "GROUP";
 
   return (
-    <li className="rounded-lg border border-zinc-200 bg-white">
-      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-        <div className="flex min-w-0 items-center gap-3">
-          {isGroup && (
-            <button
-              type="button"
-              onClick={() => setExpanded((current) => !current)}
-              className="shrink-0 rounded border border-zinc-300 px-1.5 py-0.5 text-xs text-zinc-600 hover:bg-zinc-100 cursor-pointer"
-              aria-expanded={expanded}
-            >
-              {expanded ? "▾" : "▸"} สมาชิก
-            </button>
-          )}
-          <span className="w-9 shrink-0 text-center text-lg font-semibold text-zinc-500">{rankLabel(unit.rank)}</span>
-          <div className="min-w-0">
-            <p className="truncate font-medium text-zinc-900">{unit.name}</p>
-            <p className="text-xs text-zinc-500">{unit.ownerNames.join(", ")}</p>
-          </div>
-        </div>
-        <div className="flex shrink-0 items-center gap-4 text-right">
-          <div>
-            <p className="font-semibold text-zinc-900">{unit.compositeScore !== null ? unit.compositeScore.toFixed(2) : "—"}</p>
-            <p className="text-xs text-zinc-500">{unit.computedMetricLabel}</p>
-          </div>
-          {unit.visibility === "TERRITORY_FULL" && (
-            <div className="hidden sm:block">
-              <p className="font-semibold text-zinc-900">{formatMoney(unit.revenue ?? 0)}</p>
-              <p className="text-xs text-zinc-500">
-                {unit.targetLabel ??
-                  (unit.achievementPercent !== null && unit.achievementPercent !== undefined
-                    ? `${unit.achievementPercent.toFixed(1)}% ของเป้า ${formatMoney(unit.target ?? 0)}`
-                    : "ยังไม่ได้ตั้งเป้า")}
-              </p>
-            </div>
-          )}
-          {!isGroup && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => onDrillDown(unit)}
-            >
-              ดูรายบุคคล
-            </Button>
-          )}
-        </div>
-      </div>
+    <div className="min-w-0">
+      <p className="truncate font-medium text-zinc-900">{unit.name}</p>
+      <p className="truncate text-xs text-zinc-500">{unit.ownerNames.join(", ")}</p>
+      {isGroup && <LeaderboardGroupMembers members={unit.members ?? []} />}
+    </div>
+  );
+}
 
-      {/* Criterion reason for FULL rows that landed in the tail block — never shown instead of a value. */}
-      {unit.visibility === "TERRITORY_FULL" && unit.rank === null && unit.criterionReason && (
-        <p className="border-t border-zinc-100 px-4 py-2 text-xs text-amber-700">{unit.criterionReason}</p>
-      )}
+function LeaderboardGroupMembers({ members }: { members: LeaderboardMemberRow[] }) {
+  const [expanded, setExpanded] = useState(false);
 
-      {isGroup && expanded && (
-        <ul className="space-y-1 border-t border-zinc-100 bg-zinc-50 px-4 py-3">
-          {(unit.members ?? []).length === 0 && <li className="text-xs text-zinc-400">กลุ่มนี้ยังไม่มีเขตสมาชิกในงวดนี้</li>}
-          {(unit.members ?? []).map((member) => (
-            <li key={member.territoryId} className="flex flex-wrap items-center justify-between gap-2 rounded border border-zinc-200 bg-white px-3 py-2 text-sm">
+  if (members.length === 0) {
+    return <p className="mt-1 text-xs text-zinc-400">กลุ่มนี้ยังไม่มีเขตสมาชิกในงวดนี้</p>;
+  }
+
+  return (
+    <div className="mt-1">
+      <button
+        type="button"
+        onClick={() => setExpanded((current) => !current)}
+        aria-expanded={expanded}
+        className="cursor-pointer rounded border border-zinc-300 px-1.5 py-0.5 text-xs text-zinc-600 hover:bg-zinc-100"
+      >
+        {expanded ? "▾" : "▸"} สมาชิก ({members.length})
+      </button>
+      {expanded && (
+        <ul className="mt-2 space-y-1">
+          {members.map((member) => (
+            <li key={member.territoryId} className="rounded border border-zinc-200 bg-zinc-50 px-2.5 py-2 text-sm">
               <div className="min-w-0">
                 <p className="truncate font-medium text-zinc-800">{member.name}</p>
-                <p className="text-xs text-zinc-500">{member.ownerNames.join(", ")}</p>
+                <p className="truncate text-xs text-zinc-500">{member.ownerNames.join(", ")}</p>
               </div>
-              <div className="flex items-center gap-3 text-right">
-                <span className="text-xs text-zinc-500">{member.rank ? `อันดับ ${member.rank}` : ""}</span>
-                <span className="font-semibold text-zinc-800">{member.compositeScore !== null ? member.compositeScore.toFixed(2) : "—"}</span>
-                {member.visibility === "TERRITORY_FULL" && (
-                  <span className="text-xs text-zinc-600">
+              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                <span className="text-zinc-500">{member.rank ? `อันดับ ${member.rank}` : ""}</span>
+                <span className="font-semibold text-zinc-800">
+                  {member.compositeScore !== null ? member.compositeScore.toFixed(2) : "—"}
+                </span>
+                {member.visibility === "TERRITORY_FULL" ? (
+                  <span className="text-zinc-600">
                     {formatMoney(member.revenue ?? 0)}
-                    {member.achievementPercent !== null && member.achievementPercent !== undefined ? ` · ${member.achievementPercent.toFixed(1)}%` : ""}
+                    {member.achievementPercent !== null && member.achievementPercent !== undefined
+                      ? ` · ${member.achievementPercent.toFixed(1)}%`
+                      : ""}
                   </span>
+                ) : (
+                  <RestrictedValue visibility={member.visibility} />
                 )}
-                <span className="text-xs text-zinc-400">{member.computedMetricLabel}</span>
+                <span className="text-zinc-400">{member.computedMetricLabel}</span>
               </div>
             </li>
           ))}
         </ul>
       )}
-    </li>
+    </div>
   );
 }
 
-export default LeaderboardUnitRow;
+export default LeaderboardUnitNameCell;
