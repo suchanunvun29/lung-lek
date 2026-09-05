@@ -11,5 +11,5 @@ build/
 bin/
 obj/
 
-/tasks/
+/planning/
 /.vs/
