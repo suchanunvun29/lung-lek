@@ -13,6 +13,7 @@ import { CoachingInsight, PeriodKey, ScoredKpiMetric } from "@/lib/types";
 import { useAuthStore } from "@/store/useAuthStore";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Spinner } from "@/components/ui/spinner";
 
 // Drill-down from an AI summary always starts at revenue-vs-target — it's the metric the
 // rule-based/Gemini summary leads with, and it reuses the same KpiDrillDownModal ScoreCard
@@ -104,6 +105,15 @@ export function CoachingInsightPanel({
         </Button>
       </div>
 
+      {/* T-UX-028 — the generate call blocks up to ~15s; a visible pending state so it never
+          reads as frozen. generating doubles as the double-click guard (button disabled). */}
+      {generating && (
+        <p role="status" className="mt-3 flex items-center gap-2 text-sm text-text-muted">
+          <Spinner className="h-4 w-4 text-primary" aria-hidden="true" />
+          กำลังสร้างคำแนะนำ (ใช้เวลาสูงสุด ~15 วินาที)
+        </p>
+      )}
+
       {!canGenerate && (
         <p className="mt-2 text-xs text-text-muted">
           คุณไม่มีสิทธิ์สั่งสร้างสรุปนี้
@@ -115,16 +125,17 @@ export function CoachingInsightPanel({
 
       {loading && <p className="mt-4 text-text-muted">กำลังโหลด...</p>}
 
-      {!loading && !insight && !loadError && (
+      {!loading && !insight && !loadError && !generating && (
         <p className="mt-4 text-sm text-text-muted">ยังไม่มีสรุปสำหรับงวดนี้</p>
       )}
 
       {!loading && insight && (
         <div className="mt-4 space-y-3">
           {insight.status === "FAILED" && (
-            <p className="rounded-md bg-warning-subtle border border-warning/30 px-3 py-2 text-xs text-warning-text">
-              เรียก AI ไม่สำเร็จ{insight.errorMessage ? `: ${insight.errorMessage}` : ""} — แสดงสรุปที่คำนวณจากกฎแทน
-            </p>
+            <div className="rounded-md border border-warning/30 bg-warning-subtle px-3 py-2 text-xs text-warning-text">
+              <p className="font-medium">คำแนะนำจากกฎสำรอง — เพราะ AI ใช้งานไม่ได้ตอนนี้</p>
+              {insight.fallbackReason && <p className="mt-1">{insight.fallbackReason}</p>}
+            </div>
           )}
 
           <p className="whitespace-pre-line text-sm leading-relaxed text-text-primary">

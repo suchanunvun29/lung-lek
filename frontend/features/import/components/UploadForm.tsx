@@ -91,7 +91,7 @@ export function UploadForm({ onUpload, disabled }: UploadFormProps) {
           onClick={() => void handleUploadClick()}
           className="disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {isUploading ? "กำลังนำเข้า..." : "นำเข้าไฟล์"}
+          {isUploading ? "กำลังตรวจสอบ..." : "ตรวจสอบก่อนนำเข้า"}
         </Button>
       </div>
     </div>

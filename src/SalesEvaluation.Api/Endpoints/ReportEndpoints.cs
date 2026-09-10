@@ -159,18 +159,14 @@ public static class ReportEndpoints
         return Results.File(workbookBytes, ExcelMimeType, fileName);
     }
 
+    // T-UX-029 — single period parser shared across endpoint families (range rules + Thai
+    // message identical to KPI/territory-view/coaching).
     private static (AppPeriodKey Period, IResult? Error) ParsePeriod(
         string? periodType, string? year, string? periodNumber)
     {
-        if (string.IsNullOrEmpty(periodType))
-            return (default, TerritoryEndpoints.Invalid("periodType is required"));
-        if (!Enum.TryParse<PeriodType>(periodType, out var pt))
-            return (default, TerritoryEndpoints.Invalid("periodType must be MONTH, QUARTER, or YEAR"));
-        if (!int.TryParse(year, NumberStyles.Integer, CultureInfo.InvariantCulture, out var yr))
-            return (default, TerritoryEndpoints.Invalid("year must be an integer"));
-        if (!int.TryParse(periodNumber, NumberStyles.Integer, CultureInfo.InvariantCulture, out var pn))
-            return (default, TerritoryEndpoints.Invalid("periodNumber must be an integer"));
-        return (new AppPeriodKey(pt, yr, pn), null);
+        return PeriodQueryParser.TryParsePeriod(periodType, year, periodNumber, out var period, out var error)
+            ? (period, null)
+            : (default, error);
     }
 }
 

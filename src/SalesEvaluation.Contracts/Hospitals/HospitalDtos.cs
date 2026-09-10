@@ -39,6 +39,15 @@ public class HospitalsResponse
     public List<HospitalDto> Hospitals { get; set; } = new();
 }
 
+/// <summary>GET /hospitals?page=&pageSize= — T-UX-025; same shape as the other paginated lists.</summary>
+public class HospitalsPageResponse
+{
+    public List<HospitalDto> Items { get; set; } = new();
+    public int Total { get; set; }
+    public int Page { get; set; }
+    public int PageSize { get; set; }
+}
+
 public class HospitalResponse
 {
     public HospitalDto Hospital { get; set; } = null!;
@@ -81,6 +90,30 @@ public class BulkMoveHospitalsByProvinceRequest
 public class BulkMoveHospitalsResponse
 {
     public int UpdatedCount { get; set; }
+}
+
+/// <summary>POST /hospitals/territory/bulk — T-UX-026: assign one territory to many hospitals, per-item atomic.</summary>
+public class BulkAssignTerritoryRequest
+{
+    public int? TerritoryId { get; set; }
+    public List<int> HospitalIds { get; set; } = new();
+    public string? Note { get; set; }
+}
+
+public class BulkAssignTerritoryFailure
+{
+    public int HospitalId { get; set; }
+    public string Error { get; set; } = string.Empty;
+}
+
+/// <summary>Report style of the copy-targets result: success list + per-item failures with reasons.</summary>
+public class BulkAssignTerritoryResponse
+{
+    public int RequestedCount { get; set; }
+    public int AssignedCount { get; set; }
+    public List<int> Assigned { get; set; } = new();
+    public int FailedCount { get; set; }
+    public List<BulkAssignTerritoryFailure> Failed { get; set; } = new();
 }
 
 public class UnassignedTerritoryHospitalDto

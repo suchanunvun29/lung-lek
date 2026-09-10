@@ -1,4 +1,5 @@
 export * from "./api/import.api";
+export * from "./components/AppendPreviewModal";
 export * from "./components/ImportBatchSummary";
 export * from "./components/ImportIssueTable";
 export * from "./components/PeriodDryRunModal";

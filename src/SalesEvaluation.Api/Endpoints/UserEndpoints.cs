@@ -32,6 +32,11 @@ public static class UserEndpoints
     }
 
     private static async Task<IResult> HandleListUsers(
+        string? page,
+        string? pageSize,
+        string? role,
+        string? unlinkedOnly,
+        string? q,
         IUserService userService,
         ICurrentUserService currentUserService,
         CancellationToken ct)
@@ -41,7 +46,37 @@ public static class UserEndpoints
             return Results.Json(new { error = "Forbidden: insufficient role" }, statusCode: StatusCodes.Status403Forbidden);
         }
 
-        var result = await userService.ListUsersAsync(ct);
+        // T-UX-025 — filters share one validation path in both shapes; an unknown
+        // value is a 400, never a silently ignored filter (T-UX-023 rule).
+        UserRole? roleFilter = null;
+        if (!string.IsNullOrWhiteSpace(role))
+        {
+            if (!Enum.TryParse<UserRole>(role, true, out var parsedRole))
+                return TerritoryEndpoints.Invalid("role ไม่ถูกต้อง");
+            roleFilter = parsedRole;
+        }
+
+        bool? unlinkedOnlyFilter = null;
+        if (!string.IsNullOrEmpty(unlinkedOnly))
+        {
+            if (!bool.TryParse(unlinkedOnly, out var parsedUnlinked))
+                return TerritoryEndpoints.Invalid("unlinkedOnly must be true or false");
+            unlinkedOnlyFilter = parsedUnlinked;
+        }
+
+        if (!Paging.IsRequested(page, pageSize))
+        {
+            var legacy = await userService.ListUsersAsync(
+                roleFilter?.ToString(), unlinkedOnlyFilter, q, ct);
+            return Results.Ok(legacy);
+        }
+
+        var (pageVal, pageSizeVal, error) = Paging.Parse(page, pageSize);
+        if (error != null)
+            return error;
+
+        var result = await userService.ListUsersPageAsync(
+            pageVal, pageSizeVal, roleFilter?.ToString(), unlinkedOnlyFilter, q, ct);
         return Results.Ok(result);
     }
 

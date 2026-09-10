@@ -525,6 +525,48 @@ public class TargetService : ITargetService
         };
     }
 
+    public async Task<TargetRevisionsPageResponse?> GetTargetRevisionsPageAsync(int targetId, int page, int pageSize, CancellationToken cancellationToken = default)
+    {
+        var target = await _dbContext.Targets
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.Id == targetId, cancellationToken);
+        if (target == null)
+        {
+            return null;
+        }
+
+        var query = _dbContext.TargetRevisions
+            .AsNoTracking()
+            .Include(r => r.ChangedBy)
+            .Where(r => r.TargetId == targetId);
+
+        var total = await query.CountAsync(cancellationToken);
+        var revisions = await query
+            .OrderByDescending(r => r.ChangedAt).ThenByDescending(r => r.Id)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return new TargetRevisionsPageResponse
+        {
+            Items = revisions.Select(r => new TargetRevisionDto
+            {
+                Id = r.Id,
+                TargetId = r.TargetId,
+                ChangeType = r.ChangeType.ToString(),
+                Before = ParseSnapshot(r.Before),
+                After = ParseSnapshot(r.After),
+                ChangedById = r.ChangedById,
+                ChangedBy = new UserSummaryDto { Id = r.ChangedBy.Id, DisplayName = r.ChangedBy.DisplayName },
+                ChangedAt = r.ChangedAt,
+                Note = r.Note
+            }).ToList(),
+            Total = total,
+            Page = page,
+            PageSize = pageSize
+        };
+    }
+
     private static JsonElement? ParseSnapshot(string? json)
     {
         if (json == null)

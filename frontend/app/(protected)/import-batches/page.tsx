@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { listImportBatches } from "@/features/import";
+import { useState } from "react";
+import { listImportBatchesPage } from "@/features/import";
 import { getErrorMessage } from "@/lib/api-client";
 import { useAbortableEffect } from "@/lib/useAbortableEffect";
 import { ImportBatch, ImportStatus } from "@/lib/types";
@@ -13,9 +13,12 @@ import { PageContainer } from "@/components/shared/layout/PageContainer";
 import { PageHeader } from "@/components/shared/layout/PageHeader";
 import { FilterBar, type FilterChip } from "@/components/shared/filters/FilterBar";
 import { StatusBadge } from "@/components/shared/status/StatusBadge";
+import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 
 type StatusFilter = ImportStatus | "ALL";
+
+const PAGE_SIZE = 50; // T-UX-025 — server pagination
 
 const COLUMNS: DataTableColumn<ImportBatch>[] = [
   {
@@ -105,19 +108,33 @@ const COLUMNS: DataTableColumn<ImportBatch>[] = [
 export default function ImportBatchesPage() {
   const token = useAuthStore((state) => state.token);
   const [batches, setBatches] = useState<ImportBatch[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  // Server-side filters (T-UX-025) — must compose with pagination.
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
+  const [searchQuery, setSearchQuery] = useState("");
 
   useAbortableEffect(
     async (signal) => {
       if (!token) return;
       setLoading(true);
       try {
-        const data = await listImportBatches(token, signal);
+        const data = await listImportBatchesPage(
+          token,
+          {
+            page,
+            pageSize: PAGE_SIZE,
+            status: statusFilter !== "ALL" ? statusFilter : undefined,
+            q: searchQuery || undefined,
+          },
+          signal
+        );
         if (signal.aborted) return;
-        setBatches(data.importBatches);
+        setBatches(data.items);
+        setTotal(data.total);
         setLoadError(null);
       } catch (err) {
         if (!signal.aborted) {
@@ -129,31 +146,37 @@ export default function ImportBatchesPage() {
         }
       }
     },
-    [token, reloadKey]
+    [token, reloadKey, page, statusFilter, searchQuery]
   );
 
-  // Safe Automation: default sort newest first
-  const sortedBatches = useMemo(() => {
-    return [...batches].sort(
-      (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
-    );
-  }, [batches]);
+  // Ordering (newest first) and filtering are server-side now (T-UX-025).
 
-  const filteredBatches = useMemo(() => {
-    if (statusFilter === "ALL") return sortedBatches;
-    return sortedBatches.filter((batch) => batch.status === statusFilter);
-  }, [sortedBatches, statusFilter]);
-
-  const chips = useMemo<FilterChip[]>(() => {
-    if (statusFilter === "ALL") return [];
-    return [
-      {
-        key: "status",
-        label: `สถานะ: ${IMPORT_STATUS_LABEL_TH[statusFilter]}`,
-        onRemove: () => setStatusFilter("ALL"),
-      },
-    ];
-  }, [statusFilter]);
+  const chips = (
+    (): FilterChip[] => {
+      const result: FilterChip[] = [];
+      if (statusFilter !== "ALL") {
+        result.push({
+          key: "status",
+          label: `สถานะ: ${IMPORT_STATUS_LABEL_TH[statusFilter]}`,
+          onRemove: () => {
+            setStatusFilter("ALL");
+            setPage(1);
+          },
+        });
+      }
+      if (searchQuery.trim() !== "") {
+        result.push({
+          key: "q",
+          label: `ค้นหา: "${searchQuery.trim()}"`,
+          onRemove: () => {
+            setSearchQuery("");
+            setPage(1);
+          },
+        });
+      }
+      return result;
+    }
+  )();
 
   return (
     <PageContainer width="wide">
@@ -163,7 +186,14 @@ export default function ImportBatchesPage() {
       />
 
       <div className="mb-6">
-        <FilterBar chips={chips} onReset={() => setStatusFilter("ALL")}>
+        <FilterBar
+          chips={chips}
+          onReset={() => {
+            setStatusFilter("ALL");
+            setSearchQuery("");
+            setPage(1);
+          }}
+        >
           <div className="w-full sm:w-56">
             <label htmlFor="import-status-filter" className="block text-xs font-medium text-text-muted mb-1">
               สถานะการนำเข้า
@@ -171,7 +201,10 @@ export default function ImportBatchesPage() {
             <Select
               id="import-status-filter"
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+              onChange={(e) => {
+                setStatusFilter(e.target.value as StatusFilter);
+                setPage(1);
+              }}
             >
               <option value="ALL">สถานะทั้งหมด</option>
               <option value="SUCCESS">{IMPORT_STATUS_LABEL_TH.SUCCESS}</option>
@@ -180,13 +213,29 @@ export default function ImportBatchesPage() {
               <option value="PROCESSING">{IMPORT_STATUS_LABEL_TH.PROCESSING}</option>
             </Select>
           </div>
+          <div className="w-full sm:w-56">
+            <label htmlFor="import-search" className="block text-xs font-medium text-text-muted mb-1">
+              ค้นหา
+            </label>
+            <Input
+              id="import-search"
+              type="search"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setPage(1);
+              }}
+              placeholder="ชื่อไฟล์หรือผู้อัปโหลด…"
+              aria-label="ค้นหาชื่อไฟล์หรือผู้อัปโหลด"
+            />
+          </div>
         </FilterBar>
       </div>
 
       <DataTable
         caption="ประวัติการนำเข้าข้อมูล"
         columns={COLUMNS}
-        rows={filteredBatches}
+        rows={batches}
         getRowId={(batch) => batch.id}
         loading={loading}
         error={loadError}
@@ -197,16 +246,15 @@ export default function ImportBatchesPage() {
         }}
         emptyTitle="ยังไม่มีประวัติการนำเข้าข้อมูล"
         emptyDescription={
-          statusFilter !== "ALL"
+          statusFilter !== "ALL" || searchQuery.trim() !== ""
             ? "ไม่พบประวัติการนำเข้าที่มีสถานะตรงกับตัวกรอง"
             : "เมื่อมีการอัปโหลดไฟล์นำเข้าข้อมูล รายการประวัติและผลการประมวลผลจะปรากฏที่นี่"
         }
-        searchable
-        searchPlaceholder="ค้นหาชื่อไฟล์หรือผู้อัปโหลด…"
-        searchPredicate={(batch, query) =>
-          batch.fileName.toLowerCase().includes(query) ||
-          batch.uploadedBy.displayName.toLowerCase().includes(query)
-        }
+        serverPaginated
+        page={page}
+        pageSize={PAGE_SIZE}
+        total={total}
+        onPageChange={setPage}
         rowAction={(batch) => (
           <Link
             href={`/import-batches/${batch.id}`}

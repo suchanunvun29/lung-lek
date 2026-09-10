@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { use, useState, type ReactNode } from "react";
 import { ChevronLeft } from "lucide-react";
-import { listTargetRevisions } from "@/features/targets/api/targets.api";
+import { listTargetRevisionsPage } from "@/features/targets/api/targets.api";
+import { DataTablePagination } from "@/components/shared/data-table/DataTable";
 import { listSalespeople } from "@/features/master-data/api/master-data.api";
 import { fetchKnownProductTypes } from "@/features/products/utils/deriveProductTypes";
 import { formatThaiMonth } from "@/lib/importLabels";
@@ -57,11 +58,16 @@ export default function TargetRevisionsPage({ params }: TargetRevisionsPageProps
 
   const token = useAuthStore((state) => state.token);
   const [revisions, setRevisions] = useState<TargetRevision[]>([]);
+  const [latest, setLatest] = useState<TargetSnapshot | null>(null);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [salespeople, setSalespeople] = useState<Salesperson[]>([]);
   const [productTypes, setProductTypes] = useState<EntitySummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
+
+  const PAGE_SIZE = 25; // T-UX-025 — server pagination (revisions grow without bound)
 
   useAbortableEffect(
     async (signal) => {
@@ -73,12 +79,19 @@ export default function TargetRevisionsPage({ params }: TargetRevisionsPageProps
       setLoading(true);
       try {
         const [revisionsData, salespeopleData, productTypesData] = await Promise.all([
-          listTargetRevisions(token, targetId, signal),
+          listTargetRevisionsPage(token, targetId, page, PAGE_SIZE, signal),
           listSalespeople(token, signal),
           fetchKnownProductTypes(token),
         ]);
         if (signal.aborted) return;
-        setRevisions(revisionsData.revisions);
+        setRevisions(revisionsData.items);
+        setTotal(revisionsData.total);
+        // The header labels describe the newest revision, which lives on page 1
+        // (newest first) — pin it so later pages don't relabel the page header.
+        if (page === 1) {
+          const first = revisionsData.items[0];
+          setLatest(first?.after ?? first?.before ?? null);
+        }
         setSalespeople(salespeopleData.salespeople);
         setProductTypes(productTypesData);
         setLoadError(null);
@@ -92,12 +105,11 @@ export default function TargetRevisionsPage({ params }: TargetRevisionsPageProps
         }
       }
     },
-    [token, targetId, isValidTargetId, reloadNonce]
+    [token, targetId, isValidTargetId, reloadNonce, page]
   );
 
   const salespersonNameById = new Map(salespeople.map((sp) => [sp.id, sp.displayName]));
   const productTypeNameById = new Map(productTypes.map((pt) => [pt.id, pt.displayName]));
-  const latest = revisions[0]?.after ?? revisions[revisions.length - 1]?.before ?? null;
 
   function renderProductGroups(
     groups: TargetProductGroupSnapshot[],
@@ -571,6 +583,11 @@ export default function TargetRevisionsPage({ params }: TargetRevisionsPageProps
             );
           })}
         </div>
+      )}
+
+      {/* T-UX-025 — server pagination over the revision history */}
+      {!loading && !loadError && total > 0 && (
+        <DataTablePagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
       )}
     </PageContainer>
   );

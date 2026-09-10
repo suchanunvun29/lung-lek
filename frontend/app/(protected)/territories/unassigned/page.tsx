@@ -5,6 +5,7 @@ import {
   listTerritories,
   listUnassignedTerritoryHospitals,
   moveHospitalToTerritory,
+  bulkAssignHospitalsToTerritory,
 } from "@/features/territories/api/territories.api";
 import { getErrorMessage } from "@/lib/api-client";
 import { formatMoney } from "@/lib/importLabels";
@@ -102,32 +103,30 @@ export default function UnassignedTerritoriesPage() {
     [token, load, assigningId, territories]
   );
 
-  // Multi-row sequential assignment
+  // Multi-row assignment — T-UX-026: one POST per batch (per-item atomic server-side),
+  // replacing the old sequential PATCH loop; the partial report UI is unchanged.
   async function executeMultiAssign() {
     if (!token || !bulkTerritoryId || selectedIds.size === 0) return;
     setAssigningMulti(true);
     setMultiResult(null);
 
     const ids = Array.from(selectedIds).map(Number);
-    let success = 0;
-    const failed: { id: number; name: string; error: string }[] = [];
-
-    for (const id of ids) {
-      const hospital = hospitals.find((h) => h.id === id);
-      const hospitalName = hospital?.displayName ?? `ID: ${id}`;
-      try {
-        await moveHospitalToTerritory(token, id, Number(bulkTerritoryId));
-        success++;
-      } catch (err) {
-        failed.push({
-          id,
-          name: hospitalName,
-          error: getErrorMessage(err, "ล้มเหลว"),
-        });
-      }
+    try {
+      const report = await bulkAssignHospitalsToTerritory(token, ids, Number(bulkTerritoryId));
+      setMultiResult({
+        total: report.requestedCount,
+        success: report.assignedCount,
+        failed: report.failed.map((f) => ({
+          id: f.hospitalId,
+          name: hospitals.find((h) => h.id === f.hospitalId)?.displayName ?? `ID: ${f.hospitalId}`,
+          error: f.error,
+        })),
+      });
+    } catch (err) {
+      // The batch request itself failed — nothing was reported per item.
+      setError(getErrorMessage(err, "ผูกเขตหลายรายการไม่สำเร็จ"));
     }
 
-    setMultiResult({ total: ids.length, success, failed });
     setSelectedIds(new Set());
     setBulkTerritoryId("");
     setConfirmingMulti(false);
@@ -285,7 +284,7 @@ export default function UnassignedTerritoriesPage() {
         </Button>
       </div>
       <p className="text-xs text-text-muted">
-        หมายเหตุ: การผูกเขตหลายรายการดำเนินการแบบเรียงลำดับทีละรายการ (Sequential) ไม่ใช่ Transaction เดียวกัน (Non-atomic)
+        หมายเหตุ: ส่งข้อมูลทั้งชุดให้เซิร์ฟเวอร์ประมวลผลในครั้งเดียว — บันทึกรายการต่อรายการ (per-item atomic) รายการที่ล้มเหลวจะรายงานกลับโดยไม่ดึงรายการอื่นลง
       </p>
     </div>
   ) : null;
@@ -361,7 +360,7 @@ export default function UnassignedTerritoriesPage() {
         <ConfirmDialog
           title="ยืนยันการผูกเขตหลายรายการ"
           description={`คุณกำลังจะผูกโรงพยาบาลที่เลือกจำนวน ${selectedIds.size} แห่ง เข้าเขต ${selectedTerritoryName}`}
-          consequence="การประมวลผลนี้ดำเนินการทีละรายการต่อเนื่องกัน ไม่ใช่ Transaction เดียวกัน (Non-atomic) หากมีข้อผิดพลาดเกิดขึ้น รายการที่สำเร็จไปแล้วจะยังคงมีผล"
+          consequence="เซิร์ฟเวอร์จะบันทึกทีละรายการ (per-item atomic) — รายการที่สำเร็จจะมีผลทันทีแม้รายการอื่นล้มเหลว และจะมีรายงานสรุปผลรายรายการให้ตรวจสอบหลังเสร็จ"
           tone="default"
           confirmLabel="ยืนยันการผูกเขต"
           cancelLabel="ยกเลิก"

@@ -18,11 +18,9 @@ public class UserService : IUserService
         _passwordHasher = passwordHasher;
     }
 
-    public async Task<UsersResponse> ListUsersAsync(CancellationToken cancellationToken = default)
+    public async Task<UsersResponse> ListUsersAsync(string? role = null, bool? unlinkedOnly = null, string? q = null, CancellationToken cancellationToken = default)
     {
-        var users = await _dbContext.Users
-            .AsNoTracking()
-            .Include(u => u.Salesperson)
+        var users = await ApplyListFilters(role, unlinkedOnly, q)
             .OrderBy(u => u.CreatedAt)
             .ToListAsync(cancellationToken);
 
@@ -30,6 +28,55 @@ public class UserService : IUserService
         {
             Users = users.Select(MapToDto).ToList()
         };
+    }
+
+    public async Task<UsersPageResponse> ListUsersPageAsync(int page, int pageSize, string? role = null, bool? unlinkedOnly = null, string? q = null, CancellationToken cancellationToken = default)
+    {
+        var query = ApplyListFilters(role, unlinkedOnly, q);
+
+        var total = await query.CountAsync(cancellationToken);
+        var users = await query
+            .OrderBy(u => u.CreatedAt).ThenBy(u => u.Id)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return new UsersPageResponse
+        {
+            Items = users.Select(MapToDto).ToList(),
+            Total = total,
+            Page = page,
+            PageSize = pageSize
+        };
+    }
+
+    private IQueryable<User> ApplyListFilters(string? role, bool? unlinkedOnly, string? q)
+    {
+        var query = _dbContext.Users
+            .AsNoTracking()
+            .Include(u => u.Salesperson)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(role) && Enum.TryParse<UserRole>(role, true, out var parsedRole))
+        {
+            query = query.Where(u => u.Role == parsedRole);
+        }
+
+        if (unlinkedOnly == true)
+        {
+            query = query.Where(u => u.Role == UserRole.SALESPERSON && u.Salesperson == null);
+        }
+
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            var needle = q.Trim().ToLower();
+            query = query.Where(u =>
+                u.DisplayName.ToLower().Contains(needle) ||
+                u.Email.ToLower().Contains(needle) ||
+                (u.Salesperson != null && u.Salesperson.DisplayName.ToLower().Contains(needle)));
+        }
+
+        return query;
     }
 
     public async Task<CreateUserResponse> CreateUserAsync(CreateUserRequest request, CancellationToken cancellationToken = default)

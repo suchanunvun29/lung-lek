@@ -27,6 +27,15 @@ public class UsersResponse
     public List<UserDto> Users { get; set; } = new();
 }
 
+/// <summary>GET /users?page=&pageSize= — T-UX-025; same shape as the other paginated lists.</summary>
+public class UsersPageResponse
+{
+    public List<UserDto> Items { get; set; } = new();
+    public int Total { get; set; }
+    public int Page { get; set; }
+    public int PageSize { get; set; }
+}
+
 public class CreateUserRequest
 {
     public string Email { get; set; } = string.Empty;

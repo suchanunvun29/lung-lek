@@ -46,7 +46,9 @@ import { EmptyState } from "@/components/shared/feedback/EmptyState";
 import { SkeletonTable } from "@/components/shared/feedback/Skeleton";
 import { cn } from "@/lib/utils";
 
-/* Internal pager — rendered by DataTable only; there is no second path (T-UX-017). */
+/* Internal pager — rendered by DataTable only; there is no second path (T-UX-017).
+ * Exported as DataTablePagination solely for the revisions page (T-UX-025): a card
+ * list, not a table, that still pages server-side through the same pager UI. */
 function Pagination({ page, pageSize, total, onPageChange }: { page: number; pageSize: number; total: number; onPageChange: (page: number) => void }) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
@@ -78,6 +80,8 @@ function Pagination({ page, pageSize, total, onPageChange }: { page: number; pag
     </div>
   );
 }
+
+export { Pagination as DataTablePagination };
 
 export type DataTableMobileRole = "identity" | "metric" | "meta" | "hidden";
 

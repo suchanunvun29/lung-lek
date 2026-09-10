@@ -12,7 +12,6 @@ using SalesEvaluation.Domain.Enums;
 public static class TerritoryViewEndpoints
 {
     private const string SpreadsheetContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-    private static readonly string[] ValidPeriodTypes = { "MONTH", "QUARTER", "YEAR" };
     private static readonly string[] ValidPotentialMetrics = { "BEDS", "CMI", "SUM_ADJ_RW", "OCCUPANCY_RATE", "PATIENTS", "VISITS" };
 
     public static IEndpointRouteBuilder MapTerritoryViewEndpoints(this IEndpointRouteBuilder app)
@@ -347,53 +346,18 @@ public static class TerritoryViewEndpoints
         period = new TerritoryViewPeriod();
         error = null;
 
-        if (!q.TryGetValue("periodType", out var periodTypeValue) || !ValidPeriodTypes.Contains(periodTypeValue.ToString()))
+        // T-UX-029 — delegate to the shared parser so the range rules and the Thai error
+        // text are identical across endpoint families.
+        if (!PeriodQueryParser.TryParsePeriod(q, out var appPeriod, out error))
         {
-            error = TerritoryEndpoints.Invalid("periodType must be one of MONTH, QUARTER, YEAR");
             return false;
-        }
-
-        var periodType = Enum.Parse<PeriodType>(periodTypeValue.ToString(), ignoreCase: false);
-
-        if (!q.TryGetValue("year", out var yearValue) ||
-            !int.TryParse(yearValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out var year))
-        {
-            error = TerritoryEndpoints.Invalid("year must be an integer");
-            return false;
-        }
-
-        var periodNumber = 0;
-        var hasPeriodNumber = q.TryGetValue("periodNumber", out var pnValue) && !string.IsNullOrEmpty(pnValue);
-        if (hasPeriodNumber && !int.TryParse(pnValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out periodNumber))
-        {
-            error = TerritoryEndpoints.Invalid("periodNumber must be an integer");
-            return false;
-        }
-
-        // periodNumber ไม่ถูกต้อง — MONTH requires 1-12, QUARTER requires 1-4.
-        if (periodType == PeriodType.MONTH && (!hasPeriodNumber || periodNumber < 1 || periodNumber > 12))
-        {
-            error = TerritoryEndpoints.Invalid("periodNumber ไม่ถูกต้อง");
-            return false;
-        }
-
-        if (periodType == PeriodType.QUARTER && (!hasPeriodNumber || periodNumber < 1 || periodNumber > 4))
-        {
-            error = TerritoryEndpoints.Invalid("periodNumber ไม่ถูกต้อง");
-            return false;
-        }
-
-        // normalizePeriodNumber: YEAR periods carry periodNumber 0.
-        if (periodType == PeriodType.YEAR)
-        {
-            periodNumber = 0;
         }
 
         period = new TerritoryViewPeriod
         {
-            PeriodType = periodType,
-            Year = year,
-            PeriodNumber = periodNumber
+            PeriodType = appPeriod.PeriodType,
+            Year = appPeriod.Year,
+            PeriodNumber = appPeriod.PeriodNumber
         };
         return true;
     }

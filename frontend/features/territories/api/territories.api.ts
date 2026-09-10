@@ -86,6 +86,28 @@ export function moveHospitalToTerritory(token: string, hospitalId: number, terri
   );
 }
 
+export interface BulkAssignTerritoryResult {
+  requestedCount: number;
+  assignedCount: number;
+  assigned: number[];
+  failedCount: number;
+  failed: { hospitalId: number; error: string }[];
+}
+
+/** T-UX-026 — one request per batch instead of a PATCH loop; server is per-item atomic. */
+export function bulkAssignHospitalsToTerritory(
+  token: string,
+  hospitalIds: number[],
+  territoryId: number,
+  note?: string
+) {
+  return request<BulkAssignTerritoryResult>(
+    "/hospitals/territory/bulk",
+    { method: "POST", body: JSON.stringify({ territoryId, hospitalIds, note }) },
+    token
+  );
+}
+
 export function bulkMoveHospitalsByProvince(token: string, province: string, territoryId: number | null, note?: string) {
   return request<{ updatedCount: number }>(
     "/hospitals/territory/bulk-by-province",

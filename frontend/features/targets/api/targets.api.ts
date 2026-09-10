@@ -94,6 +94,15 @@ export function listTargetRevisions(token: string, targetId: number, signal?: Ab
   return request<{ revisions: TargetRevision[] }>(`/targets/${targetId}/revisions`, { method: "GET", signal }, token);
 }
 
+/** T-UX-025 — server pagination, newest first. */
+export function listTargetRevisionsPage(token: string, targetId: number, page: number, pageSize: number, signal?: AbortSignal) {
+  return request<{ items: TargetRevision[]; total: number; page: number; pageSize: number }>(
+    `/targets/${targetId}/revisions?page=${page}&pageSize=${pageSize}`,
+    { method: "GET", signal },
+    token
+  );
+}
+
 export function copyTargets(token: string, input: CopyTargetsInput) {
   return request<CopyTargetsResult>(
     "/targets/copy",

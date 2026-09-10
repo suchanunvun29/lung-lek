@@ -12,18 +12,9 @@ public static class HospitalEndpoints
 {
     public static IEndpointRouteBuilder MapHospitalEndpoints(this IEndpointRouteBuilder app)
     {
-        // GET /hospitals and GET /api/hospitals
-        app.MapGet("/hospitals", async (IHospitalService hospitalService, CancellationToken ct) =>
-        {
-            var response = await hospitalService.ListHospitalsAsync(ct);
-            return Results.Ok(response);
-        });
-
-        app.MapGet("/api/hospitals", async (IHospitalService hospitalService, CancellationToken ct) =>
-        {
-            var response = await hospitalService.ListHospitalsAsync(ct);
-            return Results.Ok(response);
-        });
+        // GET /hospitals and GET /api/hospitals — T-UX-025: optional page/pageSize + q filter
+        app.MapGet("/hospitals", HandleListHospitals);
+        app.MapGet("/api/hospitals", HandleListHospitals);
 
         // GET /hospitals/unassigned-territory
         app.MapGet("/hospitals/unassigned-territory", async (IHospitalService hospitalService, CancellationToken ct) =>
@@ -31,6 +22,9 @@ public static class HospitalEndpoints
             var response = await hospitalService.ListUnassignedTerritoryHospitalsAsync(ct);
             return Results.Ok(response);
         });
+
+        // POST /hospitals/territory/bulk — T-UX-026
+        app.MapPost("/hospitals/territory/bulk", HandleBulkAssignTerritory);
 
         // POST /hospitals/territory/bulk-by-province
         app.MapPost("/hospitals/territory/bulk-by-province", HandleBulkMoveHospitalsByProvince);
@@ -47,6 +41,125 @@ public static class HospitalEndpoints
         app.MapPatch("/api/hospitals/{id}", HandleUpdateHospital);
 
         return app;
+    }
+
+    private static async Task<IResult> HandleListHospitals(
+        string? page,
+        string? pageSize,
+        string? q,
+        IHospitalService hospitalService,
+        CancellationToken ct)
+    {
+        if (!Paging.IsRequested(page, pageSize))
+        {
+            // Legacy full list — dropdown consumers (sales-lines filter, moves merge) need all rows.
+            var legacy = await hospitalService.ListHospitalsAsync(ct);
+            return Results.Ok(legacy);
+        }
+
+        var (pageVal, pageSizeVal, error) = Paging.Parse(page, pageSize);
+        if (error != null)
+            return error;
+
+        var result = await hospitalService.ListHospitalsPageAsync(pageVal, pageSizeVal, q, ct);
+        return Results.Ok(result);
+    }
+
+    private static async Task<IResult> HandleBulkAssignTerritory(
+        HttpContext httpContext,
+        IHospitalService hospitalService,
+        ICurrentUserService currentUserService,
+        CancellationToken ct)
+    {
+        var currentUser = currentUserService.User;
+        if (currentUser == null || currentUser.Role != UserRole.MANAGER)
+        {
+            return Results.Json(new { error = "Forbidden: insufficient role" }, statusCode: StatusCodes.Status403Forbidden);
+        }
+
+        JsonDocument doc;
+        try
+        {
+            doc = await JsonDocument.ParseAsync(httpContext.Request.Body, cancellationToken: ct);
+        }
+        catch
+        {
+            return Results.Json(new { error = "Validation failed", details = "Invalid JSON payload" }, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        using (doc)
+        {
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object)
+            {
+                return Results.Json(new { error = "Validation failed", details = "Payload must be a JSON object" }, statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            var request = new BulkAssignTerritoryRequest();
+
+            if (root.TryGetProperty("territoryId", out var terrProp))
+            {
+                if (terrProp.ValueKind == JsonValueKind.Null)
+                {
+                    request.TerritoryId = null;
+                }
+                else if (terrProp.ValueKind == JsonValueKind.Number)
+                {
+                    request.TerritoryId = terrProp.GetInt32();
+                }
+                else if (terrProp.ValueKind == JsonValueKind.String && int.TryParse(terrProp.GetString(), out var tId))
+                {
+                    request.TerritoryId = tId;
+                }
+                else
+                {
+                    return Results.Json(new { error = "Validation failed", details = "territoryId must be a number or null" }, statusCode: StatusCodes.Status400BadRequest);
+                }
+            }
+
+            if (root.TryGetProperty("hospitalIds", out var idsProp) && idsProp.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in idsProp.EnumerateArray())
+                {
+                    if (item.ValueKind == JsonValueKind.Number)
+                    {
+                        request.HospitalIds.Add(item.GetInt32());
+                    }
+                    else if (item.ValueKind == JsonValueKind.String && int.TryParse(item.GetString(), out var parsedId))
+                    {
+                        request.HospitalIds.Add(parsedId);
+                    }
+                    else
+                    {
+                        return Results.Json(new { error = "Validation failed", details = "hospitalIds must be an array of hospital ids" }, statusCode: StatusCodes.Status400BadRequest);
+                    }
+                }
+            }
+            else
+            {
+                return Results.Json(new { error = "Validation failed", details = "hospitalIds is required and must be an array" }, statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            if (request.HospitalIds.Count == 0)
+            {
+                return Results.Json(new { error = "Validation failed", details = "hospitalIds ต้องระบุอย่างน้อย 1 รายการ" }, statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            if (root.TryGetProperty("note", out var noteProp))
+            {
+                if (noteProp.ValueKind == JsonValueKind.Null)
+                {
+                    request.Note = null;
+                }
+                else if (noteProp.ValueKind == JsonValueKind.String)
+                {
+                    request.Note = noteProp.GetString();
+                }
+            }
+
+            var result = await hospitalService.BulkAssignTerritoryAsync(request, currentUser.Id, ct);
+            return Results.Ok(result);
+        }
     }
 
     private static async Task<IResult> HandleUpdateHospital(

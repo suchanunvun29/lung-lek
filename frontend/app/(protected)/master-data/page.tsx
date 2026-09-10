@@ -4,7 +4,7 @@ import { useState } from "react";
 import {
   HospitalTable,
   SalespersonTable,
-  listHospitals,
+  listHospitalsPage,
   listSalespeople,
   updateHospital,
   updateSalesperson,
@@ -52,6 +52,14 @@ export default function MasterDataPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
 
+  // T-UX-025 — the hospitals tab pages server-side, so its fetch keeps its own
+  // state instead of riding the all-tabs Promise.all.
+  const HOSPITALS_PAGE_SIZE = 25;
+  const [hospitalsPage, setHospitalsPage] = useState(1);
+  const [hospitalsTotal, setHospitalsTotal] = useState(0);
+  const [hospitalsLoading, setHospitalsLoading] = useState(true);
+  const [hospitalsSearch, setHospitalsSearch] = useState("");
+
   function setTab(nextTab: Tab) {
     setTabState(nextTab);
     setTabInUrl(nextTab);
@@ -62,14 +70,12 @@ export default function MasterDataPage() {
       if (!token) return;
       setLoading(true);
       try {
-        const [salespeopleData, hospitalData, productsData] = await Promise.all([
+        const [salespeopleData, productsData] = await Promise.all([
           listSalespeople(token, signal),
-          listHospitals(token, signal),
           listProducts(token, signal),
         ]);
         if (signal.aborted) return;
         setSalespeople(salespeopleData.salespeople);
-        setHospitals(hospitalData.hospitals);
         setProducts(productsData.products);
         if (canEdit) {
           const usersData = await listUsers(token, signal);
@@ -88,6 +94,32 @@ export default function MasterDataPage() {
       }
     },
     [token, canEdit, reloadNonce]
+  );
+
+  useAbortableEffect(
+    async (signal) => {
+      if (!token) return;
+      setHospitalsLoading(true);
+      try {
+        const data = await listHospitalsPage(
+          token,
+          { page: hospitalsPage, pageSize: HOSPITALS_PAGE_SIZE, q: hospitalsSearch || undefined },
+          signal
+        );
+        if (signal.aborted) return;
+        setHospitals(data.items);
+        setHospitalsTotal(data.total);
+      } catch (err) {
+        if (!signal.aborted) {
+          setLoadError(getErrorMessage(err, "โหลดข้อมูลโรงพยาบาลไม่สำเร็จ"));
+        }
+      } finally {
+        if (!signal.aborted) {
+          setHospitalsLoading(false);
+        }
+      }
+    },
+    [token, reloadNonce, hospitalsPage, hospitalsSearch]
   );
 
   async function handleHospitalToggle(hospital: Hospital, isPreExistingCustomer: boolean) {
@@ -210,6 +242,16 @@ export default function MasterDataPage() {
                 hospitals={hospitals}
                 canEdit={canEdit}
                 onToggle={handleHospitalToggle}
+                loading={hospitalsLoading}
+                page={hospitalsPage}
+                pageSize={HOSPITALS_PAGE_SIZE}
+                total={hospitalsTotal}
+                onPageChange={setHospitalsPage}
+                search={hospitalsSearch}
+                onSearchChange={(value) => {
+                  setHospitalsSearch(value);
+                  setHospitalsPage(1);
+                }}
               />
             </TabsContent>
 

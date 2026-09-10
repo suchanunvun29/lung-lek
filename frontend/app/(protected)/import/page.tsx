@@ -17,6 +17,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import {
+  AppendPreviewModal,
   PeriodDryRunModal,
   PeriodPicker,
   ImportBatchSummary,
@@ -26,7 +27,7 @@ import {
   uploadImportFile,
 } from "@/features/import";
 import { getErrorMessage } from "@/lib/api-client";
-import { ImportBatch, ImportMode, PeriodDryRunPreview, PeriodTouched } from "@/lib/types";
+import { AppendDryRunPreview, ImportBatch, ImportMode, PeriodDryRunPreview, PeriodTouched } from "@/lib/types";
 import { ForbiddenState } from "@/components/shared/auth/ForbiddenState";
 import { PageHeader } from "@/components/shared/layout/PageHeader";
 import { ConfirmDialog } from "@/components/shared/feedback/ConfirmDialog";
@@ -38,6 +39,12 @@ interface DryRunState {
   action: "REPLACE_PERIOD" | "PERIOD_DELETE";
   preview: PeriodDryRunPreview;
   file?: File;
+}
+
+/** T-UX-027 — APPEND now previews before commit; the file is kept for the confirm re-upload. */
+interface AppendPreviewState {
+  preview: AppendDryRunPreview;
+  file: File;
 }
 
 const IMPORT_MODE_OPTIONS: { value: Extract<ImportMode, "APPEND" | "REPLACE_PERIOD">; label: string; description: string }[] = [
@@ -86,6 +93,7 @@ export default function ImportPage() {
   const [replacePeriods, setReplacePeriods] = useState<PeriodTouched[]>([]);
   const [deletePeriods, setDeletePeriods] = useState<PeriodTouched[]>([]);
   const [dryRun, setDryRun] = useState<DryRunState | null>(null);
+  const [appendPreview, setAppendPreview] = useState<AppendPreviewState | null>(null);
   const [deleteZoneOpen, setDeleteZoneOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -103,23 +111,42 @@ export default function ImportPage() {
     setConfirmError(null);
     if (mode === "APPEND") {
       try {
-        const data = await uploadImportFile(token, file);
-        if ("importBatch" in data) {
-          setResult(data.importBatch);
-          setResultKind("upload");
+        // T-UX-027 — upload is only a dry-run; the commit happens on the confirm button.
+        const data = await uploadImportFile(token, file, { mode: "APPEND", confirm: false });
+        if (!("dryRun" in data) || !data.dryRun || !("appendPreview" in data)) {
+          throw new Error("ผลลัพธ์การตรวจสอบไม่ถูกต้อง");
         }
+        setAppendPreview({ preview: data.appendPreview, file });
       } catch (err) {
-        throw new Error(getErrorMessage(err, "อัปโหลดไฟล์ไม่สำเร็จ กรุณาลองใหม่"));
+        throw new Error(getErrorMessage(err, "ตรวจสอบไฟล์ก่อนนำเข้าไม่สำเร็จ"));
       }
       return;
     }
     if (replacePeriods.length === 0) throw new Error("เลือกงวดที่ต้องการแทนที่ก่อนอัปโหลดไฟล์");
     try {
       const data = await uploadImportFile(token, file, { mode: "REPLACE_PERIOD", targetPeriods: replacePeriods, confirm: false });
-      if (!("dryRun" in data) || !data.dryRun) throw new Error("ผลลัพธ์การตรวจสอบไม่ถูกต้อง");
+      if (!("dryRun" in data) || !data.dryRun || !("preview" in data)) throw new Error("ผลลัพธ์การตรวจสอบไม่ถูกต้อง");
       setDryRun({ action: "REPLACE_PERIOD", preview: data.preview, file });
     } catch (err) {
       throw new Error(getErrorMessage(err, "ตรวจสอบการแทนที่ข้อมูลงวดไม่สำเร็จ"));
+    }
+  }
+
+  async function confirmAppend() {
+    if (!token || !appendPreview) return;
+    setIsConfirming(true);
+    setConfirmError(null);
+    try {
+      const data = await uploadImportFile(token, appendPreview.file, { mode: "APPEND", confirm: true });
+      if ("dryRun" in data && data.dryRun) throw new Error("ผลลัพธ์การยืนยันไม่ถูกต้อง");
+      if (!("importBatch" in data)) throw new Error("ผลลัพธ์การยืนยันไม่ถูกต้อง");
+      setResult(data.importBatch);
+      setResultKind("upload");
+      setAppendPreview(null);
+    } catch (err) {
+      setConfirmError(getErrorMessage(err, "ยืนยันการนำเข้าไม่สำเร็จ"));
+    } finally {
+      setIsConfirming(false);
     }
   }
 
@@ -194,7 +221,7 @@ export default function ImportPage() {
         <div className="mt-4 space-y-3">
           {IMPORT_MODE_OPTIONS.map((option) => (
             <label key={option.value} className="flex cursor-pointer gap-3 rounded-md border border-border p-4 has-[:checked]:border-primary has-[:checked]:bg-surface-subtle">
-              <input type="radio" name="import-mode" value={option.value} checked={mode === option.value} onChange={() => setMode(option.value)} className="mt-1" />
+              <input type="radio" name="import-mode" value={option.value} checked={mode === option.value} onChange={() => { setMode(option.value); setAppendPreview(null); }} className="mt-1" />
               <span><span className="block text-sm font-medium text-text-primary">{option.label}</span><span className="mt-1 block text-sm text-text-secondary">{option.description}</span></span>
             </label>
           ))}
@@ -299,6 +326,17 @@ export default function ImportPage() {
           pending={isCheckingDelete}
           onConfirm={() => checkPeriodDelete()}
           onCancel={() => setDeleteConfirmOpen(false)}
+        />
+      )}
+
+      {appendPreview && (
+        <AppendPreviewModal
+          preview={appendPreview.preview}
+          fileName={appendPreview.file.name}
+          isConfirming={isConfirming}
+          error={confirmError}
+          onClose={() => setAppendPreview(null)}
+          onConfirm={() => void confirmAppend()}
         />
       )}
 

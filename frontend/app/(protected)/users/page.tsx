@@ -6,7 +6,7 @@ import {
   CreateUserInput,
   UpdateUserInput,
   createUser,
-  listUsers,
+  listUsersPage,
   resetUserPassword,
   updateUser,
   CreateUserForm,
@@ -35,12 +35,15 @@ import {
 } from "@/components/shared/navigation/DropdownMenu";
 import { InlineMessage } from "@/components/shared/feedback/InlineMessage";
 import { EmptyState } from "@/components/shared/feedback/EmptyState";
+import { Input } from "@/components/ui/input";
 import { useAbortableEffect } from "@/lib/useAbortableEffect";
 
 const ROLE_LABEL_TH: Record<string, string> = {
   MANAGER: "ผู้จัดการ",
   SALESPERSON: "พนักงานขาย",
 };
+
+const PAGE_SIZE = 25; // T-UX-025 — server pagination (declared default on the endpoint)
 
 interface TemporaryPasswordState {
   email: string;
@@ -52,6 +55,8 @@ export default function UsersPage() {
   const currentUser = useAuthStore((state) => state.user);
 
   const [users, setUsers] = useState<AppUser[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -64,9 +69,12 @@ export default function UsersPage() {
   const [tempPassword, setTempPassword] = useState<TemporaryPasswordState | null>(null);
   const [busyUserId, setBusyUserId] = useState<number | null>(null);
 
-  // Filters
+  // Server-side filters (T-UX-025) — filtering must compose with pagination,
+  // so role/unlinked/search live on the endpoint, not on the fetched page.
   const [roleFilter, setRoleFilter] = useState<string>("ALL");
   const [onlyUnlinked, setOnlyUnlinked] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [unlinkedCount, setUnlinkedCount] = useState(0);
 
   useAbortableEffect(
     async (signal) => {
@@ -74,9 +82,25 @@ export default function UsersPage() {
       if (!token || currentUser?.role !== "MANAGER") return;
       setLoading(true);
       try {
-        const data = await listUsers(token, signal);
+        const [pageData, unlinkedData] = await Promise.all([
+          listUsersPage(
+            token,
+            {
+              page,
+              pageSize: PAGE_SIZE,
+              role: roleFilter !== "ALL" ? roleFilter : undefined,
+              unlinkedOnly: onlyUnlinked || undefined,
+              q: searchQuery || undefined,
+            },
+            signal
+          ),
+          // The chip shows the unlinked count across the whole set, not the page.
+          listUsersPage(token, { page: 1, pageSize: 1, unlinkedOnly: true }, signal),
+        ]);
         if (signal.aborted) return;
-        setUsers(data.users);
+        setUsers(pageData.items);
+        setTotal(pageData.total);
+        setUnlinkedCount(unlinkedData.total);
         setLoadError(null);
       } catch (err) {
         if (!signal.aborted) {
@@ -88,7 +112,7 @@ export default function UsersPage() {
         }
       }
     },
-    [token, currentUser?.role, reloadNonce]
+    [token, currentUser?.role, reloadNonce, page, roleFilter, onlyUnlinked, searchQuery]
   );
 
   if (currentUser?.role !== "MANAGER") {
@@ -100,9 +124,10 @@ export default function UsersPage() {
     setActionError(null);
     try {
       const data = await createUser(token, input);
-      setUsers((prev) => [...prev, data.user]);
       setTempPassword({ email: data.user.email, temporaryPassword: data.temporaryPassword });
       setCreateOpen(false);
+      // Server pagination (T-UX-025): refetch instead of appending to a page slice.
+      setReloadNonce((n) => n + 1);
     } catch (err) {
       setActionError(getErrorMessage(err, "สร้างบัญชีผู้ใช้ไม่สำเร็จ"));
     }
@@ -112,9 +137,9 @@ export default function UsersPage() {
     if (!token) return;
     setActionError(null);
     try {
-      const data = await updateUser(token, id, input);
-      setUsers((prev) => prev.map((u) => (u.id === id ? data.user : u)));
+      await updateUser(token, id, input);
       setEditingUser(null);
+      setReloadNonce((n) => n + 1);
     } catch (err) {
       setActionError(getErrorMessage(err, "บันทึกการแก้ไขไม่สำเร็จ"));
     }
@@ -125,9 +150,9 @@ export default function UsersPage() {
     setBusyUserId(target.id);
     setActionError(null);
     try {
-      const data = await updateUser(token, target.id, { isActive: !target.isActive });
-      setUsers((prev) => prev.map((u) => (u.id === target.id ? data.user : u)));
+      await updateUser(token, target.id, { isActive: !target.isActive });
       setToggleActiveTarget(null);
+      setReloadNonce((n) => n + 1);
     } catch (err) {
       setActionError(getErrorMessage(err, "ทำรายการไม่สำเร็จ กรุณาลองใหม่"));
     } finally {
@@ -151,31 +176,38 @@ export default function UsersPage() {
     }
   }
 
-  // Filter logic
-  const unlinkedSalespersonUsers = users.filter(
-    (user) => user.role === "SALESPERSON" && !user.isSalespersonLinked
-  );
-  const unlinkedCount = unlinkedSalespersonUsers.length;
-
-  const filteredUsers = users.filter((user) => {
-    if (roleFilter !== "ALL" && user.role !== roleFilter) return false;
-    if (onlyUnlinked && (user.role !== "SALESPERSON" || user.isSalespersonLinked)) return false;
-    return true;
-  });
+  // Filter logic lives server-side (T-UX-025) — the client only resets it and
+  // sends the values with the page request.
 
   const filterChips: FilterChip[] = [];
   if (roleFilter !== "ALL") {
     filterChips.push({
       key: "role",
       label: `บทบาท: ${ROLE_LABEL_TH[roleFilter] ?? roleFilter}`,
-      onRemove: () => setRoleFilter("ALL"),
+      onRemove: () => {
+        setRoleFilter("ALL");
+        setPage(1);
+      },
     });
   }
   if (onlyUnlinked) {
     filterChips.push({
       key: "unlinked",
       label: `ยังไม่ผูกพนักงานขาย (${unlinkedCount})`,
-      onRemove: () => setOnlyUnlinked(false),
+      onRemove: () => {
+        setOnlyUnlinked(false);
+        setPage(1);
+      },
+    });
+  }
+  if (searchQuery.trim() !== "") {
+    filterChips.push({
+      key: "q",
+      label: `ค้นหา: "${searchQuery.trim()}"`,
+      onRemove: () => {
+        setSearchQuery("");
+        setPage(1);
+      },
     });
   }
 
@@ -397,20 +429,25 @@ export default function UsersPage() {
         </div>
       )}
 
-      {/* FilterBar with role filter and unlinked salesperson chip */}
+      {/* FilterBar — role filter, unlinked chip and search, all sent server-side (T-UX-025) */}
       <div className="mb-4">
         <FilterBar
           chips={filterChips}
           onReset={() => {
             setRoleFilter("ALL");
             setOnlyUnlinked(false);
+            setSearchQuery("");
+            setPage(1);
           }}
         >
           <label className="flex items-center gap-2">
             <span className="text-xs font-medium text-text-secondary">บทบาท</span>
             <Select
               value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
+              onChange={(e) => {
+                setRoleFilter(e.target.value);
+                setPage(1);
+              }}
               className="w-auto text-sm"
             >
               <option value="ALL">ทุกลำดับ/บทบาท</option>
@@ -419,12 +456,30 @@ export default function UsersPage() {
             </Select>
           </label>
 
+          <label className="flex items-center gap-2">
+            <span className="sr-only">ค้นหาผู้ใช้</span>
+            <Input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setPage(1);
+              }}
+              placeholder="ค้นหาชื่อ, อีเมล, พนักงานขาย…"
+              aria-label="ค้นหาชื่อ, อีเมล หรือพนักงานขาย"
+              className="w-full max-w-xs text-sm"
+            />
+          </label>
+
           {unlinkedCount > 0 && (
             <Button
               type="button"
               variant={onlyUnlinked ? "default" : "outline"}
               size="sm"
-              onClick={() => setOnlyUnlinked((v) => !v)}
+              onClick={() => {
+                setOnlyUnlinked((v) => !v);
+                setPage(1);
+              }}
               className="text-xs"
             >
               ยังไม่ผูกพนักงานขาย ({unlinkedCount})
@@ -433,24 +488,19 @@ export default function UsersPage() {
         </FilterBar>
       </div>
 
-      {/* DataTable with client-side sort, search, and mobile cards */}
+      {/* DataTable — server-paginated (T-UX-025); sort/search UI disabled by design,
+          the pager shows the server total and requests one page at a time. */}
       <DataTable<AppUser>
         caption="รายชื่อบัญชีผู้ใช้งานในระบบ"
         columns={columns}
-        rows={filteredUsers}
+        rows={users}
         getRowId={(u) => u.id}
         loading={loading}
-        searchable
-        searchPlaceholder="ค้นหาชื่อ, อีเมล, พนักงานขาย..."
-        searchPredicate={(user, query) => {
-          const q = query.toLowerCase();
-          return (
-            user.displayName.toLowerCase().includes(q) ||
-            user.email.toLowerCase().includes(q) ||
-            (user.salesperson?.displayName?.toLowerCase().includes(q) ?? false) ||
-            (ROLE_LABEL_TH[user.role]?.toLowerCase().includes(q) ?? false)
-          );
-        }}
+        serverPaginated
+        page={page}
+        pageSize={PAGE_SIZE}
+        total={total}
+        onPageChange={setPage}
         rowAction={(u) => (
           <Button
             type="button"

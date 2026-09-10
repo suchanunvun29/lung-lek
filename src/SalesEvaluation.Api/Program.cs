@@ -92,6 +92,13 @@ app.UseMiddleware<AuthenticationMiddleware>();
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 // Map Service Endpoints
+// Route prefix contract (T-UX-029): the bare path below is THE canonical path — the
+// frontend calls bare paths exclusively. Legacy families from the Express era additionally
+// map an `/api/…` sibling routed to the SAME handler (auth, users, products,
+// product-types, salespeople, hospitals, hospital/salesman name reviews+rules); those
+// remain only as documented compatibility aliases — do not add new ones.
+// ContractHygieneTests pins this: every /api route must have a bare sibling and no other
+// family may introduce a /api route.
 app.MapAuthEndpoints();
 app.MapUserEndpoints();
 app.MapProductEndpoints();
