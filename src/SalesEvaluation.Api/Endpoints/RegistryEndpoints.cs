@@ -264,6 +264,10 @@ public static class RegistryEndpoints
                 {
                     request.HospitalRegistryId = regId;
                 }
+                else
+                {
+                    return TerritoryEndpoints.Invalid("hospitalRegistryId ไม่ถูกต้อง");
+                }
             }
 
             if (root.TryGetProperty("note", out var noteProp))

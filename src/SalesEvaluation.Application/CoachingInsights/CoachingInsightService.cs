@@ -2,6 +2,7 @@ namespace SalesEvaluation.Application.CoachingInsights;
 
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using SalesEvaluation.Application.Common;
 using SalesEvaluation.Application.Common.Interfaces;
 using SalesEvaluation.Contracts.Common;
@@ -35,17 +36,20 @@ public class CoachingInsightService : ICoachingInsightService
     private readonly IKpiScoringService _kpiService;
     private readonly ITerritoryScopeResolver _scopeResolver;
     private readonly IGeminiService _geminiService;
+    private readonly ILogger<CoachingInsightService> _logger;
 
     public CoachingInsightService(
         IAppDbContext dbContext,
         IKpiScoringService kpiService,
         ITerritoryScopeResolver scopeResolver,
-        IGeminiService geminiService)
+        IGeminiService geminiService,
+        ILogger<CoachingInsightService> logger)
     {
         _dbContext = dbContext;
         _kpiService = kpiService;
         _scopeResolver = scopeResolver;
         _geminiService = geminiService;
+        _logger = logger;
     }
 
     public async Task<CoachingInsightResponse> GetInsightAsync(
@@ -143,7 +147,12 @@ public class CoachingInsightService : ICoachingInsightService
                 contentTh = fallbackContent;
                 provider = null;
                 model = null;
+                // Raw provider detail is kept for the database/log only — the API surfaces a
+                // Thai category (see MapInsight) so it can never reach the UI (T-UX-028).
                 errorMessage = ex.Message;
+                _logger.LogWarning(ex,
+                    "Coaching insight generation failed for salesperson {SalespersonId} — falling back to rule-based summary",
+                    salespersonId);
             }
         }
 
@@ -385,23 +394,65 @@ public class CoachingInsightService : ICoachingInsightService
     private static string FormatPercent(double? value)
         => value == null ? "N/A" : $"{Math.Round(value.Value)}%";
 
-    private static CoachingInsightDto MapInsight(CoachingInsight ci) => new()
+    private static CoachingInsightDto MapInsight(CoachingInsight ci)
     {
-        Id = ci.Id,
-        SalespersonId = ci.SalespersonId,
-        PeriodType = ci.PeriodType.ToString(),
-        Year = ci.Year,
-        PeriodNumber = ci.PeriodNumber,
-        KpiSnapshot = ci.KpiSnapshot,
-        ContentTh = ci.ContentTh,
-        Status = ci.Status.ToString(),
-        Provider = ci.Provider,
-        Model = ci.Model,
-        ErrorMessage = ci.ErrorMessage,
-        IsStale = ci.IsStale,
-        GeneratedById = ci.GeneratedById,
-        GeneratedAt = ci.GeneratedAt,
-    };
+        // T-UX-028 — ErrorMessage is stored raw in the DB but must not leave the API:
+        // outgoing errorMessage becomes the Thai category, and fallbackReason carries the
+        // same reason explicitly for new consumers. Both GET and generate go through here.
+        var fallbackReason = ci.Status == InsightStatus.FAILED && ci.ErrorMessage != null
+            ? CategorizeProviderError(ci.ErrorMessage)
+            : null;
+        return new CoachingInsightDto
+        {
+            Id = ci.Id,
+            SalespersonId = ci.SalespersonId,
+            PeriodType = ci.PeriodType.ToString(),
+            Year = ci.Year,
+            PeriodNumber = ci.PeriodNumber,
+            KpiSnapshot = ci.KpiSnapshot,
+            ContentTh = ci.ContentTh,
+            Status = ci.Status.ToString(),
+            Provider = ci.Provider,
+            Model = ci.Model,
+            ErrorMessage = fallbackReason,
+            FallbackReason = fallbackReason,
+            IsStale = ci.IsStale,
+            GeneratedById = ci.GeneratedById,
+            GeneratedAt = ci.GeneratedAt,
+        };
+    }
+
+    /// <summary>
+    /// T-UX-028 — translate raw provider errors into a Thai category the manager can act on.
+    /// Raw messages come from GeminiApiClient ("Gemini API ตอบกลับผิดพลาด (429): …", timeout,
+    /// missing key, …); anything unrecognized stays generic so provider internals never leak.
+    /// </summary>
+    internal static string CategorizeProviderError(string rawError)
+    {
+        if (rawError.Contains("GEMINI_API_KEY", StringComparison.OrdinalIgnoreCase))
+            return "ยังไม่ได้ตั้งค่า AI (ไม่พบ API key)";
+        if (rawError.Contains("ไม่ตอบสนองภายใน", StringComparison.Ordinal))
+            return "AI ตอบสนองช้าเกินไป (หมดเวลา)";
+        if (rawError.Contains("ไม่ได้ส่งข้อความกลับมา", StringComparison.Ordinal))
+            return "AI ตอบกลับมาไม่สมบูรณ์";
+
+        // GeminiApiClient embeds the HTTP status as "(NNN):" in its error message.
+        var open = rawError.IndexOf('(');
+        var close = rawError.IndexOf(')', open + 1);
+        if (open >= 0 && close > open &&
+            int.TryParse(rawError[(open + 1)..close], out var statusCode))
+        {
+            return statusCode switch
+            {
+                401 or 403 => "คีย์ AI ไม่ถูกต้องหรือไม่มีสิทธิ์ใช้งาน",
+                429 => "AI ถูกจำกัดการใช้งานชั่วคราว กรุณาลองใหม่ภายหลัง",
+                >= 500 => "บริการ AI ขัดข้องชั่วคราว กรุณาลองใหม่ภายหลัง",
+                _ => "AI ไม่พร้อมใช้งานชั่วคราว",
+            };
+        }
+
+        return "AI ไม่พร้อมใช้งานชั่วคราว — แสดงคำแนะนำจากกฎสำรอง";
+    }
 
     // -----------------------------------------------------------------------
     //  Payload records (mirroring TS KpiSummaryPayload interface)

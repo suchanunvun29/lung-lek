@@ -16,17 +16,19 @@
  * NavBar.tsx — no entry's rule is changed here.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { BookOpen, ChevronLeft, ChevronRight, X } from "lucide-react";
 import {
   NAV_GROUPS,
   isGroupActive,
   isItemActive,
 } from "./navigation.config";
 import { useQueueCounts, type QueueBadgeKey } from "./useQueueCounts";
+import { useDialogA11y } from "@/lib/useDialogA11y";
 import type { UserRole } from "@/lib/types";
+import { docsUrl } from "@/lib/docs";
 
 const SIDEBAR_COLLAPSED_KEY = "sidebar-collapsed";
 const EXPANDED_WIDTH = 256;
@@ -37,6 +39,26 @@ export interface SidebarProps {
   /** Controlled by AppShell for mobile drawer. */
   drawerOpen?: boolean;
   onDrawerClose?: () => void;
+}
+
+// Collapse state — persisted in localStorage, only relevant at ≥1280px.
+// Read as an external store (T-UX-020 / UX-031): hydration renders the server
+// snapshot (expanded) first, then the stored value applies after mount — no
+// hydration mismatch and no setState-in-effect. Cross-tab changes propagate
+// via the native `storage` event; in-tab toggles dispatch a local event.
+const SIDEBAR_COLLAPSED_CHANGE = "sidebar-collapsed-change";
+
+function subscribeCollapsed(onChange: () => void) {
+  window.addEventListener(SIDEBAR_COLLAPSED_CHANGE, onChange);
+  window.addEventListener("storage", onChange);
+  return () => {
+    window.removeEventListener(SIDEBAR_COLLAPSED_CHANGE, onChange);
+    window.removeEventListener("storage", onChange);
+  };
+}
+
+function getCollapsedSnapshot(): boolean {
+  return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true";
 }
 
 export function Sidebar({ role, drawerOpen = false, onDrawerClose }: SidebarProps) {
@@ -50,11 +72,7 @@ export function Sidebar({ role, drawerOpen = false, onDrawerClose }: SidebarProp
     return typeof value === "number" ? value : undefined;
   }
 
-  // Collapse state — persisted, only relevant at ≥1280px.
-  const [collapsed, setCollapsed] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true";
-  });
+  const collapsed = useSyncExternalStore(subscribeCollapsed, getCollapsedSnapshot, () => false);
 
   // Close drawer on route change.
   useEffect(() => {
@@ -62,12 +80,19 @@ export function Sidebar({ role, drawerOpen = false, onDrawerClose }: SidebarProp
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
+  // Mobile drawer dialog behavior — trap, Escape, initial focus, restore to
+  // the hamburger (T-UX-005). The desktop <aside> below is NOT a dialog and
+  // never goes through this hook.
+  const drawerPanelRef = useRef<HTMLElement>(null);
+  useDialogA11y(drawerPanelRef, {
+    isOpen: drawerOpen,
+    onClose: () => onDrawerClose?.(),
+  });
+
   function toggleCollapse() {
-    setCollapsed((prev) => {
-      const next = !prev;
-      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(next));
-      return next;
-    });
+    const next = !collapsed;
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(next));
+    window.dispatchEvent(new Event(SIDEBAR_COLLAPSED_CHANGE));
   }
 
   // Visible items for this role.
@@ -113,6 +138,9 @@ export function Sidebar({ role, drawerOpen = false, onDrawerClose }: SidebarProp
                   {group.label}
                 </p>
               )}
+              {/* TODO(a11y): role="list" is deliberate — Tailwind preflight strips list-style,
+                  which removes list semantics from Safari/VoiceOver; the role restores them. */}
+              {/* eslint-disable-next-line jsx-a11y/no-redundant-roles */}
               <ul role="list" className="space-y-0.5 px-1.5">
                 {visibleItems.map((item) => {
                   const active = isItemActive(item, pathname);
@@ -173,6 +201,20 @@ export function Sidebar({ role, drawerOpen = false, onDrawerClose }: SidebarProp
         })}
       </nav>
 
+      <div className="shrink-0 border-t border-[var(--border)] p-1.5">
+        <a
+          href={docsUrl("/")}
+          target="_blank"
+          rel="noopener"
+          onClick={onDrawerClose}
+          title={collapsed ? "คู่มือการใช้งาน" : undefined}
+          className="flex min-h-[40px] items-center justify-center gap-2 rounded-[var(--radius-md)] px-2 py-2 text-sm text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary)]"
+        >
+          <BookOpen size={16} aria-hidden="true" />
+          {!collapsed && <span>คู่มือการใช้งาน</span>}
+        </a>
+      </div>
+
       {/* Collapse toggle — desktop only (hidden below 1280px via parent) */}
       <div className="hidden shrink-0 border-t border-[var(--border)] p-1.5 xl:block">
         <button
@@ -207,15 +249,20 @@ export function Sidebar({ role, drawerOpen = false, onDrawerClose }: SidebarProp
         <>
           {/* Backdrop */}
           <div
-            className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+            className="fixed inset-0 z-(--z-drawer) bg-scrim lg:hidden"
             aria-hidden="true"
             onClick={onDrawerClose}
           />
-          {/* Drawer panel */}
+          {/* Drawer panel — dialog semantics only while it is an overlay (<1024px).
+              Only rendered when drawerOpen, so the role never reaches desktop. */}
           <aside
-            className="fixed inset-y-0 left-0 z-50 flex flex-col bg-[var(--surface)] shadow-[var(--elevation-2)] lg:hidden"
+            ref={drawerPanelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="เมนูหลัก"
+            tabIndex={-1}
+            className="fixed inset-y-0 left-0 z-(--z-drawer) flex flex-col bg-[var(--surface)] shadow-[var(--elevation-2)] outline-none lg:hidden"
             style={{ width: EXPANDED_WIDTH }}
-            aria-label="แถบเมนูด้านข้าง"
           >
             {/* Close button */}
             <button

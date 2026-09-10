@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import {
   HospitalTable,
   SalespersonTable,
-  listHospitals,
+  listHospitalsPage,
   listSalespeople,
   updateHospital,
   updateSalesperson,
@@ -14,31 +14,25 @@ import { listUsers } from "@/features/users";
 import { getErrorMessage } from "@/lib/api-client";
 import { AppUser, Hospital, ProductMasterItem, Salesperson } from "@/lib/types";
 import { useAuthStore } from "@/store/useAuthStore";
+import { toast } from "@/components/shared/feedback/toast/ToastProvider";
 import { PageContainer } from "@/components/shared/layout/PageContainer";
 import { PageHeader } from "@/components/shared/layout/PageHeader";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { EmptyState } from "@/components/shared/feedback/EmptyState";
+import { SkeletonTable } from "@/components/shared/feedback/Skeleton";
+import { useAbortableEffect } from "@/lib/useAbortableEffect";
+import { useUrlState } from "@/lib/useUrlState";
 
 type Tab = "salespeople" | "hospitals" | "products";
 
-function readInitialTab(): Tab {
-  if (typeof window === "undefined") return "salespeople";
-  const value = new URLSearchParams(window.location.search).get("tab");
-  return value === "hospitals" || value === "products" ? value : "salespeople";
-}
-
-function setTabInUrl(tab: Tab) {
-  if (typeof window === "undefined") return;
-  const url = new URL(window.location.href);
-  url.searchParams.set("tab", tab);
-  window.history.replaceState(null, "", url.toString());
-}
-
 export default function MasterDataPage() {
+  const { searchParams, setUrlState } = useUrlState();
   const token = useAuthStore((state) => state.token);
   const currentUser = useAuthStore((state) => state.user);
   const canEdit = currentUser?.role === "MANAGER";
 
-  const [tab, setTabState] = useState<Tab>(readInitialTab);
+  const tabParam = searchParams.get("tab");
+  const tab: Tab = tabParam === "hospitals" || tabParam === "products" ? tabParam : "salespeople";
   const [salespeople, setSalespeople] = useState<Salesperson[]>([]);
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
   const [products, setProducts] = useState<ProductMasterItem[]>([]);
@@ -46,40 +40,76 @@ export default function MasterDataPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
+
+  // T-UX-025 — the hospitals tab pages server-side, so its fetch keeps its own
+  // state instead of riding the all-tabs Promise.all.
+  const HOSPITALS_PAGE_SIZE = 25;
+  const [hospitalsPage, setHospitalsPage] = useState(1);
+  const [hospitalsTotal, setHospitalsTotal] = useState(0);
+  const [hospitalsLoading, setHospitalsLoading] = useState(true);
+  const [hospitalsSearch, setHospitalsSearch] = useState("");
 
   function setTab(nextTab: Tab) {
-    setTabState(nextTab);
-    setTabInUrl(nextTab);
+    setUrlState({ tab: nextTab === "salespeople" ? null : nextTab });
   }
 
-  const loadAll = useCallback(async () => {
-    if (!token) return;
-    setLoading(true);
-    try {
-      const [salespeopleData, hospitalData, productsData] = await Promise.all([
-        listSalespeople(token),
-        listHospitals(token),
-        listProducts(token),
-      ]);
-      setSalespeople(salespeopleData.salespeople);
-      setHospitals(hospitalData.hospitals);
-      setProducts(productsData.products);
-      if (canEdit) {
-        const usersData = await listUsers(token);
-        setUsers(usersData.users);
+  useAbortableEffect(
+    async (signal) => {
+      if (!token) return;
+      setLoading(true);
+      try {
+        const [salespeopleData, productsData] = await Promise.all([
+          listSalespeople(token, signal),
+          listProducts(token, signal),
+        ]);
+        if (signal.aborted) return;
+        setSalespeople(salespeopleData.salespeople);
+        setProducts(productsData.products);
+        if (canEdit) {
+          const usersData = await listUsers(token, signal);
+          if (signal.aborted) return;
+          setUsers(usersData.users);
+        }
+        setLoadError(null);
+      } catch (err) {
+        if (!signal.aborted) {
+          setLoadError(getErrorMessage(err, "โหลดข้อมูล master data ไม่สำเร็จ"));
+        }
+      } finally {
+        if (!signal.aborted) {
+          setLoading(false);
+        }
       }
-      setLoadError(null);
-    } catch (err) {
-      setLoadError(getErrorMessage(err, "โหลดข้อมูล master data ไม่สำเร็จ"));
-    } finally {
-      setLoading(false);
-    }
-  }, [token, canEdit]);
+    },
+    [token, canEdit, reloadNonce]
+  );
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void loadAll();
-  }, [loadAll]);
+  useAbortableEffect(
+    async (signal) => {
+      if (!token) return;
+      setHospitalsLoading(true);
+      try {
+        const data = await listHospitalsPage(
+          token,
+          { page: hospitalsPage, pageSize: HOSPITALS_PAGE_SIZE, q: hospitalsSearch || undefined },
+          signal
+        );
+        if (signal.aborted) return;
+        setHospitals(data.items);
+        setHospitalsTotal(data.total);
+      } catch (err) {
+        if (!signal.aborted) {
+          setLoadError(getErrorMessage(err, "โหลดข้อมูลโรงพยาบาลไม่สำเร็จ"));
+        }
+      } finally {
+        if (!signal.aborted) {
+          setHospitalsLoading(false);
+        }
+      }
+    },
+    [token, reloadNonce, hospitalsPage, hospitalsSearch]
+  );
 
   async function handleHospitalToggle(hospital: Hospital, isPreExistingCustomer: boolean) {
     if (!token) return;
@@ -87,6 +117,8 @@ export default function MasterDataPage() {
     try {
       const data = await updateHospital(token, hospital.id, isPreExistingCustomer);
       setHospitals((prev) => prev.map((h) => (h.id === hospital.id ? data.hospital : h)));
+      // T-UX-012 — inline save สำเร็จต้องไม่เงียบ
+      toast.success(`${hospital.displayName}: ${isPreExistingCustomer ? "ตั้งเป็นลูกค้าเดิมแล้ว" : "ยกเลิกสถานะลูกค้าเดิมแล้ว"}`);
     } catch (err) {
       setActionError(getErrorMessage(err, "แก้ไขข้อมูลโรงพยาบาลไม่สำเร็จ"));
     }
@@ -98,7 +130,13 @@ export default function MasterDataPage() {
     try {
       const data = await updateSalesperson(token, salesperson.id, { userId });
       setSalespeople((prev) => prev.map((sp) => (sp.id === salesperson.id ? data.salesperson : sp)));
-      void loadAll();
+      setReloadNonce((n) => n + 1);
+      // T-UX-012 — inline save สำเร็จต้องไม่เงียบ (ผูกและยกเลิกผูกบัญชีต่างข้อความ)
+      toast.success(
+        userId === null
+          ? `ยกเลิกการผูกบัญชีของ ${salesperson.displayName} เรียบร้อยแล้ว`
+          : `ผูกบัญชีของ ${salesperson.displayName} เรียบร้อยแล้ว`
+      );
     } catch (err) {
       setActionError(getErrorMessage(err, "ผูกบัญชีผู้ใช้ไม่สำเร็จ"));
     }
@@ -110,6 +148,12 @@ export default function MasterDataPage() {
     try {
       const data = await updateSalesperson(token, salesperson.id, { employmentEndedAt });
       setSalespeople((prev) => prev.map((sp) => (sp.id === salesperson.id ? data.salesperson : sp)));
+      // T-UX-012 — inline save สำเร็จต้องไม่เงียบ
+      toast.success(
+        employmentEndedAt
+          ? `บันทึกวันที่พ้นสภาพของ ${salesperson.displayName} เรียบร้อยแล้ว`
+          : `ลบวันที่พ้นสภาพของ ${salesperson.displayName} เรียบร้อยแล้ว`
+      );
     } catch (err) {
       setActionError(getErrorMessage(err, "บันทึกวันที่พ้นสภาพไม่สำเร็จ"));
     }
@@ -124,6 +168,8 @@ export default function MasterDataPage() {
     try {
       const data = await updateProduct(token, product.id, input);
       setProducts((items) => items.map((item) => (item.id === product.id ? data.product : item)));
+      // T-UX-012 — inline save สำเร็จต้องไม่เงียบ
+      toast.success(`บันทึกข้อมูลสินค้า "${data.product.displayName ?? data.product.code}" เรียบร้อยแล้ว`);
     } catch (saveError) {
       setActionError(getErrorMessage(saveError, "บันทึกสินค้าไม่สำเร็จ"));
     }
@@ -151,12 +197,24 @@ export default function MasterDataPage() {
           </TabsList>
         </div>
 
-        {loadError && <p className="mb-4 text-sm text-status-danger">{loadError}</p>}
-        {actionError && <p className="mb-4 text-sm text-status-danger">{actionError}</p>}
+        {loadError && (
+          <EmptyState
+            variant="error"
+            title="โหลดข้อมูลหลักไม่สำเร็จ"
+            description={loadError}
+            onRetry={() => setReloadNonce((n) => n + 1)}
+            isRetrying={loading}
+          />
+        )}
+        {actionError && (
+          <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-status-danger">
+            {actionError}
+          </div>
+        )}
 
-        {loading && <p className="text-text-muted">กำลังโหลด...</p>}
+        {loading && <SkeletonTable rows={8} columns={5} />}
 
-        {!loading && (
+        {!loading && !loadError && (
           <>
             <TabsContent value="salespeople">
               <SalespersonTable
@@ -173,6 +231,16 @@ export default function MasterDataPage() {
                 hospitals={hospitals}
                 canEdit={canEdit}
                 onToggle={handleHospitalToggle}
+                loading={hospitalsLoading}
+                page={hospitalsPage}
+                pageSize={HOSPITALS_PAGE_SIZE}
+                total={hospitalsTotal}
+                onPageChange={setHospitalsPage}
+                search={hospitalsSearch}
+                onSearchChange={(value) => {
+                  setHospitalsSearch(value);
+                  setHospitalsPage(1);
+                }}
               />
             </TabsContent>
 

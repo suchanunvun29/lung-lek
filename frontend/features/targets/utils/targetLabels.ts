@@ -22,8 +22,8 @@ export const POTENTIAL_METRIC_LABEL_TH: Record<PotentialMetricKey, string> = {
 };
 
 export const SUGGESTION_MODE_LABEL_TH: Record<SuggestionMode, string> = {
-  SUGGEST: "SUGGEST — เสนอเป้าตั้งต้น (R = Σ historyBased ของภาค)",
-  REBALANCE: "REBALANCE — เกลี่ยเป้าที่ตั้งไว้แล้ว (R = Σ เป้าเดิม snapshot)",
+  SUGGEST: "เสนอเป้าตั้งต้น (เป้าอ้างอิง = ผลรวมฐานประวัติของภาค)",
+  REBALANCE: "เกลี่ยเป้าที่ตั้งไว้แล้ว (เป้าอ้างอิง = ผลรวมเป้าเดิม)",
 };
 
 /** The seed's exact Region.name for Bangkok — the registry structurally never covers it (design.md Territory & Potential Rules ข้อ 7). */

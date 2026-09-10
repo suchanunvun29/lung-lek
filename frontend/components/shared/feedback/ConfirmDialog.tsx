@@ -33,6 +33,8 @@ export function ConfirmDialog({
   const [typedInput, setTypedInput] = React.useState("");
   const cancelButtonRef = React.useRef<HTMLButtonElement>(null);
   const confirmButtonRef = React.useRef<HTMLButtonElement>(null);
+  // T-UX-009 — the typed-confirmation input gets a real programmatic label.
+  const typedInputId = React.useId();
 
   const isConfirmedAllowed =
     !pending &&
@@ -55,7 +57,7 @@ export function ConfirmDialog({
         <p className="text-sm text-text-secondary">{description}</p>
 
         {consequence && (
-          <div className="rounded-md border border-danger/20 bg-danger-subtle p-3 text-xs text-danger">
+          <div className="rounded-md border border-danger/20 bg-danger-subtle p-3 text-xs text-danger-text">
             <span className="font-semibold">ข้อควรระวัง: </span>
             {consequence}
           </div>
@@ -63,10 +65,11 @@ export function ConfirmDialog({
 
         {requireTypedConfirmation && (
           <div className="space-y-1.5 pt-1">
-            <label className="text-xs font-medium text-text-secondary">
+            <label htmlFor={typedInputId} className="text-xs font-medium text-text-secondary">
               พิมพ์คำว่า <span className="font-bold select-all text-text-primary">{requireTypedConfirmation}</span> เพื่อยืนยัน:
             </label>
             <Input
+              id={typedInputId}
               type="text"
               value={typedInput}
               onChange={(e) => setTypedInput(e.target.value)}

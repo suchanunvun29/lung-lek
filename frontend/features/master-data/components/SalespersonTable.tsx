@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { AppUser, Salesperson } from "@/lib/types";
 import { DataTable, type DataTableColumn } from "@/components/shared/data-table/DataTable";
+import { ConfirmDialog } from "@/components/shared/feedback/ConfirmDialog";
 
 export interface SalespersonTableProps {
   salespeople: Salesperson[];
@@ -22,25 +23,35 @@ export function SalespersonTable({
   onEmploymentDate,
 }: SalespersonTableProps) {
   const [busyId, setBusyId] = useState<number | null>(null);
+  // T-UX-011 จุดที่ 5 — unlink บัญชี/แก้วันพ้นสภาพ เดิมเกิดทันทีที่ onChange;
+  // ตอนนี้ต้องผ่าน ConfirmDialog (ระดับ 2) ก่อนเรียก handler จริง
+  const [pendingUnlink, setPendingUnlink] = useState<Salesperson | null>(null);
+  const [pendingEmployment, setPendingEmployment] = useState<{ sp: Salesperson; value: string } | null>(null);
 
-  const handleChange = useCallback(async (salesperson: Salesperson, value: string) => {
-    setBusyId(salesperson.id);
-    try {
-      await onLink(salesperson, value === UNLINKED_VALUE ? null : Number(value));
-    } finally {
-      setBusyId(null);
-    }
-  }, [onLink]);
+  const handleChange = useCallback(
+    async (salesperson: Salesperson, value: string) => {
+      setBusyId(salesperson.id);
+      try {
+        await onLink(salesperson, value === UNLINKED_VALUE ? null : Number(value));
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [onLink]
+  );
 
-  const handleEmploymentChange = useCallback(async (salesperson: Salesperson, value: string) => {
-    setBusyId(salesperson.id);
-    try {
-      // OQ20: manager fills the real departure date in themselves; empty = unknown/still employed.
-      await onEmploymentDate(salesperson, value === "" ? null : value);
-    } finally {
-      setBusyId(null);
-    }
-  }, [onEmploymentDate]);
+  const handleEmploymentChange = useCallback(
+    async (salesperson: Salesperson, value: string) => {
+      setBusyId(salesperson.id);
+      try {
+        // OQ20: manager fills the real departure date in themselves; empty = unknown/still employed.
+        await onEmploymentDate(salesperson, value === "" ? null : value);
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [onEmploymentDate]
+  );
 
   const columns = useMemo<DataTableColumn<Salesperson>[]>(() => [
     {
@@ -80,7 +91,7 @@ export function SalespersonTable({
               {sp.isActive ? "ใช้งาน" : "ไม่ใช้งาน"}
             </span>
             {ended && (
-              <span className="rounded-full bg-warning-subtle text-warning border border-warning/30 px-2 py-0.5 text-xs font-medium">
+              <span className="rounded-full bg-warning-subtle text-warning-text border border-warning/30 px-2 py-0.5 text-xs font-medium">
                 พ้นสภาพ
               </span>
             )}
@@ -100,12 +111,20 @@ export function SalespersonTable({
         if (!canEdit) {
           return <span className="text-text-secondary">{ended ?? "—"}</span>;
         }
+        // key ผูกกับสถานะ dialog — เปิด/ปิด dialog แล้ว input remount กลับค่าจริงจาก props
+        // (controlled input ที่ onChange ไม่อัปเดต state ต้อง remount จึง sync กลับ)
         return (
           <input
             type="date"
             value={ended ?? ""}
             disabled={busyId === sp.id}
-            onChange={(e) => void handleEmploymentChange(sp, e.target.value)}
+            onChange={(e) => {
+              // เปิด dialog — input คงแสดงค่าที่บันทึกไว้จนกว่าจะยืนยัน
+              // (ตั้งค่า DOM กลับเอง เพราะ React ไม่ reset controlled input เมื่อ prop ไม่เปลี่ยน)
+              const opened = e.currentTarget;
+              setPendingEmployment({ sp, value: e.target.value });
+              opened.value = ended ?? "";
+            }}
             aria-label={`วันที่พ้นสภาพของ ${sp.displayName}`}
             className="rounded-md border border-border bg-surface px-2 py-1 text-sm text-text-primary disabled:opacity-50"
           />
@@ -136,7 +155,18 @@ export function SalespersonTable({
           <select
             value={sp.userId ?? UNLINKED_VALUE}
             disabled={busyId === sp.id}
-            onChange={(e) => void handleChange(sp, e.target.value)}
+            onChange={(e) => {
+              const value = e.target.value;
+              // ผูกบัญชีใหม่ = ระดับ 1 (แก้กลับได้) — ทำทันที; ยกเลิกการผูก = ระดับ 2
+              if (value === UNLINKED_VALUE && sp.userId != null) {
+                // คงค่า select เป็นบัญชีเดิมจนกว่าจะยืนยัน (reset DOM เอง ไม่ remount
+                // เพื่อให้ useDialogA11y restore focus กลับตัว select ตัวเดิมได้)
+                e.currentTarget.value = String(sp.userId);
+                setPendingUnlink(sp);
+                return;
+              }
+              void handleChange(sp, value);
+            }}
             aria-label={`ผูกบัญชีผู้ใช้สำหรับ ${sp.displayName}`}
             className="rounded-md border border-border bg-surface px-2 py-1 text-sm text-text-primary disabled:opacity-50"
           >
@@ -150,7 +180,7 @@ export function SalespersonTable({
         );
       },
     },
-  ], [canEdit, busyId, linkableUsers, handleChange, handleEmploymentChange]);
+  ], [canEdit, busyId, linkableUsers, handleChange]);
 
   return (
     <div>
@@ -174,6 +204,42 @@ export function SalespersonTable({
         emptyTitle="ยังไม่มีข้อมูลพนักงานขาย"
         emptyDescription="ยังไม่พบข้อมูลพนักงานขายในระบบ"
       />
+
+      {pendingUnlink && (
+        <ConfirmDialog
+          title="ยืนยันยกเลิกการผูกบัญชี"
+          description={`ยกเลิกการผูกบัญชี "${pendingUnlink.user?.displayName ?? ""}" ออกจากพนักงานขาย ${pendingUnlink.displayName} ใช่หรือไม่?`}
+          consequence="พนักงานขายรายนี้จะไม่มีบัญชีผู้ใช้เชื่อมโยงทันที — เจ้าของบัญชีเดิมจะเข้าสู่ระบบในนามพนักงานขายคนนี้ไม่ได้อีก จนกว่าจะผูกบัญชีกลับคืน"
+          confirmLabel="ยกเลิกการผูกบัญชี"
+          cancelLabel="ยกเลิก"
+          tone="danger"
+          onConfirm={() => {
+            const sp = pendingUnlink;
+            setPendingUnlink(null);
+            void handleChange(sp, UNLINKED_VALUE);
+          }}
+          onCancel={() => setPendingUnlink(null)}
+        />
+      )}
+
+      {pendingEmployment && (
+        <ConfirmDialog
+          title="ยืนยันแก้ไขวันที่พ้นสภาพ"
+          description={`แก้ไขวันที่พ้นสภาพของ ${pendingEmployment.sp.displayName} เป็น ${
+            pendingEmployment.value === "" ? "ไม่ระบุ (ยังไม่พ้นสภาพ)" : pendingEmployment.value
+          } ใช่หรือไม่?`}
+          consequence="สถานะพ้นสภาพจะเปลี่ยนตามวันที่ที่บันทึกทันที — หากตั้งค่าผิด สามารถแก้ไขวันที่ใหม่ได้จากช่องเดิม"
+          confirmLabel="บันทึกวันที่พ้นสภาพ"
+          cancelLabel="ยกเลิก"
+          tone="default"
+          onConfirm={() => {
+            const { sp, value } = pendingEmployment;
+            setPendingEmployment(null);
+            void handleEmploymentChange(sp, value);
+          }}
+          onCancel={() => setPendingEmployment(null)}
+        />
+      )}
     </div>
   );
 }

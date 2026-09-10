@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import { Salesperson } from "@/lib/types";
 import { Select } from "@/components/ui/select";
 
@@ -10,10 +11,12 @@ export interface SalespersonSwitcherProps {
 }
 
 export function SalespersonSwitcher({ salespeople, value, onChange }: SalespersonSwitcherProps) {
+  const selectId = useId();
   return (
     <div className="flex items-center gap-2 text-sm">
-      <label className="font-medium text-text-secondary">มุมมอง</label>
+      <label htmlFor={selectId} className="font-medium text-text-secondary">มุมมอง</label>
       <Select
+        id={selectId}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="w-auto min-w-40"

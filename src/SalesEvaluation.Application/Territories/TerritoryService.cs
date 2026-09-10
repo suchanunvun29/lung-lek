@@ -327,7 +327,8 @@ public class TerritoryService : ITerritoryService
         {
             // Prisma P2002/P2004 equivalent: unique (territoryId, salespersonId, effectiveFrom) violation.
             throw new ConflictException(
-                $"พนักงานขายนี้มีรายการมอบหมายเขตที่มีผลตั้งแต่วันที่ {effectiveFrom:yyyy-MM-dd} อยู่แล้ว");
+                $"พนักงานขายนี้มีรายการมอบหมายเขตที่มีผลตั้งแต่วันที่ {effectiveFrom:yyyy-MM-dd} อยู่แล้ว",
+                "ASSIGNMENT_CONFLICT");
         }
 
         var saved = await _dbContext.TerritoryAssignments

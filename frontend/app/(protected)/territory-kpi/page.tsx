@@ -13,7 +13,7 @@
  */
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import {
   TerritoryKpiDrillDownModal,
   TerritoryGroupKpiTable,
@@ -26,9 +26,13 @@ import { DrillDownMetric, TerritoryKpiRow, TerritoryOverviewResponse } from "@/l
 import { getErrorMessage } from "@/lib/api-client";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useContextStore } from "@/store/useContextStore";
+import { useAbortableEffect } from "@/lib/useAbortableEffect";
 import { PageHeader } from "@/components/shared/layout/PageHeader";
 import { ExportButton } from "@/components/shared/export/ExportButton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { EmptyState } from "@/components/shared/feedback/EmptyState";
+import { SkeletonTable } from "@/components/shared/feedback/Skeleton";
+import { Button } from "@/components/ui/button";
 
 interface DrillDownState {
   territoryId: number;
@@ -43,11 +47,13 @@ export default function TerritoryKpiPage() {
 
   const token = useAuthStore((state) => state.token);
   const period = useContextStore((state) => state.period);
+
   const [tab, setTab] = useState<"territories" | "groups">("territories");
   const [reconciliationOpen, setReconciliationOpen] = useState(false);
   const [data, setData] = useState<TerritoryOverviewResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
 
   // WACC-P3-005: drill-down driven by ?drill=<metric>&territoryId=<id>
   const drillMetricParam = searchParams.get("drill") as DrillDownMetric | null;
@@ -57,11 +63,19 @@ export default function TerritoryKpiPage() {
     (t) => String(t.territoryId) === drillTerritoryIdParam
   );
 
+  const isInvalidDrill = Boolean(
+    !loading &&
+    data &&
+    drillMetricParam &&
+    drillTerritoryIdParam &&
+    !activeTerritory
+  );
+
   const drillDown: DrillDownState | null =
-    drillMetricParam && drillTerritoryIdParam
+    drillMetricParam && drillTerritoryIdParam && activeTerritory
       ? {
           territoryId: Number(drillTerritoryIdParam),
-          territoryName: activeTerritory ? activeTerritory.name : `เขต ${drillTerritoryIdParam}`,
+          territoryName: activeTerritory.name,
           metric: drillMetricParam,
         }
       : null;
@@ -82,24 +96,27 @@ export default function TerritoryKpiPage() {
     });
   };
 
-  const load = useCallback(async () => {
-    if (!token) return;
-    setLoading(true);
-    try {
-      const response = await getTerritoryOverview(token, period);
-      setData(response);
-      setError(null);
-    } catch (loadError) {
-      setError(getErrorMessage(loadError, "โหลดรายงาน KPI รายเขตไม่สำเร็จ"));
-    } finally {
-      setLoading(false);
-    }
-  }, [period, token]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void load();
-  }, [load]);
+  useAbortableEffect(
+    async (signal) => {
+      if (!token) return;
+      setLoading(true);
+      try {
+        const response = await getTerritoryOverview(token, period, signal);
+        if (signal.aborted) return;
+        setData(response);
+        setError(null);
+      } catch (loadError) {
+        if (!signal.aborted) {
+          setError(getErrorMessage(loadError, "โหลดรายงาน KPI รายเขตไม่สำเร็จ"));
+        }
+      } finally {
+        if (!signal.aborted) {
+          setLoading(false);
+        }
+      }
+    },
+    [period, token, reloadNonce]
+  );
 
   async function exportReport() {
     if (!token) return;
@@ -114,10 +131,31 @@ export default function TerritoryKpiPage() {
         primaryAction={<ExportButton onExport={exportReport} label="ส่งออก Excel" className="sm:items-end" />}
       />
 
-      {error && <p className="mb-4 text-sm text-danger">{error}</p>}
-      {loading && <p className="mt-6 text-text-muted">กำลังโหลด...</p>}
+      {isInvalidDrill && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warning/30 bg-warning-subtle p-4 text-sm text-warning-text">
+          <span>ไม่พบเขตนี้หรือลิงก์หมดอายุ (รหัสเขต: {drillTerritoryIdParam})</span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setDrillDown(null)}
+          >
+            ปิดการแจ้งเตือน
+          </Button>
+        </div>
+      )}
 
-      {data && !loading && (
+      {loading ? (
+        <SkeletonTable rows={8} columns={6} />
+      ) : error ? (
+        <EmptyState
+          variant="error"
+          title="เกิดข้อผิดพลาดในการโหลดรายงาน KPI รายเขต"
+          description={error}
+          onRetry={() => setReloadNonce((n) => n + 1)}
+          isRetrying={loading}
+        />
+      ) : data ? (
         <Tabs value={tab} onValueChange={(value) => setTab(value as typeof tab)}>
           <div className="overflow-x-auto">
             <TabsList className="max-w-full">
@@ -143,7 +181,7 @@ export default function TerritoryKpiPage() {
             <TerritoryGroupKpiTable groups={data.territoryGroups} />
           </TabsContent>
         </Tabs>
-      )}
+      ) : null}
 
       {/* การกระทบยอด — the reconciliation identity as the service computes it */}
       {data?.buckets && !loading && (

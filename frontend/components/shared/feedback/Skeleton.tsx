@@ -22,9 +22,11 @@ export interface SkeletonTableProps {
 export function SkeletonTable({ rows = 5, columns = 5, className }: SkeletonTableProps) {
   return (
     <div
+      role="status"
       aria-busy="true"
       className={cn("w-full overflow-hidden rounded-lg border border-border bg-surface", className)}
     >
+      <span className="sr-only">กำลังโหลด</span>
       {/* Desktop table skeleton */}
       <div className="hidden md:block overflow-x-auto">
         <table className="min-w-full divide-y divide-border text-sm">
@@ -74,9 +76,11 @@ export function SkeletonTable({ rows = 5, columns = 5, className }: SkeletonTabl
 export function SkeletonCard({ className }: { className?: string }) {
   return (
     <div
+      role="status"
       aria-busy="true"
       className={cn("rounded-lg border border-border bg-surface p-4 space-y-3", className)}
     >
+      <span className="sr-only">กำลังโหลด</span>
       <div className="flex justify-between items-center">
         <Skeleton className="h-4 w-28" />
         <Skeleton className="h-4 w-8" />
@@ -88,6 +92,8 @@ export function SkeletonCard({ className }: { className?: string }) {
 }
 
 export function SkeletonKpiRow({ className }: { className?: string }) {
+  // No wrapper announcement — each SkeletonCard inside already exposes
+  // role="status" + "กำลังโหลด"; adding another would announce it twice.
   return (
     <div
       aria-busy="true"

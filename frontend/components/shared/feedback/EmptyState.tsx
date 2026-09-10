@@ -9,6 +9,8 @@ export interface EmptyStateProps extends React.HTMLAttributes<HTMLDivElement> {
   action?: React.ReactNode;
   onResetFilters?: () => void;
   onRetry?: () => void;
+  isRetrying?: boolean;
+  headingLevel?: 2 | 3;
 }
 
 export function EmptyState({
@@ -18,9 +20,12 @@ export function EmptyState({
   action,
   onResetFilters,
   onRetry,
+  isRetrying = false,
+  headingLevel = 3,
   className,
   ...props
 }: EmptyStateProps) {
+  const Heading = headingLevel === 2 ? "h2" : "h3";
   return (
     <div
       className={cn(
@@ -29,7 +34,10 @@ export function EmptyState({
       )}
       {...props}
     >
-      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-surface-subtle text-text-muted mb-3">
+      <div
+        aria-hidden="true"
+        className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-surface-subtle text-text-muted mb-3"
+      >
         {variant === "filtered" ? (
           <span className="text-xl">🔍</span>
         ) : variant === "error" ? (
@@ -39,7 +47,7 @@ export function EmptyState({
         )}
       </div>
 
-      <h3 className="text-base font-medium text-text-primary">{title}</h3>
+      <Heading className="text-base font-medium text-text-primary">{title}</Heading>
 
       {description && (
         <p className="mt-1.5 text-sm text-text-muted max-w-sm">{description}</p>
@@ -53,8 +61,14 @@ export function EmptyState({
           </Button>
         )}
         {variant === "error" && onRetry && (
-          <Button type="button" variant="outline" size="sm" onClick={onRetry}>
-            ลองใหม่อีกครั้ง
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onRetry}
+            disabled={isRetrying}
+          >
+            {isRetrying ? "กำลังลองใหม่..." : "ลองใหม่อีกครั้ง"}
           </Button>
         )}
       </div>

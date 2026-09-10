@@ -152,6 +152,28 @@ export interface PeriodDryRunResponse {
   preview: PeriodDryRunPreview;
 }
 
+/** T-UX-027 — APPEND dry-run summary; nothing was persisted when this is returned. */
+export interface AppendIssueLevelCount {
+  level: "WARNING" | "ERROR";
+  count: number;
+}
+
+export interface AppendDryRunPreview {
+  totalRows: number;
+  insertedRows: number;
+  updatedRows: number;
+  errorRows: number;
+  issueCounts: AppendIssueLevelCount[];
+  periodsFound: PeriodTouched[];
+  /** Set when the file could not be read at all (e.g. no header row) — nothing to confirm. */
+  fatalError: string | null;
+}
+
+export interface AppendDryRunResponse {
+  dryRun: true;
+  appendPreview: AppendDryRunPreview;
+}
+
 export interface PeriodImportConfirmedResponse {
   dryRun: false;
   importBatch: ImportBatch;
@@ -802,7 +824,10 @@ export interface CoachingInsight {
   status: InsightStatus;
   provider: string | null;
   model: string | null;
+  /** T-UX-028 — Thai category (raw provider detail never leaves the API). */
   errorMessage: string | null;
+  /** T-UX-028 — same Thai reason as errorMessage, set only when status = FAILED. */
+  fallbackReason: string | null;
   isStale: boolean;
   generatedById: number | null;
   generatedAt: string;

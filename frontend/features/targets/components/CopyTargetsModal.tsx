@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Modal } from "@/components/ui/modal";
+import { ConfirmDialog } from "@/components/shared/feedback/ConfirmDialog";
 import { copyTargets, CopyTargetsResult } from "@/features/targets/api/targets.api";
 import { getErrorMessage } from "@/lib/api-client";
 import { formatThaiMonth } from "@/lib/importLabels";
 import { Salesperson } from "@/lib/types";
 import { useAuthStore } from "@/store/useAuthStore";
+import { toast } from "@/components/shared/feedback/toast/ToastProvider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -26,8 +28,13 @@ export function CopyTargetsModal({ year, salespeople, onClose, onCopied }: CopyT
   const [fromMonth, setFromMonth] = useState(1);
   const [toYear, setToYear] = useState(year);
   const [toMonth, setToMonth] = useState(2);
+  const fromYearId = useId();
+  const fromMonthId = useId();
+  const toYearId = useId();
+  const toMonthId = useId();
   const [overwrite, setOverwrite] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [confirmingOverwrite, setConfirmingOverwrite] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CopyTargetsResult | null>(null);
 
@@ -37,18 +44,32 @@ export function CopyTargetsModal({ year, salespeople, onClose, onCopied }: CopyT
     return ids.map((id) => nameById.get(id) ?? id).join(", ");
   }
 
+  // T-UX-011 ระดับ 2 — overwrite = เขียนทับเป้าที่มีอยู่ (ไม่มี undo) จึงต้องผ่าน
+  // ConfirmDialog อธิบายผลก่อนยิง; ไม่ overwrite (สร้างเฉพาะที่ขาด) คัดลอกได้ทันที
   async function handleSubmit() {
+    if (overwrite) {
+      setConfirmingOverwrite(true);
+      return;
+    }
+    await executeCopy();
+  }
+
+  async function executeCopy() {
     if (!token) return;
     setSubmitting(true);
     setError(null);
     try {
       const data = await copyTargets(token, { fromYear, fromMonth, toYear, toMonth, overwrite });
       setResult(data);
+      toast.success(
+        `คัดลอกเป้า ${formatThaiMonth(fromMonth)} ${fromYear} → ${formatThaiMonth(toMonth)} ${toYear} สำเร็จ: สร้างใหม่ ${data.created.length} · อัปเดต ${data.updated.length} · ข้าม ${data.skipped.length}`
+      );
       onCopied();
     } catch (err) {
       setError(getErrorMessage(err, "คัดลอกเป้าไม่สำเร็จ"));
     } finally {
       setSubmitting(false);
+      setConfirmingOverwrite(false);
     }
   }
 
@@ -57,16 +78,18 @@ export function CopyTargetsModal({ year, salespeople, onClose, onCopied }: CopyT
       <div className="space-y-3 text-sm">
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="mb-1 block text-xs font-medium text-text-secondary">จากปี</label>
+            <label htmlFor={fromYearId} className="mb-1 block text-xs font-medium text-text-secondary">จากปี</label>
             <Input
+              id={fromYearId}
               type="number"
               value={fromYear}
               onChange={(e) => setFromYear(Number(e.target.value))}
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-text-secondary">จากเดือน</label>
+            <label htmlFor={fromMonthId} className="mb-1 block text-xs font-medium text-text-secondary">จากเดือน</label>
             <Select
+              id={fromMonthId}
               value={fromMonth}
               onChange={(e) => setFromMonth(Number(e.target.value))}
             >
@@ -78,16 +101,18 @@ export function CopyTargetsModal({ year, salespeople, onClose, onCopied }: CopyT
             </Select>
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-text-secondary">ไปปี</label>
+            <label htmlFor={toYearId} className="mb-1 block text-xs font-medium text-text-secondary">ไปปี</label>
             <Input
+              id={toYearId}
               type="number"
               value={toYear}
               onChange={(e) => setToYear(Number(e.target.value))}
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-text-secondary">ไปเดือน</label>
+            <label htmlFor={toMonthId} className="mb-1 block text-xs font-medium text-text-secondary">ไปเดือน</label>
             <Select
+              id={toMonthId}
               value={toMonth}
               onChange={(e) => setToMonth(Number(e.target.value))}
             >
@@ -138,6 +163,22 @@ export function CopyTargetsModal({ year, salespeople, onClose, onCopied }: CopyT
             {submitting ? "กำลังคัดลอก..." : "คัดลอก"}
           </Button>
         </div>
+
+        {confirmingOverwrite && (
+          <ConfirmDialog
+            title="ยืนยันคัดลอกพร้อมเขียนทับ"
+            description={`จะคัดลอกเป้าจาก ${formatThaiMonth(fromMonth)} ${fromYear} ไป ${formatThaiMonth(toMonth)} ${toYear} พร้อมเขียนทับเป้าที่มีอยู่แล้วในเดือนปลายทาง`}
+            consequence="เป้าที่มีอยู่แล้วของพนักงานขายในเดือนปลายทางจะถูกแทนด้วยค่าจากต้นทางทันที และไม่สามารถย้อนคืนค่าเดิมได้ (คนที่ยังไม่มีเป้าจะได้รับเป้าใหม่ตามปกติ)"
+            confirmLabel="คัดลอกพร้อมเขียนทับ"
+            cancelLabel="ยกเลิก"
+            tone="default"
+            pending={submitting}
+            onConfirm={executeCopy}
+            onCancel={() => {
+              if (!submitting) setConfirmingOverwrite(false);
+            }}
+          />
+        )}
       </div>
     </Modal>
   );

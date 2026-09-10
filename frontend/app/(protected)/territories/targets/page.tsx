@@ -14,14 +14,18 @@
  * flagged Unassigned downstream (rule D) — neither is computed on this screen.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { listTerritories } from "@/features/territories/api/territories.api";
 import { TargetsGrid, targetKey, listTargets, upsertTerritoryTarget } from "@/features/targets";
 import { Target, Territory } from "@/lib/types";
 import { getErrorMessage } from "@/lib/api-client";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useAbortableEffect } from "@/lib/useAbortableEffect";
 import { Select } from "@/components/ui/select";
+import { ConfirmDialog } from "@/components/shared/feedback/ConfirmDialog";
+import { EmptyState } from "@/components/shared/feedback/EmptyState";
+import { SkeletonTable } from "@/components/shared/feedback/Skeleton";
 
 const YEAR_OFFSETS = [-1, 0, 1];
 
@@ -38,29 +42,36 @@ export default function TerritoryTargetsPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [savingKey, setSavingKey] = useState<string | null>(null);
+  // Unsaved-cell count reported by TargetsGrid; used to guard the year switch.
+  const [gridDirtyCount, setGridDirtyCount] = useState(0);
+  const [pendingYear, setPendingYear] = useState<number | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
 
-  const load = useCallback(async () => {
-    if (!token) return;
-    setLoading(true);
-    try {
-      const [territoryData, targetData] = await Promise.all([
-        listTerritories(token),
-        listTargets(token, year, "TERRITORY"),
-      ]);
-      setTerritories(territoryData.territories);
-      setTargets(targetData.targets);
-      setLoadError(null);
-    } catch (err) {
-      setLoadError(getErrorMessage(err, "โหลดเป้าระดับเขตไม่สำเร็จ"));
-    } finally {
-      setLoading(false);
-    }
-  }, [token, year]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void load();
-  }, [load]);
+  useAbortableEffect(
+    async (signal) => {
+      if (!token) return;
+      setLoading(true);
+      try {
+        const [territoryData, targetData] = await Promise.all([
+          listTerritories(token, signal),
+          listTargets(token, year, "TERRITORY", signal),
+        ]);
+        if (signal.aborted) return;
+        setTerritories(territoryData.territories);
+        setTargets(targetData.targets);
+        setLoadError(null);
+      } catch (err) {
+        if (!signal.aborted) {
+          setLoadError(getErrorMessage(err, "โหลดเป้าระดับเขตไม่สำเร็จ"));
+        }
+      } finally {
+        if (!signal.aborted) {
+          setLoading(false);
+        }
+      }
+    },
+    [token, year, reloadNonce]
+  );
 
   const targetsByKey = useMemo(() => {
     const map = new Map<string, Target>();
@@ -98,6 +109,23 @@ export default function TerritoryTargetsPage() {
     }
   }
 
+  function handleYearChange(nextYear: number) {
+    if (nextYear === year) return;
+    if (gridDirtyCount > 0) {
+      setPendingYear(nextYear);
+      return;
+    }
+    setGridDirtyCount(0);
+    setYear(nextYear);
+  }
+
+  function confirmPendingYear() {
+    if (pendingYear === null) return;
+    setGridDirtyCount(0);
+    setYear(pendingYear);
+    setPendingYear(null);
+  }
+
   return (
     <div className="mx-auto max-w-6xl p-4 sm:p-6">
       <h1 className="text-2xl font-semibold text-text-primary">เป้ารายเขต</h1>
@@ -107,10 +135,11 @@ export default function TerritoryTargetsPage() {
       </p>
 
       <div className="mt-4 flex items-center gap-2 text-sm">
-        <label className="font-medium text-text-secondary">ปี</label>
+        <label htmlFor="territory-targets-year-select" className="font-medium text-text-secondary">ปี</label>
         <Select
+          id="territory-targets-year-select"
           value={String(year)}
-          onChange={(e) => setYear(Number(e.target.value))}
+          onChange={(e) => handleYearChange(Number(e.target.value))}
           className="w-auto"
         >
           {YEAR_OFFSETS.map((offset) => {
@@ -124,12 +153,19 @@ export default function TerritoryTargetsPage() {
         </Select>
       </div>
 
-      {loadError && <p className="mt-4 text-sm text-danger">{loadError}</p>}
       {actionError && <p className="mt-4 text-sm text-danger">{actionError}</p>}
 
       <div className="mt-4">
         {loading ? (
-          <p className="text-text-muted">กำลังโหลด...</p>
+          <SkeletonTable rows={8} columns={14} />
+        ) : loadError ? (
+          <EmptyState
+            variant="error"
+            title="เกิดข้อผิดพลาดในการโหลดเป้าระดับเขต"
+            description={loadError}
+            onRetry={() => setReloadNonce((n) => n + 1)}
+            isRetrying={loading}
+          />
         ) : (
           <TargetsGrid
             key={year}
@@ -142,9 +178,22 @@ export default function TerritoryTargetsPage() {
             savingKey={savingKey}
             onSave={handleSaveTarget}
             onViewHistory={(target) => router.push(`/targets/${target.id}/revisions`)}
+            onDirtyCountChange={setGridDirtyCount}
           />
         )}
       </div>
+
+      {pendingYear !== null && (
+        <ConfirmDialog
+          title="เปลี่ยนปีระหว่างมีการแก้ไขที่ยังไม่บันทึก?"
+          description={`มีการแก้ไขที่ยังไม่บันทึก ${gridDirtyCount.toLocaleString("th-TH")} ช่อง — เปลี่ยนปีแล้วข้อมูลที่กรอกจะหาย`}
+          confirmLabel="เปลี่ยนปี"
+          cancelLabel="ยกเลิก"
+          tone="danger"
+          onConfirm={confirmPendingYear}
+          onCancel={() => setPendingYear(null)}
+        />
+      )}
     </div>
   );
 }

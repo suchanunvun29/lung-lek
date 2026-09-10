@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   TargetsGrid,
@@ -15,19 +15,29 @@ import { fetchKnownProductTypes } from "@/features/products/utils/deriveProductT
 import { EntitySummary, Salesperson, Target } from "@/lib/types";
 import { getErrorMessage } from "@/lib/api-client";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useAbortableEffect } from "@/lib/useAbortableEffect";
+import { useUrlState } from "@/lib/useUrlState";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import { ConfirmDialog } from "@/components/shared/feedback/ConfirmDialog";
+import { EmptyState } from "@/components/shared/feedback/EmptyState";
+import { SkeletonTable } from "@/components/shared/feedback/Skeleton";
+import { docsUrl } from "@/lib/docs";
 
 const YEAR_OFFSETS = [-1, 0, 1];
 
 export default function TargetsPage() {
   const router = useRouter();
+  const { searchParams, setUrlState } = useUrlState();
   const token = useAuthStore((state) => state.token);
   const currentUser = useAuthStore((state) => state.user);
   const canEdit = currentUser?.role === "MANAGER";
 
   const currentYear = new Date().getFullYear();
-  const [year, setYear] = useState(currentYear);
+  const yearParam = Number(searchParams.get("year"));
+  const year = YEAR_OFFSETS.map((offset) => currentYear + offset).includes(yearParam)
+    ? yearParam
+    : currentYear;
   const [salespeople, setSalespeople] = useState<Salesperson[]>([]);
   const [targets, setTargets] = useState<Target[]>([]);
   const [productTypes, setProductTypes] = useState<EntitySummary[]>([]);
@@ -37,37 +47,51 @@ export default function TargetsPage() {
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [copyModalOpen, setCopyModalOpen] = useState(false);
   const [productGroupTarget, setProductGroupTarget] = useState<Target | null>(null);
+  // Unsaved-cell count reported by TargetsGrid; used to guard the year switch.
+  const [gridDirtyCount, setGridDirtyCount] = useState(0);
+  const [pendingYear, setPendingYear] = useState<number | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
 
-  const loadTargets = useCallback(async () => {
-    if (!token) return;
-    setLoading(true);
-    try {
-      const [spData, targetsData] = await Promise.all([listSalespeople(token), listTargets(token, year)]);
-      setSalespeople(spData.salespeople);
-      setTargets(targetsData.targets);
-      setLoadError(null);
-    } catch (err) {
-      setLoadError(getErrorMessage(err, "โหลดข้อมูลเป้าไม่สำเร็จ"));
-    } finally {
-      setLoading(false);
-    }
-  }, [token, year]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void loadTargets();
-  }, [loadTargets]);
-
-  useEffect(() => {
-    if (!token) return;
-    (async () => {
+  useAbortableEffect(
+    async (signal) => {
+      if (!token) return;
+      setLoading(true);
       try {
-        setProductTypes(await fetchKnownProductTypes(token));
+        const [spData, targetsData] = await Promise.all([
+          listSalespeople(token, signal),
+          listTargets(token, year, "SALESPERSON", signal),
+        ]);
+        if (signal.aborted) return;
+        setSalespeople(spData.salespeople);
+        setTargets(targetsData.targets);
+        setLoadError(null);
+      } catch (err) {
+        if (!signal.aborted) {
+          setLoadError(getErrorMessage(err, "โหลดข้อมูลเป้าไม่สำเร็จ"));
+        }
+      } finally {
+        if (!signal.aborted) {
+          setLoading(false);
+        }
+      }
+    },
+    [token, year, reloadNonce]
+  );
+
+  useAbortableEffect(
+    async (signal) => {
+      if (!token) return;
+      try {
+        const types = await fetchKnownProductTypes(token);
+        if (!signal.aborted) {
+          setProductTypes(types);
+        }
       } catch {
         // product-type list is a convenience for the product-group modal — grid still works without it
       }
-    })();
-  }, [token]);
+    },
+    [token]
+  );
 
   const targetsByKey = useMemo(() => {
     const map = new Map<string, Target>();
@@ -112,6 +136,23 @@ export default function TargetsPage() {
     setProductGroupTarget((prev) => (prev && prev.id === updated.id ? { ...updated, salesperson: prev.salesperson } : prev));
   }
 
+  function handleYearChange(nextYear: number) {
+    if (nextYear === year) return;
+    if (gridDirtyCount > 0) {
+      setPendingYear(nextYear);
+      return;
+    }
+    setGridDirtyCount(0);
+    setUrlState({ year: nextYear === currentYear ? null : nextYear });
+  }
+
+  function confirmPendingYear() {
+    if (pendingYear === null) return;
+    setGridDirtyCount(0);
+    setUrlState({ year: pendingYear === currentYear ? null : pendingYear });
+    setPendingYear(null);
+  }
+
   return (
     <div className="mx-auto max-w-6xl p-4 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -132,10 +173,11 @@ export default function TargetsPage() {
       )}
 
       <div className="mt-4 flex items-center gap-2 text-sm">
-        <label className="font-medium text-text-secondary">ปี</label>
+        <label htmlFor="targets-year-select" className="font-medium text-text-secondary">ปี</label>
         <Select
+          id="targets-year-select"
           value={String(year)}
-          onChange={(e) => setYear(Number(e.target.value))}
+          onChange={(e) => handleYearChange(Number(e.target.value))}
           className="w-auto"
         >
           {YEAR_OFFSETS.map((offset) => {
@@ -149,12 +191,36 @@ export default function TargetsPage() {
         </Select>
       </div>
 
-      {loadError && <p className="mt-4 text-sm text-danger">{loadError}</p>}
       {actionError && <p className="mt-4 text-sm text-danger">{actionError}</p>}
 
       <div className="mt-4">
         {loading ? (
-          <p className="text-text-muted">กำลังโหลด...</p>
+          <SkeletonTable rows={8} columns={14} />
+        ) : loadError ? (
+          <EmptyState
+            headingLevel={2}
+            variant="error"
+            title="เกิดข้อผิดพลาดในการโหลดข้อมูลเป้า"
+            description={loadError}
+            onRetry={() => setReloadNonce((n) => n + 1)}
+            isRetrying={loading}
+          />
+        ) : salespeople.length === 0 ? (
+          <EmptyState
+            headingLevel={2}
+            title="ยังไม่มีพนักงานขายสำหรับตั้งเป้า"
+            description="นำเข้าหรือเพิ่มข้อมูลพนักงานขายก่อน แล้วกลับมาตั้งเป้ารายเดือน"
+            action={(
+              <a
+                href={docsUrl("/tasks/set-targets")}
+                target="_blank"
+                rel="noopener"
+                className="text-sm font-medium text-primary underline-offset-2 hover:underline"
+              >
+                ดูคู่มือการตั้งเป้า
+              </a>
+            )}
+          />
         ) : (
           <TargetsGrid
             key={year}
@@ -166,16 +232,29 @@ export default function TargetsPage() {
             onSave={handleSaveTarget}
             onOpenProductGroups={setProductGroupTarget}
             onViewHistory={(target) => router.push(`/targets/${target.id}/revisions`)}
+            onDirtyCountChange={setGridDirtyCount}
           />
         )}
       </div>
+
+      {pendingYear !== null && (
+        <ConfirmDialog
+          title="เปลี่ยนปีระหว่างมีการแก้ไขที่ยังไม่บันทึก?"
+          description={`มีการแก้ไขที่ยังไม่บันทึก ${gridDirtyCount.toLocaleString("th-TH")} ช่อง — เปลี่ยนปีแล้วข้อมูลที่กรอกจะหาย`}
+          confirmLabel="เปลี่ยนปี"
+          cancelLabel="ยกเลิก"
+          tone="danger"
+          onConfirm={confirmPendingYear}
+          onCancel={() => setPendingYear(null)}
+        />
+      )}
 
       {copyModalOpen && (
         <CopyTargetsModal
           year={year}
           salespeople={salespeople}
           onClose={() => setCopyModalOpen(false)}
-          onCopied={() => void loadTargets()}
+          onCopied={() => setReloadNonce((n) => n + 1)}
         />
       )}
 

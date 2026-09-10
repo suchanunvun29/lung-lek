@@ -28,7 +28,7 @@ export function TemporaryPasswordNotice({
 
   return (
     <div className="rounded-lg border border-warning/30 bg-warning-subtle p-4">
-      <p className="text-sm font-medium text-warning">
+      <p className="text-sm font-medium text-warning-text">
         รหัสผ่านชั่วคราวสำหรับ {email} — ระบบจะแสดงครั้งนี้ครั้งเดียวเท่านั้น กรุณาคัดลอกไปให้ผู้ใช้ทันที
       </p>
       <div className="mt-2 flex items-center gap-2">
@@ -40,7 +40,7 @@ export function TemporaryPasswordNotice({
           variant="outline"
           size="sm"
           onClick={handleCopy}
-          className="border-warning/40 text-warning hover:bg-warning-subtle"
+          className="border-warning/40 text-warning-text hover:bg-warning-subtle"
         >
           {copied ? "คัดลอกแล้ว" : "คัดลอก"}
         </Button>

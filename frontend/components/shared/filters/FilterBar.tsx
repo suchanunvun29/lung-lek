@@ -106,7 +106,10 @@ export function FilterBar({
                     type="button"
                     onClick={chip.onRemove}
                     aria-label={`ล้างตัวกรอง ${typeof chip.label === "string" ? chip.label : ""}`.trim()}
-                    className="inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-text-muted hover:bg-border hover:text-text-primary"
+                    /* Visual stays a 24px chip ✕; the hit area expands to the 44px
+                       touch floor via the pseudo element (T-UX-019) — the chip row
+                       is desktop-only, this guards md-width touch devices. */
+                    className="relative inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-text-muted after:absolute after:-inset-2.5 after:content-[''] hover:bg-border hover:text-text-primary"
                   >
                     <X className="h-3.5 w-3.5" aria-hidden="true" />
                   </button>

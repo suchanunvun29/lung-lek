@@ -6,9 +6,8 @@
  * The one table component for the whole product: client-side sorting and search,
  * sticky header, optional frozen first column, density, column priority, and a
  * mobile card fallback — so screens stop each hand-rolling `<table>`.
- * It supersedes `components/ui/table.tsx` as the table surface (that file has no
- * consumers and remains untouched); `Pagination` is absorbed as an internal part
- * and stays exported from its own file for direct users.
+ * It supersedes `components/ui/table.tsx` as the table surface; `Pagination` is
+ * absorbed as an internal part and is reachable only through DataTable (T-UX-017).
  *
  * ── Data rules (behavior preservation) ────────────────────────────────────────
  * • Sorting and search operate ONLY on rows already fetched. No query parameter
@@ -42,10 +41,47 @@
 import * as React from "react";
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/feedback/EmptyState";
 import { SkeletonTable } from "@/components/shared/feedback/Skeleton";
-import { Pagination } from "./Pagination";
 import { cn } from "@/lib/utils";
+
+/* Internal pager — rendered by DataTable only; there is no second path (T-UX-017).
+ * Exported as DataTablePagination solely for the revisions page (T-UX-025): a card
+ * list, not a table, that still pages server-side through the same pager UI. */
+function Pagination({ page, pageSize, total, onPageChange }: { page: number; pageSize: number; total: number; onPageChange: (page: number) => void }) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  return (
+    <div className="flex items-center justify-between text-sm text-text-secondary">
+      <p>
+        ทั้งหมด {total.toLocaleString("th-TH")} รายการ · หน้า {page} จาก {totalPages}
+      </p>
+      <div className="flex gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={page <= 1}
+          onClick={() => onPageChange(page - 1)}
+        >
+          ก่อนหน้า
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={page >= totalPages}
+          onClick={() => onPageChange(page + 1)}
+        >
+          ถัดไป
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+export { Pagination as DataTablePagination };
 
 export type DataTableMobileRole = "identity" | "metric" | "meta" | "hidden";
 
@@ -86,6 +122,12 @@ export interface DataTableProps<Row> {
   /** Row matches the (lower-cased) query; defaults to matching any column's raw `key` value. */
   searchPredicate?: (row: Row, query: string) => boolean;
   searchPlaceholder?: string;
+  /** Optional controlled URL-backed search value. Commits are debounced by 350ms. */
+  searchValue?: string;
+  onSearchValueChange?: (value: string) => void;
+  /** Optional controlled URL-backed sort state. */
+  sortValue?: SortState | null;
+  onSortValueChange?: (value: SortState | null) => void;
   /** Server-paginated mode: disables sort/search UI and renders the wired Pagination. */
   serverPaginated?: boolean;
   page?: number;
@@ -101,12 +143,18 @@ export interface DataTableProps<Row> {
   selectedRowIds?: Set<string | number>;
   onSelectionChange?: (selectedIds: Set<string | number>) => void;
   selectionToolbar?: React.ReactNode;
+  /**
+   * Human name of a row for the selection checkboxes' accessible name
+   * (T-UX-009) — "เลือก รพ. สงฆ์", not the raw row id. Required for
+   * selectable tables; falls back to the row key only when unset.
+   */
+  getRowLabel?: (row: Row) => string;
   className?: string;
 }
 
-type SortDirection = "asc" | "desc";
+export type SortDirection = "asc" | "desc";
 
-interface SortState {
+export interface SortState {
   key: string;
   direction: SortDirection;
 }
@@ -131,6 +179,10 @@ export function DataTable<Row>({
   searchable = false,
   searchPredicate,
   searchPlaceholder = "ค้นหา…",
+  searchValue,
+  onSearchValueChange,
+  sortValue,
+  onSortValueChange,
   serverPaginated = false,
   page,
   pageSize,
@@ -142,10 +194,11 @@ export function DataTable<Row>({
   selectedRowIds,
   onSelectionChange,
   selectionToolbar,
+  getRowLabel,
   className,
 }: DataTableProps<Row>) {
-  const [sort, setSort] = React.useState<SortState | null>(null);
-  const [query, setQuery] = React.useState("");
+  const [internalSort, setInternalSort] = React.useState<SortState | null>(null);
+  const [query, setQuery] = React.useState(searchValue ?? "");
   const [clientPage, setClientPage] = React.useState(1);
   const [expandedCardIds, setExpandedCardIds] = React.useState<Set<string>>(new Set());
   const [internalSelectedIds, setInternalSelectedIds] = React.useState<Set<string | number>>(new Set());
@@ -153,9 +206,16 @@ export function DataTable<Row>({
   const selectedIds = selectedRowIds ?? internalSelectedIds;
   const updateSelection = onSelectionChange ?? setInternalSelectedIds;
 
+  const sort = sortValue === undefined ? internalSort : sortValue;
   const normalizedQuery = query.trim().toLowerCase();
   const searchEnabled = searchable && !serverPaginated;
   const clientPaginated = !serverPaginated && typeof pageSize === "number" && pageSize > 0;
+
+  React.useEffect(() => {
+    if (searchValue === undefined || !onSearchValueChange || query === searchValue) return;
+    const timeoutId = window.setTimeout(() => onSearchValueChange(query), 350);
+    return () => window.clearTimeout(timeoutId);
+  }, [onSearchValueChange, query, searchValue]);
 
   const sortedRows = React.useMemo(() => {
     if (serverPaginated || !sort) return rows;
@@ -198,12 +258,24 @@ export function DataTable<Row>({
     return filteredRows.slice((safeClientPage - 1) * pageSize, safeClientPage * pageSize);
   }, [filteredRows, clientPaginated, pageSize, safeClientPage]);
 
+  // T-UX-009 — select-all reflects partial selection as indeterminate.
+  const allVisibleSelected = visibleRows.length > 0 && visibleRows.every((r) => selectedIds.has(getRowId(r)));
+  const someVisibleSelected = !allVisibleSelected && visibleRows.some((r) => selectedIds.has(getRowId(r)));
+  const selectAllRef = React.useRef<HTMLInputElement>(null);
+  React.useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = someVisibleSelected;
+    }
+  }, [someVisibleSelected, allVisibleSelected]);
+
   function toggleSort(columnKey: string) {
     setClientPage(1);
-    setSort((current) => {
-      if (current?.key !== columnKey) return { key: columnKey, direction: "asc" };
-      return { key: columnKey, direction: current.direction === "asc" ? "desc" : "asc" };
-    });
+    const next: SortState =
+      sort?.key !== columnKey
+        ? { key: columnKey, direction: "asc" }
+        : { key: columnKey, direction: sort.direction === "asc" ? "desc" : "asc" };
+    if (onSortValueChange) onSortValueChange(next);
+    else setInternalSort(next);
   }
 
   function toggleCardExpanded(rowKey: string) {
@@ -283,7 +355,10 @@ export function DataTable<Row>({
               variant="filtered"
               title="ไม่พบรายการที่ตรงกับการค้นหา"
               description={`ไม่มีรายการที่ตรงกับ "${query.trim()}"`}
-              onResetFilters={() => setQuery("")}
+              onResetFilters={() => {
+                setQuery("");
+                onSearchValueChange?.("");
+              }}
             />
           ) : (
             <EmptyState variant="empty" title={emptyTitle} description={emptyDescription} />
@@ -307,16 +382,17 @@ export function DataTable<Row>({
                       <th
                         scope="col"
                         className={cn(
-                          "sticky top-0 z-10 w-12 bg-surface-subtle px-1 align-middle text-center",
+                          "sticky top-0 z-(--z-table-header) w-12 bg-surface-subtle px-1 align-middle text-center",
                           rowHeightClass,
-                          frozenFirstColumn && "left-0 z-20 border-r border-border"
+                          frozenFirstColumn && "left-0 z-(--z-table-header-frozen) border-r border-border"
                         )}
                       >
                         <label className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center cursor-pointer">
                           <input
+                            ref={selectAllRef}
                             type="checkbox"
                             aria-label="เลือกทั้งหมดในหน้านี้"
-                            checked={visibleRows.length > 0 && visibleRows.every((r) => selectedIds.has(getRowId(r)))}
+                            checked={allVisibleSelected}
                             onChange={(e) => {
                               const next = new Set(selectedIds);
                               if (e.target.checked) {
@@ -326,7 +402,7 @@ export function DataTable<Row>({
                               }
                               updateSelection(next);
                             }}
-                            className="h-4 w-4 rounded border-border text-primary focus:ring-ring cursor-pointer"
+                            className="h-4 w-4 rounded border-border text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer"
                           />
                         </label>
                       </th>
@@ -351,11 +427,11 @@ export function DataTable<Row>({
                         scope="col"
                         aria-sort={ariaSort}
                         className={cn(
-                          "sticky top-0 z-10 bg-surface-subtle px-3 align-middle font-medium text-text-secondary",
+                          "sticky top-0 z-(--z-table-header) bg-surface-subtle px-3 align-middle font-medium text-text-secondary",
                           rowHeightClass,
                           alignClass,
                           PRIORITY_CLASS[column.priority ?? 2],
-                          frozen && "left-0 z-20 border-r border-border"
+                          frozen && "left-0 z-(--z-table-header-frozen) border-r border-border"
                         )}
                       >
                         {column.sortable && !serverPaginated ? (
@@ -386,6 +462,7 @@ export function DataTable<Row>({
               <tbody className="divide-y divide-border">
                 {visibleRows.map((row) => {
                   const rowKey = String(getRowId(row));
+                  const rowLabel = getRowLabel?.(row) ?? rowKey;
                   return (
                     <tr key={rowKey} className="group hover:bg-surface-subtle">
                       {selectable && (
@@ -393,13 +470,13 @@ export function DataTable<Row>({
                           className={cn(
                             "w-12 px-1 align-middle text-center",
                             rowHeightClass,
-                            frozenFirstColumn && "sticky left-0 z-[1] bg-surface border-r border-border group-hover:bg-surface-subtle"
+                            frozenFirstColumn && "sticky left-0 z-(--z-table-cell) bg-surface border-r border-border group-hover:bg-surface-subtle"
                           )}
                         >
                           <label className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center cursor-pointer">
                             <input
                               type="checkbox"
-                              aria-label={`เลือกรายการ ${rowKey}`}
+                              aria-label={`เลือก ${rowLabel}`}
                               checked={selectedIds.has(getRowId(row))}
                               onChange={(e) => {
                                 const next = new Set(selectedIds);
@@ -411,7 +488,7 @@ export function DataTable<Row>({
                                 }
                                 updateSelection(next);
                               }}
-                              className="h-4 w-4 rounded border-border text-primary focus:ring-ring cursor-pointer"
+                              className="h-4 w-4 rounded border-border text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer"
                             />
                           </label>
                         </td>
@@ -433,7 +510,7 @@ export function DataTable<Row>({
                               alignClass,
                               column.numeric && "font-numeric",
                               PRIORITY_CLASS[column.priority ?? 2],
-                              frozen && "sticky left-0 z-[1] bg-surface border-r border-border group-hover:bg-surface-subtle"
+                              frozen && "sticky left-0 z-(--z-table-cell) bg-surface border-r border-border group-hover:bg-surface-subtle"
                             )}
                           >
                             {column.render(row)}
@@ -452,6 +529,7 @@ export function DataTable<Row>({
           <div className="divide-y divide-border rounded-lg border border-border bg-surface md:hidden">
             {visibleRows.map((row) => {
               const rowKey = String(getRowId(row));
+              const rowLabel = getRowLabel?.(row) ?? rowKey;
               const detailsId = `card-details-${rowKey}`;
               const expanded = expandedCardIds.has(rowKey);
               const action = rowAction?.(row);
@@ -461,7 +539,7 @@ export function DataTable<Row>({
                     <label className="mb-3 flex min-h-[44px] items-center gap-2 border-b border-border pb-2 text-xs font-medium text-text-secondary cursor-pointer">
                       <input
                         type="checkbox"
-                        aria-label={`เลือกรายการ ${rowKey}`}
+                        aria-label={`เลือก ${rowLabel}`}
                         checked={selectedIds.has(getRowId(row))}
                         onChange={(e) => {
                           const next = new Set(selectedIds);
@@ -473,7 +551,7 @@ export function DataTable<Row>({
                           }
                           updateSelection(next);
                         }}
-                        className="h-4 w-4 rounded border-border text-primary focus:ring-ring cursor-pointer"
+                        className="h-4 w-4 rounded border-border text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer"
                       />
                       <span>เลือกรายการ</span>
                     </label>

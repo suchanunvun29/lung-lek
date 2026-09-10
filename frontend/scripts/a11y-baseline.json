@@ -1,0 +1,45 @@
+{
+  "/login": [
+    {
+      "id": "heading-order",
+      "impact": "moderate",
+      "help": "Heading levels should only increase by one",
+      "nodes": [
+        "h3"
+      ]
+    }
+  ],
+  "/dashboard": [
+    {
+      "id": "heading-order",
+      "impact": "moderate",
+      "help": "Heading levels should only increase by one",
+      "nodes": [
+        "h3"
+      ]
+    }
+  ],
+  "/targets": [],
+  "/import": [],
+  "/users": [
+    {
+      "id": "landmark-unique",
+      "impact": "moderate",
+      "help": "Landmarks should have a unique role or role/label/title (i.e. accessible name) combination",
+      "nodes": [
+        ".overflow-hidden > nav[aria-label=\"เส้นทางหน้า\"]"
+      ]
+    }
+  ],
+  "/import-batches": [
+    {
+      "id": "heading-order",
+      "impact": "moderate",
+      "help": "Heading levels should only increase by one",
+      "nodes": [
+        "h3"
+      ]
+    }
+  ],
+  "/territories": []
+}

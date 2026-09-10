@@ -16,6 +16,7 @@ import { listSalespeople } from "@/features/master-data/api/master-data.api";
 import { getErrorMessage } from "@/lib/api-client";
 import { Salesperson, Territory, TerritoryAssignment, TerritoryGroup } from "@/lib/types";
 import { useAuthStore } from "@/store/useAuthStore";
+import { toast } from "@/components/shared/feedback/toast/ToastProvider";
 import { PageContainer } from "@/components/shared/layout/PageContainer";
 import { PageHeader } from "@/components/shared/layout/PageHeader";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -25,30 +26,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { useUrlState } from "@/lib/useUrlState";
+import type { SortState } from "@/components/shared/data-table/DataTable";
 
 const TODAY = new Date().toISOString().slice(0, 10);
 
 type TerritoryTab = "territories" | "assignments" | "groups";
 
-function readInitialTab(): TerritoryTab {
-  if (typeof window === "undefined") return "territories";
-  const value = new URLSearchParams(window.location.search).get("tab");
-  return value === "assignments" || value === "groups" ? value : "territories";
-}
-
-function setTabInUrl(tab: TerritoryTab) {
-  if (typeof window === "undefined") return;
-  const url = new URL(window.location.href);
-  url.searchParams.set("tab", tab);
-  window.history.replaceState(null, "", url.toString());
-}
-
 export default function TerritoriesPage() {
+  const { searchParams, setUrlState } = useUrlState();
   const token = useAuthStore((state) => state.token);
   const user = useAuthStore((state) => state.user);
   const canEdit = user?.role === "MANAGER";
 
-  const [tab, setTabState] = useState<TerritoryTab>(readInitialTab);
+  const tabParam = searchParams.get("tab");
+  const tab: TerritoryTab = tabParam === "assignments" || tabParam === "groups" ? tabParam : "territories";
   const [territories, setTerritories] = useState<Territory[]>([]);
   const [salespeople, setSalespeople] = useState<Salesperson[]>([]);
   const [assignments, setAssignments] = useState<TerritoryAssignment[]>([]);
@@ -73,9 +65,17 @@ export default function TerritoriesPage() {
   const [assignmentToClose, setAssignmentToClose] = useState<TerritoryAssignment | null>(null);
   const [closingPending, setClosingPending] = useState(false);
 
+  // In-flight guard กัน double-click toggle (T-UX-011 จุดที่ 3)
+  const [togglingId, setTogglingId] = useState<number | null>(null);
+
   function setTab(nextTab: TerritoryTab) {
-    setTabState(nextTab);
-    setTabInUrl(nextTab);
+    setUrlState({ tab: nextTab === "territories" ? null : nextTab });
+  }
+
+  function readSort(prefix: string): SortState | null {
+    const key = searchParams.get(`${prefix}Sort`);
+    const direction = searchParams.get(`${prefix}Direction`);
+    return key && (direction === "asc" || direction === "desc") ? { key, direction } : null;
   }
 
   const load = useCallback(async () => {
@@ -113,6 +113,8 @@ export default function TerritoriesPage() {
       await createTerritory(token, { name: name.trim(), code: code.trim() || null });
       setName("");
       setCode("");
+      // T-UX-012 — สร้างเขตสำเร็จไม่ควรเงียบ (เดิมมีแค่ list reload)
+      toast.success(`สร้างเขต "${name.trim()}" เรียบร้อยแล้ว`);
       await load();
     } catch (err) {
       setError(getErrorMessage(err, "สร้างเขตไม่สำเร็จ"));
@@ -123,15 +125,25 @@ export default function TerritoriesPage() {
 
   const toggleTerritory = useCallback(
     async (item: Territory) => {
-      if (!token) return;
+      if (!token || togglingId !== null) return;
+      setTogglingId(item.id);
       try {
         await updateTerritory(token, item.id, { isActive: !item.isActive });
+        // T-UX-011 ระดับ 1 (reversible) — ไม่ใส่ dialog หนัก; toggle ทันที + toast
+        // อธิบายผลที่เกิดขึ้นทันที เพราะการสลับสถานะกลับคืนได้
+        toast.success(
+          item.isActive
+            ? `ปิดใช้งานเขต ${item.name} แล้ว — เขตจะหายจากตัวเลือกมุมมองและไม่รับการมอบหมายใหม่ (เปิดกลับได้ที่ปุ่มเดิม)`
+            : `เปิดใช้งานเขต ${item.name} แล้ว — เขตกลับมาปรากฏในตัวเลือกมุมมองตามเดิม`
+        );
         await load();
       } catch (err) {
         setError(getErrorMessage(err, "แก้ไขเขตไม่สำเร็จ"));
+      } finally {
+        setTogglingId(null);
       }
     },
-    [token, load]
+    [token, load, togglingId]
   );
 
   async function submitAssignment(event: FormEvent<HTMLFormElement>) {
@@ -277,7 +289,7 @@ export default function TerritoriesPage() {
       {
         key: "effectiveTo",
         header: "สิ้นสุด",
-        render: (item) => item.effectiveTo?.slice(0, 10) ?? "ACTIVE",
+        render: (item) => item.effectiveTo?.slice(0, 10) ?? "ยังมีผล",
         sortable: true,
         sortValue: (item) => item.effectiveTo ?? "9999",
         priority: 2,
@@ -286,7 +298,7 @@ export default function TerritoriesPage() {
       {
         key: "role",
         header: "บทบาท",
-        render: (item) => (item.isSupervisor ? "Supervisor" : "ผู้ดูแล"),
+        render: (item) => (item.isSupervisor ? "หัวหน้าผู้ดูแล" : "ผู้ดูแล"),
         priority: 1,
         mobileRole: "meta",
       },
@@ -344,13 +356,13 @@ export default function TerritoriesPage() {
       />
 
       {!canEdit && (
-        <div className="rounded-lg border border-warning/30 bg-warning-subtle p-3 text-sm text-warning">
+        <div className="rounded-lg border border-warning/30 bg-warning-subtle p-3 text-sm text-warning-text">
           คุณดูข้อมูลได้เท่านั้น การแก้ไขสงวนไว้สำหรับผู้จัดการ
         </div>
       )}
 
       {error && (
-        <div className="rounded-lg border border-danger/30 bg-danger-subtle p-3 text-sm text-danger">
+        <div className="rounded-lg border border-danger/30 bg-danger-subtle p-3 text-sm text-danger-text">
           {error}
         </div>
       )}
@@ -395,6 +407,7 @@ export default function TerritoriesPage() {
           )}
 
           <DataTable
+            key={`territories:${searchParams.get("territoriesSearch") ?? ""}:${searchParams.get("territoriesSort") ?? ""}:${searchParams.get("territoriesDirection") ?? ""}`}
             columns={territoryColumns}
             rows={territories}
             getRowId={(item) => item.id}
@@ -402,6 +415,13 @@ export default function TerritoriesPage() {
             loading={loading}
             searchable
             searchPlaceholder="ค้นหาชื่อเขต รหัส หรือ Region…"
+            searchValue={searchParams.get("territoriesSearch") ?? ""}
+            onSearchValueChange={(value) => setUrlState({ territoriesSearch: value || null }, "replace")}
+            sortValue={readSort("territories")}
+            onSortValueChange={(value) => setUrlState({
+              territoriesSort: value?.key ?? null,
+              territoriesDirection: value?.direction ?? null,
+            })}
             searchPredicate={(item, q) =>
               item.name.toLowerCase().includes(q) ||
               Boolean(item.code?.toLowerCase().includes(q)) ||
@@ -474,7 +494,7 @@ export default function TerritoriesPage() {
                     onChange={(e) => setAssignment({ ...assignment, isSupervisor: e.target.checked })}
                     className="h-4 w-4 rounded border-border text-primary focus:ring-ring"
                   />
-                  <span>เป็น Supervisor</span>
+                  <span title="isSupervisor">เป็นหัวหน้าผู้ดูแล</span>
                 </label>
 
                 <Button type="submit" size="sm" disabled={assigning}>
@@ -485,6 +505,7 @@ export default function TerritoriesPage() {
           )}
 
           <DataTable
+            key={`assignments:${searchParams.get("assignmentsSearch") ?? ""}:${searchParams.get("assignmentsSort") ?? ""}:${searchParams.get("assignmentsDirection") ?? ""}`}
             columns={assignmentColumns}
             rows={assignments}
             getRowId={(item) => item.id}
@@ -492,6 +513,13 @@ export default function TerritoriesPage() {
             loading={loading}
             searchable
             searchPlaceholder="ค้นหาชื่อเขต หรือ ผู้ดูแล…"
+            searchValue={searchParams.get("assignmentsSearch") ?? ""}
+            onSearchValueChange={(value) => setUrlState({ assignmentsSearch: value || null }, "replace")}
+            sortValue={readSort("assignments")}
+            onSortValueChange={(value) => setUrlState({
+              assignmentsSort: value?.key ?? null,
+              assignmentsDirection: value?.direction ?? null,
+            })}
             searchPredicate={(item, q) =>
               item.territory.name.toLowerCase().includes(q) ||
               item.salesperson.displayName.toLowerCase().includes(q)

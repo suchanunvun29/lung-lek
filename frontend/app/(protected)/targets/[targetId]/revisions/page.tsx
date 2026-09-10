@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { use, useCallback, useEffect, useState, type ReactNode } from "react";
+import { use, useState, type ReactNode } from "react";
 import { ChevronLeft } from "lucide-react";
-import { listTargetRevisions } from "@/features/targets/api/targets.api";
+import { listTargetRevisionsPage } from "@/features/targets/api/targets.api";
+import { DataTablePagination } from "@/components/shared/data-table/DataTable";
 import { listSalespeople } from "@/features/master-data/api/master-data.api";
 import { fetchKnownProductTypes } from "@/features/products/utils/deriveProductTypes";
 import { formatThaiMonth } from "@/lib/importLabels";
@@ -22,8 +23,8 @@ import { PageHeader } from "@/components/shared/layout/PageHeader";
 import { Breadcrumb } from "@/components/shared/navigation/Breadcrumb";
 import { StatusBadge } from "@/components/shared/status/StatusBadge";
 import { EmptyState } from "@/components/shared/feedback/EmptyState";
-import { InlineMessage } from "@/components/shared/feedback/InlineMessage";
 import { SkeletonCard } from "@/components/shared/feedback/Skeleton";
+import { useAbortableEffect } from "@/lib/useAbortableEffect";
 
 interface TargetRevisionsPageProps {
   params: Promise<{ targetId: string }>;
@@ -53,41 +54,62 @@ function areProductGroupsEqual(
 export default function TargetRevisionsPage({ params }: TargetRevisionsPageProps) {
   const { targetId: targetIdParam } = use(params);
   const targetId = Number(targetIdParam);
+  const isValidTargetId = Number.isFinite(targetId) && targetId > 0;
+
   const token = useAuthStore((state) => state.token);
   const [revisions, setRevisions] = useState<TargetRevision[]>([]);
+  const [latest, setLatest] = useState<TargetSnapshot | null>(null);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [salespeople, setSalespeople] = useState<Salesperson[]>([]);
   const [productTypes, setProductTypes] = useState<EntitySummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
 
-  const load = useCallback(async () => {
-    if (!token) return;
-    setLoading(true);
-    try {
-      const [revisionsData, salespeopleData, productTypesData] = await Promise.all([
-        listTargetRevisions(token, targetId),
-        listSalespeople(token),
-        fetchKnownProductTypes(token),
-      ]);
-      setRevisions(revisionsData.revisions);
-      setSalespeople(salespeopleData.salespeople);
-      setProductTypes(productTypesData);
-      setLoadError(null);
-    } catch (err) {
-      setLoadError(getErrorMessage(err, "โหลดประวัติการแก้ไขเป้าไม่สำเร็จ"));
-    } finally {
-      setLoading(false);
-    }
-  }, [token, targetId]);
+  const PAGE_SIZE = 25; // T-UX-025 — server pagination (revisions grow without bound)
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void load();
-  }, [load]);
+  useAbortableEffect(
+    async (signal) => {
+      // UX-041: Never fire API call for NaN or non-positive targetId
+      if (!token || !isValidTargetId) {
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      try {
+        const [revisionsData, salespeopleData, productTypesData] = await Promise.all([
+          listTargetRevisionsPage(token, targetId, page, PAGE_SIZE, signal),
+          listSalespeople(token, signal),
+          fetchKnownProductTypes(token),
+        ]);
+        if (signal.aborted) return;
+        setRevisions(revisionsData.items);
+        setTotal(revisionsData.total);
+        // The header labels describe the newest revision, which lives on page 1
+        // (newest first) — pin it so later pages don't relabel the page header.
+        if (page === 1) {
+          const first = revisionsData.items[0];
+          setLatest(first?.after ?? first?.before ?? null);
+        }
+        setSalespeople(salespeopleData.salespeople);
+        setProductTypes(productTypesData);
+        setLoadError(null);
+      } catch (err) {
+        if (!signal.aborted) {
+          setLoadError(getErrorMessage(err, "โหลดประวัติการแก้ไขเป้าไม่สำเร็จ"));
+        }
+      } finally {
+        if (!signal.aborted) {
+          setLoading(false);
+        }
+      }
+    },
+    [token, targetId, isValidTargetId, reloadNonce, page]
+  );
 
   const salespersonNameById = new Map(salespeople.map((sp) => [sp.id, sp.displayName]));
   const productTypeNameById = new Map(productTypes.map((pt) => [pt.id, pt.displayName]));
-  const latest = revisions[0]?.after ?? revisions[revisions.length - 1]?.before ?? null;
 
   function renderProductGroups(
     groups: TargetProductGroupSnapshot[],
@@ -243,6 +265,42 @@ export default function TargetRevisionsPage({ params }: TargetRevisionsPageProps
     : `เป้า #${targetId}`;
   const periodLabel = latest ? `${formatThaiMonth(latest.month)} ${latest.year}` : "";
 
+  if (!isValidTargetId) {
+    return (
+      <PageContainer width="standard">
+        <PageHeader
+          title="ประวัติการแก้ไขเป้า"
+          secondaryActions={[
+            <Link
+              key="back"
+              href="/targets"
+              className="inline-flex items-center gap-1 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              กลับไปหน้าตั้งเป้า
+            </Link>,
+          ]}
+        />
+        <div className="mt-8">
+          <EmptyState
+            variant="error"
+            title="ลิงก์ไม่ถูกต้อง"
+            description="รหัสเป้าหมายในลิงก์ไม่ถูกต้อง กรุณากลับไปหน้ารายการเป้าหมาย"
+            action={
+              <Link
+                href="/targets"
+                className="inline-flex items-center gap-1 rounded-md bg-brand-primary px-4 py-2 text-sm font-medium text-white hover:bg-brand-primary/90 transition-colors"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                กลับไปหน้าตั้งเป้า
+              </Link>
+            }
+          />
+        </div>
+      </PageContainer>
+    );
+  }
+
   return (
     <PageContainer width="standard">
       {/* Pattern C: Breadcrumb override with target owner and period */}
@@ -277,7 +335,13 @@ export default function TargetRevisionsPage({ params }: TargetRevisionsPageProps
 
       {loadError && (
         <div className="mb-6">
-          <InlineMessage variant="destructive">{loadError}</InlineMessage>
+          <EmptyState
+            variant="error"
+            title="โหลดประวัติการแก้ไขเป้าไม่สำเร็จ"
+            description={loadError}
+            onRetry={() => setReloadNonce((n) => n + 1)}
+            isRetrying={loading}
+          />
         </div>
       )}
 
@@ -335,7 +399,7 @@ export default function TargetRevisionsPage({ params }: TargetRevisionsPageProps
                     <div className="rounded-md border border-border/80 bg-surface-subtle/20 p-3.5">
                       <div className="flex items-center justify-between border-b border-border/60 pb-2 mb-3">
                         <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary">
-                          ก่อนแก้ (Before)
+                          ก่อนแก้ไข
                         </span>
                         {isCreate && (
                           <span className="rounded bg-surface px-1.5 py-0.5 text-[11px] font-medium text-text-muted border border-border">
@@ -519,6 +583,11 @@ export default function TargetRevisionsPage({ params }: TargetRevisionsPageProps
             );
           })}
         </div>
+      )}
+
+      {/* T-UX-025 — server pagination over the revision history */}
+      {!loading && !loadError && total > 0 && (
+        <DataTablePagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
       )}
     </PageContainer>
   );

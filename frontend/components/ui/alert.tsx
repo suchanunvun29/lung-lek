@@ -8,15 +8,19 @@ export interface AlertProps extends React.HTMLAttributes<HTMLDivElement> {
 export function Alert({ className, variant = "default", ...props }: AlertProps) {
   const variantStyles: Record<NonNullable<AlertProps["variant"]>, string> = {
     default: "bg-surface-subtle text-text-primary border-border",
-    destructive: "bg-danger-subtle text-danger border-danger/20",
-    warning: "bg-warning-subtle text-warning border-warning/20",
-    success: "bg-success-subtle text-success border-success/20",
-    info: "bg-info-subtle text-info border-info/20",
+    destructive: "bg-danger-subtle text-danger-text border-danger/20",
+    warning: "bg-warning-subtle text-warning-text border-warning/20",
+    success: "bg-success-subtle text-success-text border-success/20",
+    info: "bg-info-subtle text-info-text border-info/20",
   };
+
+  // T-UX-009 — only genuinely urgent messages interrupt (role="alert",
+  // assertive); success/info/default announce politely (role="status").
+  const role = variant === "destructive" || variant === "warning" ? "alert" : "status";
 
   return (
     <div
-      role="alert"
+      role={role}
       className={cn("relative w-full rounded-lg border p-4 text-sm [&>svg~*]:pl-7 [&>svg]:absolute [&>svg]:left-4 [&>svg]:top-4", variantStyles[variant], className)}
       {...props}
     />
@@ -24,6 +28,8 @@ export function Alert({ className, variant = "default", ...props }: AlertProps) 
 }
 
 export function AlertTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
+  // TODO(a11y): primitive — heading content is always supplied by the consumer via children.
+  // eslint-disable-next-line jsx-a11y/heading-has-content
   return <h5 className={cn("mb-1 font-semibold leading-none tracking-tight", className)} {...props} />;
 }
 

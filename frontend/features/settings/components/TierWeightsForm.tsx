@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { TierWeightRow } from "@/lib/types";
+import { ApiError, getErrorMessage } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
 import { Info, AlertCircle } from "lucide-react";
 import { announce } from "@/components/shared/feedback/LiveRegion";
+import { toast } from "@/components/shared/feedback/toast/ToastProvider";
 
 export interface TierWeightsFormProps {
   weights: TierWeightRow[];
@@ -26,6 +28,7 @@ export function TierWeightsForm({ weights, onSubmit }: TierWeightsFormProps) {
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   function updateValue(tier: string, raw: string) {
     const value = Number(raw);
@@ -35,26 +38,58 @@ export function TierWeightsForm({ weights, onSubmit }: TierWeightsFormProps) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (submitting) return;
-    if (
-      weights.some(
-        (row) =>
-          !Number.isFinite(valuesByTier[row.tier]) ||
-          valuesByTier[row.tier] < 0 ||
-          valuesByTier[row.tier] > 999.999
-      )
-    ) {
-      setError("น้ำหนักต้องเป็นตัวเลขระหว่าง 0 ถึง 999.999");
+
+    const newErrors: Record<string, string> = {};
+    for (const row of weights) {
+      const val = valuesByTier[row.tier];
+      if (!Number.isFinite(val) || val < 0 || val > 999.999) {
+        newErrors[row.tier] = "น้ำหนักต้องเป็นตัวเลขระหว่าง 0 ถึง 999.999";
+      }
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setFieldErrors(newErrors);
+      setError("กรุณาตรวจสอบค่าน้ำหนักในระดับที่มีข้อผิดพลาด");
+      const firstInvalidTier = weights.find((w) => newErrors[w.tier])?.tier;
+      if (firstInvalidTier) {
+        setTimeout(() => document.getElementById(`tier-${firstInvalidTier}`)?.focus(), 0);
+      }
       return;
     }
+
     setSubmitting(true);
     setError(null);
+    setFieldErrors({});
     announce("กำลังบันทึกน้ำหนักทุกระดับ...", "polite");
     try {
       await onSubmit(weights.map((row) => ({ tier: row.tier, weight: valuesByTier[row.tier] })));
-      announce("บันทึกน้ำหนักทุกระดับเรียบร้อยแล้ว", "polite");
-    } catch {
-      setError("บันทึกไม่สำเร็จ กรุณาลองใหม่");
-      announce("บันทึกน้ำหนักทุกระดับไม่สำเร็จ กรุณาลองใหม่", "assertive");
+      // T-UX-012 — success = toast (คง banner ที่หน้า page ไว้เป็น visual โดยไม่ประกาศซ้ำ)
+      toast.success("บันทึกน้ำหนักทุกระดับเรียบร้อยแล้ว");
+    } catch (err) {
+      if (err instanceof ApiError && err.details) {
+        const details = err.details;
+        const serverFieldErrors: Record<string, string> = {};
+        for (const row of weights) {
+          if (typeof details === "string" && details.toLowerCase().includes(row.tier.toLowerCase())) {
+            serverFieldErrors[row.tier] = details;
+          } else if (typeof details === "object" && details !== null) {
+            const obj = details as Record<string, unknown>;
+            if (obj[row.tier] && typeof obj[row.tier] === "string") {
+              serverFieldErrors[row.tier] = obj[row.tier] as string;
+            }
+          }
+        }
+        if (Object.keys(serverFieldErrors).length > 0) {
+          setFieldErrors(serverFieldErrors);
+          setError("ข้อมูลที่ส่งไม่ผ่านการตรวจสอบจากระบบ");
+          const firstTier = weights.find((w) => serverFieldErrors[w.tier])?.tier;
+          if (firstTier) {
+            setTimeout(() => document.getElementById(`tier-${firstTier}`)?.focus(), 0);
+          }
+          return;
+        }
+      }
+      setError(getErrorMessage(err, "บันทึกไม่สำเร็จ กรุณาลองใหม่"));
     } finally {
       setSubmitting(false);
     }
@@ -70,7 +105,7 @@ export function TierWeightsForm({ weights, onSubmit }: TierWeightsFormProps) {
               สูตรถ่วงน้ำหนักศักยภาพโรงพยาบาล:
             </p>
             <p>
-              ศักยภาพรายแห่ง = ค่าตัวชี้วัด × น้ำหนักระดับ (TierWeight) × ค่าปรับรายแห่ง ·
+              <span title="TierWeight">ศักยภาพรายแห่ง = ค่าตัวชี้วัด × น้ำหนักระดับโรงพยาบาล × ค่าปรับรายแห่ง</span> ·
               ระดับที่ไม่ได้ตั้งค่าจะใช้ค่าเริ่มต้น 1.000 เสมอ และการตั้งเป็น 0
               คือการตัดทุกโรงพยาบาลในระดับนั้นออกจากศักยภาพ
             </p>
@@ -100,18 +135,42 @@ export function TierWeightsForm({ weights, onSubmit }: TierWeightsFormProps) {
                   )}
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col items-end gap-1">
                   <Input
+                    id={`tier-${row.tier}`}
                     type="number"
                     inputMode="decimal"
                     min={0}
                     max={999.999}
                     step={TIER_WEIGHT_STEP}
                     value={valuesByTier[row.tier]}
-                    onChange={(e) => updateValue(row.tier, e.target.value)}
-                    className="w-28 text-right font-medium tabular-nums h-11 sm:h-9"
+                    onChange={(e) => {
+                      updateValue(row.tier, e.target.value);
+                      if (fieldErrors[row.tier]) {
+                        setFieldErrors((prev) => {
+                          const next = { ...prev };
+                          delete next[row.tier];
+                          return next;
+                        });
+                      }
+                    }}
+                    className={`w-28 text-right font-medium tabular-nums h-11 sm:h-9 ${
+                      fieldErrors[row.tier] ? "border-[var(--danger)] focus-visible:ring-[var(--danger)]" : ""
+                    }`}
                     aria-label={`น้ำหนักระดับ ${row.tier}`}
+                    aria-invalid={Boolean(fieldErrors[row.tier])}
+                    aria-describedby={fieldErrors[row.tier] ? `tier-${row.tier}-error` : undefined}
                   />
+                  {fieldErrors[row.tier] && (
+                    <p
+                      id={`tier-${row.tier}-error`}
+                      role="alert"
+                      aria-live="polite"
+                      className="text-xs text-[var(--danger)] font-medium text-right"
+                    >
+                      {fieldErrors[row.tier]}
+                    </p>
+                  )}
                 </div>
               </div>
             );

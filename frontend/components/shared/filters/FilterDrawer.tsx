@@ -12,13 +12,16 @@
  * provided) and closes; Reset ("ล้างตัวกรอง") calls `onReset`, which must return
  * the screen to its documented default state — not merely "everything cleared".
  *
- * Escape closes; focus moves into the panel on open; body scroll is locked while
- * open. Rendered only below 768px (`md:hidden`) regardless of the `open` value.
+ * Escape closes; focus moves into the panel on open and returns to the
+ * trigger on close; Tab is trapped inside while open (T-UX-005); body scroll
+ * is locked while open. Rendered only below 768px (`md:hidden`) regardless of
+ * the `open` value.
  */
 
 import * as React from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useDialogA11y } from "@/lib/useDialogA11y";
 
 export interface FilterDrawerProps {
   open: boolean;
@@ -43,25 +46,15 @@ export function FilterDrawer({
 }: FilterDrawerProps) {
   const panelRef = React.useRef<HTMLDivElement>(null);
 
-  React.useEffect(() => {
-    if (!open) return;
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", handleKeyDown);
-    document.body.style.overflow = "hidden";
-    panelRef.current?.focus();
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = "";
-    };
-  }, [open, onClose]);
+  // Trap + Escape + initial focus (the panel itself, as before) + restore to
+  // the trigger on close — shared behavior via useDialogA11y (T-UX-005).
+  useDialogA11y(panelRef, { isOpen: open, onClose, initialFocusRef: panelRef });
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 md:hidden">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden="true" />
+    <div className="fixed inset-0 z-(--z-modal) md:hidden">
+      <div className="absolute inset-0 bg-scrim" onClick={onClose} aria-hidden="true" />
       <div
         ref={panelRef}
         role="dialog"

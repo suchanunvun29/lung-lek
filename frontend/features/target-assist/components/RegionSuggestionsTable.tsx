@@ -49,11 +49,11 @@ export function RegionSuggestionsTable({ regions }: RegionSuggestionsTableProps)
                 <span className="font-medium text-text-primary">{formatTargetMoney(region.r)}</span> บาท/เดือน
               </span>
               <span>
-                Σ suggested − R ={" "}
+                ผลรวมเป้าที่เสนอเทียบเป้าอ้างอิง ={" "}
                 <span className={`font-medium ${region.differenceFromR === 0 ? "text-text-primary" : "text-warning"}`}>
                   {formatSignedMoney(region.differenceFromR)}
                 </span>{" "}
-                บาท/เดือน (ระบบไม่ renormalize ให้ลงตัว — ผู้จัดการเป็นผู้เกลี่ยเอง)
+                บาท/เดือน (ระบบไม่ปรับยอดรวมให้อัตโนมัติ — ผู้จัดการเป็นผู้เกลี่ยเอง)
               </span>
             </div>
           </header>
@@ -65,15 +65,15 @@ export function RegionSuggestionsTable({ regions }: RegionSuggestionsTableProps)
                   <th className="px-4 py-3">เขต</th>
                   <th className="px-4 py-3">ศักยภาพ</th>
                   <th className="px-4 py-3">ส่วนแบ่งศักยภาพ</th>
-                  <th className="px-4 py-3">coverage เขต</th>
+                  <th className="px-4 py-3">ความครอบคลุมข้อมูลเขต</th>
                   <th className="px-4 py-3">ประวัติ ก่อนตัด</th>
                   <th className="px-4 py-3">ประวัติ หลังตัด</th>
-                  <th className="px-4 py-3">historyBased /เดือน</th>
-                  <th className="px-4 py-3">potentialBased /เดือน</th>
-                  <th className="px-4 py-3">ส่วนต่าง hist−pot</th>
-                  <th className="px-4 py-3">w (น้ำหนักศักยภาพ)</th>
-                  <th className="px-4 py-3">suggested /เดือน</th>
-                  <th className="px-4 py-3">penetration (บาท/หน่วยศักยภาพ)</th>
+                  <th className="px-4 py-3">ฐานประวัติยอดขาย /เดือน</th>
+                  <th className="px-4 py-3">ฐานศักยภาพ /เดือน</th>
+                  <th className="px-4 py-3">ส่วนต่างสองฐาน</th>
+                  <th className="px-4 py-3">น้ำหนักศักยภาพ</th>
+                  <th className="px-4 py-3">เป้าที่เสนอ /เดือน</th>
+                  <th className="px-4 py-3">ยอดขายต่อหน่วยศักยภาพ</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
   getTargetSuggestions,
   reinstateDeal,
@@ -29,6 +29,9 @@ import { PageHeader } from "@/components/shared/layout/PageHeader";
 import { Breadcrumb } from "@/components/shared/navigation/Breadcrumb";
 import { InlineMessage } from "@/components/shared/feedback/InlineMessage";
 import { SkeletonCard } from "@/components/shared/feedback/Skeleton";
+import { EmptyState } from "@/components/shared/feedback/EmptyState";
+import { useAbortableEffect } from "@/lib/useAbortableEffect";
+import { toast } from "@/components/shared/feedback/toast/ToastProvider";
 
 const YEAR_OFFSETS = [-1, 0, 1];
 const MONTHS = Array.from({ length: 12 }, (_, index) => index + 1);
@@ -54,6 +57,7 @@ export default function TargetAssistPage() {
   const [loading, setLoading] = useState(true);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
 
   const [growthRateInput, setGrowthRateInput] = useState("");
   const [growthRateError, setGrowthRateError] = useState<string | null>(null);
@@ -66,34 +70,61 @@ export default function TargetAssistPage() {
   const [existingByTerritoryId, setExistingByTerritoryId] = useState<Map<number, Target>>(new Map());
   const [savingTerritoryId, setSavingTerritoryId] = useState<number | null>(null);
 
-  const loadSavedTargets = useCallback(async () => {
-    if (!token) return;
-    try {
-      const data = await listTargets(token, year, "TERRITORY");
-      setExistingByTerritoryId(
-        new Map(
-          data.targets
-            .filter((target) => target.territoryId !== null)
-            .map((target) => [target.territoryId as number, target])
-        )
-      );
-    } catch {
-      // Saved targets only enrich the accept panel ("เป้าปัจจุบัน" column) — the assist table works without them.
-    }
-  }, [token, year]);
+  useAbortableEffect(
+    async (signal) => {
+      if (!token) return;
+      try {
+        const data = await getEvaluationSetting(token, signal);
+        if (signal.aborted) return;
+        if (!growthRateTouchedRef.current) setGrowthRateInput(data.setting.targetGrowthRate);
+      } catch {
+        // Keep the field empty — omitting the parameter is the same fallback.
+      }
+    },
+    [token]
+  );
 
-  const runFetch = useCallback(
-    async (requestedMode: SuggestionMode) => {
+  useAbortableEffect(
+    async (signal) => {
+      if (!token) return;
+      try {
+        const data = await listTargets(token, year, "TERRITORY", signal);
+        if (signal.aborted) return;
+        setExistingByTerritoryId(
+          new Map(
+            data.targets
+              .filter((target) => target.territoryId !== null)
+              .map((target) => [target.territoryId as number, target])
+          )
+        );
+      } catch {
+        // Saved targets only enrich the accept panel ("เป้าปัจจุบัน" column) — the assist table works without them.
+      }
+    },
+    [token, year, reloadNonce]
+  );
+
+  useAbortableEffect(
+    async (signal) => {
       if (!token || !isManager) return;
       setLoading(true);
       try {
-        const data = await getTargetSuggestions(token, year, month, requestedMode, growthRateOverrideRef.current);
+        const data = await getTargetSuggestions(
+          token,
+          year,
+          month,
+          mode,
+          growthRateOverrideRef.current,
+          signal
+        );
+        if (signal.aborted) return;
         setPreview(data);
         setReinstated(new Set());
         setErrorBanner(null);
       } catch (err) {
+        if (signal.aborted) return;
         const message = getErrorMessage(err, "โหลดตัวช่วยตั้งเป้าไม่สำเร็จ");
-        if (requestedMode === "REBALANCE") {
+        if (mode === "REBALANCE") {
           setErrorBanner(message);
           setMode("SUGGEST");
         } else {
@@ -101,46 +132,20 @@ export default function TargetAssistPage() {
           setPreview(null);
         }
       } finally {
-        setLoading(false);
+        if (!signal.aborted) {
+          setLoading(false);
+        }
       }
     },
-    [token, isManager, year, month]
+    [token, isManager, year, month, mode, reloadNonce]
   );
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setMode("SUGGEST");
-      void runFetch("SUGGEST");
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [runFetch]);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void loadSavedTargets();
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [loadSavedTargets]);
-
-  useEffect(() => {
-    if (!token) return;
-    const timer = window.setTimeout(async () => {
-      try {
-        const data = await getEvaluationSetting(token);
-        if (!growthRateTouchedRef.current) setGrowthRateInput(data.setting.targetGrowthRate);
-      } catch {
-        // Keep the field empty — omitting the parameter is the same fallback.
-      }
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [token]);
 
   function handleApplyGrowthRate() {
     const text = growthRateInput.trim();
     if (text === "") {
       setGrowthRateError(null);
       growthRateOverrideRef.current = undefined;
-      void runFetch(mode);
+      setReloadNonce((n) => n + 1);
       return;
     }
     const parsed = Number(text);
@@ -150,13 +155,12 @@ export default function TargetAssistPage() {
     }
     setGrowthRateError(null);
     growthRateOverrideRef.current = parsed;
-    void runFetch(mode);
+    setReloadNonce((n) => n + 1);
   }
 
   function handleModeChange(next: SuggestionMode) {
     if (next === mode) return;
     setMode(next);
-    void runFetch(next);
   }
 
   async function handleToggleDeal(invoiceNo: string) {
@@ -193,7 +197,19 @@ export default function TargetAssistPage() {
         revenueTarget,
         newCustomerTarget: existingByTerritoryId.get(territoryId)?.newCustomerTarget ?? 0,
       });
-      await loadSavedTargets();
+      const data = await listTargets(token, year, "TERRITORY");
+      setExistingByTerritoryId(
+        new Map(
+          data.targets
+            .filter((target) => target.territoryId !== null)
+            .map((target) => [target.territoryId as number, target])
+        )
+      );
+      // T-UX-012 — สำเร็จต้องมีข้อความ ไม่ใช่แค่สีเขียวของช่อง (1.4.1 Use of Color)
+      const territoryName = preview?.totals.find((t) => t.territoryId === territoryId)?.territoryName;
+      toast.success(
+        `รับข้อเสนอเขต ${territoryName ?? territoryId} แล้ว — บันทึกเป้า ${formatTargetMoney(revenueTarget)} เป็นที่เรียบร้อย`
+      );
       return true;
     } catch (err) {
       setActionError(getErrorMessage(err, "บันทึกเป้าระดับเขตไม่สำเร็จ"));
@@ -226,8 +242,20 @@ export default function TargetAssistPage() {
 
       <PageHeader
         title="ตัวช่วยตั้งเป้า"
-        description="เทียบฐานประวัติ (historyBased) กับฐานศักยภาพ (potentialBased) รายเขตในแต่ละภาค พร้อมตัวเลขที่ระบบเสนอ (suggested) — ตัวเลขจะถูกเขียนลงเป้าจริงเมื่อผู้จัดการกดรับข้อเสนอเท่านั้น"
+        description="เปรียบเทียบฐานประวัติยอดขายกับฐานศักยภาพรายเขตในแต่ละภาค พร้อมตัวเลขเป้าที่ระบบเสนอ — ตัวเลขจะถูกเขียนลงเป้าจริงเมื่อผู้จัดการกดรับข้อเสนอเท่านั้น"
       />
+
+      <aside className="mb-6 rounded-lg border border-border bg-surface-subtle p-4" aria-labelledby="target-assist-glossary">
+        <h2 id="target-assist-glossary" className="text-sm font-semibold text-text-primary">
+          คำศัพท์ในตัวช่วยตั้งเป้า
+        </h2>
+        <dl className="mt-2 grid gap-2 text-xs text-text-secondary sm:grid-cols-2">
+          <div><dt className="font-medium text-text-primary">ฐานประวัติยอดขาย (Historical baseline)</dt><dd>ยอดเฉลี่ยหลังตัดบิลผิดปกติ</dd></div>
+          <div><dt className="font-medium text-text-primary">ฐานศักยภาพ (Potential baseline)</dt><dd>ยอดตามสัดส่วนศักยภาพของเขต</dd></div>
+          <div><dt className="font-medium text-text-primary">เป้าที่เสนอ (Suggested target)</dt><dd>ตัวเลขผสมตามน้ำหนักที่ตั้งไว้</dd></div>
+          <div><dt className="font-medium text-text-primary">ความครอบคลุมข้อมูล (Coverage)</dt><dd>สัดส่วนยอดที่มีข้อมูลศักยภาพ</dd></div>
+        </dl>
+      </aside>
 
       {/* Pattern F: Sticky Parameter Bar */}
       <div className="sticky top-14 z-20 -mx-4 sm:-mx-6 px-4 sm:px-6 py-3 mb-6 bg-surface/95 backdrop-blur-xs border-y border-border shadow-xs">
@@ -295,7 +323,19 @@ export default function TargetAssistPage() {
         {growthRateError && <p className="mt-2 text-xs text-danger">{growthRateError}</p>}
       </div>
 
-      {errorBanner && (
+      {errorBanner && !preview && (
+        <div className="mb-6">
+          <EmptyState
+            variant="error"
+            title="โหลดตัวช่วยตั้งเป้าไม่สำเร็จ"
+            description={errorBanner}
+            onRetry={() => setReloadNonce((n) => n + 1)}
+            isRetrying={loading}
+          />
+        </div>
+      )}
+
+      {errorBanner && preview && (
         <div className="mb-6">
           <InlineMessage variant="destructive">{errorBanner}</InlineMessage>
         </div>
@@ -343,13 +383,13 @@ export default function TargetAssistPage() {
                     </dd>
                   </div>
                   <div className="flex justify-between gap-2 border-b border-border/40 py-1">
-                    <dt className="text-text-muted">coverage ขั้นต่ำของภาค</dt>
+                    <dt className="text-text-muted">ความครอบคลุมข้อมูลขั้นต่ำของภาค</dt>
                     <dd className="font-medium text-text-primary font-numeric">
                       {formatRatioPercent(preview.settings.minRegionCoverage)}
                     </dd>
                   </div>
                   <div className="flex justify-between gap-2 border-b border-border/40 py-1">
-                    <dt className="text-text-muted">เกณฑ์ตัด outlier</dt>
+                    <dt className="text-text-muted">เกณฑ์ตัดบิลยอดสูงผิดปกติ</dt>
                     <dd className="font-medium text-text-primary font-numeric">
                       {formatRatioPercent(preview.settings.targetOutlierThreshold)}
                     </dd>
@@ -399,12 +439,12 @@ export default function TargetAssistPage() {
                       ?
                     </span>
                     <div className="invisible group-hover:visible group-focus:visible absolute left-0 bottom-full mb-2 w-80 p-2.5 bg-surface text-text-secondary text-xs rounded-md shadow-lg border border-border z-30 pointer-events-none">
-                      ยอดจากโรงพยาบาลที่ยังไม่มีการ map จังหวัด → ภาค ผ่านฝั่งประวัติ 100% ไม่เข้าสูตรศักยภาพและไม่เข้า R ของภาคใด (ผ่าน 100% ไม่ถูก blend หรือ gate)
+                      ยอดจากโรงพยาบาลที่ยังไม่ได้เชื่อมจังหวัดกับภาค จะใช้ฐานประวัติ 100% โดยไม่เข้าสูตรศักยภาพหรือเป้าอ้างอิงของภาค
                     </div>
                   </div>
                 </div>
                 <p className="mb-3 text-xs text-text-muted">
-                  ยอดจากโรงพยาบาลที่ยังไม่มีการ map จังหวัด → ภาค ผ่านฝั่งประวัติ 100% ไม่เข้าสูตรศักยภาพและไม่เข้า R ของภาคใด
+                  ยอดจากโรงพยาบาลที่ยังไม่ได้เชื่อมจังหวัดกับภาค จะใช้ฐานประวัติ 100% โดยไม่เข้าสูตรศักยภาพหรือเป้าอ้างอิงของภาค
                 </p>
                 <div className="overflow-x-auto rounded-md border border-border bg-surface">
                   <table className="min-w-full divide-y divide-border text-sm">
@@ -412,7 +452,7 @@ export default function TargetAssistPage() {
                       <tr>
                         <th className="px-4 py-3">เขต</th>
                         <th className="px-4 py-3">ยอด / เดือน</th>
-                        <th className="px-4 py-3">จำนวนโรงพยาบาลที่ยังไม่ได้ map</th>
+                        <th className="px-4 py-3">จำนวนโรงพยาบาลที่ยังไม่ได้เชื่อมภาค</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">

@@ -1,5 +1,6 @@
 import { request } from "@/lib/api-client";
 import {
+  AppendDryRunResponse,
   ImportBatch,
   PeriodDryRunResponse,
   PeriodImportConfirmedResponse,
@@ -12,10 +13,23 @@ export interface ReplacePeriodImportInput {
   confirm: boolean;
 }
 
+/**
+ * T-UX-027 — APPEND also takes confirm now: confirm=false returns a dry-run preview,
+ * confirm=true commits. The confirm step re-uploads the same file (stateless, per task
+ * direction) so the preview and the commit see identical data.
+ */
+export interface AppendImportInput {
+  mode: "APPEND";
+  confirm: boolean;
+}
+
+export type UploadImportInput = ReplacePeriodImportInput | AppendImportInput;
+
 export type UploadImportResponse =
   | { importBatch: ImportBatch }
   | PeriodDryRunResponse
-  | PeriodImportConfirmedResponse;
+  | PeriodImportConfirmedResponse
+  | AppendDryRunResponse;
 
 export interface PeriodDeleteInput {
   targetPeriods: PeriodTouched[];
@@ -27,18 +41,16 @@ export type PeriodDeleteResponse = PeriodDryRunResponse | PeriodImportConfirmedR
 export function uploadImportFile(
   token: string,
   file: File,
-  input?: ReplacePeriodImportInput
+  input: UploadImportInput = { mode: "APPEND", confirm: true }
 ) {
   const formData = new FormData();
   formData.append("file", file);
-  let path = "/import";
-  if (input) {
-    formData.append("mode", input.mode);
+  formData.append("mode", input.mode);
+  if (input.mode === "REPLACE_PERIOD") {
     formData.append("targetPeriods", JSON.stringify(input.targetPeriods));
-    // The backend validates `confirm` from the query string (see import.routes.ts), not the body.
-    path += `?confirm=${input.confirm}`;
   }
-  return request<UploadImportResponse>(path, { method: "POST", body: formData }, token);
+  // The backend validates `confirm` from the query string (see import.routes.ts), not the body.
+  return request<UploadImportResponse>(`/import?confirm=${input.confirm}`, { method: "POST", body: formData }, token);
 }
 
 export function deleteImportPeriods(token: string, input: PeriodDeleteInput) {
@@ -53,6 +65,24 @@ export function listImportBatches(token: string, signal?: AbortSignal) {
   return request<{ importBatches: ImportBatch[] }>("/import-batches", { method: "GET", signal }, token);
 }
 
-export function getImportBatch(token: string, id: string) {
-  return request<{ importBatch: ImportBatch }>(`/import-batches/${id}`, { method: "GET" }, token);
+/** T-UX-025 — server pagination; total counts after the status/q filters. */
+export function listImportBatchesPage(
+  token: string,
+  params: { page: number; pageSize: number; status?: string; q?: string },
+  signal?: AbortSignal
+) {
+  const search = new URLSearchParams();
+  search.set("page", String(params.page));
+  search.set("pageSize", String(params.pageSize));
+  if (params.status && params.status !== "ALL") search.set("status", params.status);
+  if (params.q && params.q.trim() !== "") search.set("q", params.q.trim());
+  return request<{ items: ImportBatch[]; total: number; page: number; pageSize: number }>(
+    `/import-batches?${search.toString()}`,
+    { method: "GET", signal },
+    token
+  );
+}
+
+export function getImportBatch(token: string, id: string, signal?: AbortSignal) {
+  return request<{ importBatch: ImportBatch }>(`/import-batches/${id}`, { method: "GET", signal }, token);
 }

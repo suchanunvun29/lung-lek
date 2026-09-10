@@ -27,8 +27,8 @@ export function EvaluationSettingReadOnly({ setting }: EvaluationSettingReadOnly
         </div>
         <dl className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           <div className="p-3 rounded-[var(--radius-md)] bg-[var(--surface-subtle)]">
-            <dt className="text-xs text-[var(--text-muted)]">
-              เกณฑ์ตัดสินลูกค้าหยุดสั่งซื้อ (churnMonths)
+            <dt title="churnMonths" className="text-xs text-[var(--text-muted)]">
+              จำนวนเดือนที่ไม่สั่งซื้อถือว่าหยุดเป็นลูกค้า
             </dt>
             <dd className="font-semibold text-base text-[var(--text-primary)] mt-1">
               {setting.churnMonths} เดือน
@@ -38,8 +38,8 @@ export function EvaluationSettingReadOnly({ setting }: EvaluationSettingReadOnly
             </p>
           </div>
           <div className="p-3 rounded-[var(--radius-md)] bg-[var(--surface-subtle)]">
-            <dt className="text-xs text-[var(--text-muted)]">
-              ข้อมูลย้อนหลังขั้นต่ำ Retention (minMonthsForChurn)
+            <dt title="minMonthsForChurn" className="text-xs text-[var(--text-muted)]">
+              จำนวนเดือนขั้นต่ำสำหรับวัดการรักษาลูกค้า
             </dt>
             <dd className="font-semibold text-base text-[var(--text-primary)] mt-1">
               {setting.minMonthsForChurn} เดือน
@@ -49,8 +49,8 @@ export function EvaluationSettingReadOnly({ setting }: EvaluationSettingReadOnly
             </p>
           </div>
           <div className="p-3 rounded-[var(--radius-md)] bg-[var(--surface-subtle)] md:col-span-2">
-            <dt className="text-xs text-[var(--text-muted)]">
-              ข้อมูลย้อนหลังขั้นต่ำ Consistency (minMonthsForConsistency)
+            <dt title="minMonthsForConsistency" className="text-xs text-[var(--text-muted)]">
+              จำนวนเดือนขั้นต่ำสำหรับวัดความสม่ำเสมอ
             </dt>
             <dd className="font-semibold text-base text-[var(--text-primary)] mt-1">
               {setting.minMonthsForConsistency} เดือน
@@ -72,8 +72,8 @@ export function EvaluationSettingReadOnly({ setting }: EvaluationSettingReadOnly
         </div>
         <dl className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           <div className="p-3 rounded-[var(--radius-md)] bg-[var(--surface-subtle)]">
-            <dt className="text-xs text-[var(--text-muted)]">
-              สรุปจุดแข็ง/จุดที่ควรพัฒนาด้วย AI (aiEnabled)
+            <dt title="aiEnabled" className="text-xs text-[var(--text-muted)]">
+              วิเคราะห์จุดแข็งและโอกาสพัฒนาด้วย AI
             </dt>
             <dd className="font-semibold text-base text-[var(--text-primary)] mt-1">
               {setting.aiEnabled ? "เปิดใช้งาน" : "ปิดใช้งาน"}
@@ -83,8 +83,8 @@ export function EvaluationSettingReadOnly({ setting }: EvaluationSettingReadOnly
             </p>
           </div>
           <div className="p-3 rounded-[var(--radius-md)] bg-[var(--surface-subtle)]">
-            <dt className="text-xs text-[var(--text-muted)]">
-              ปิดบังข้อมูลระบุตัวบุคคลก่อนส่ง AI (aiAnonymize)
+            <dt title="aiAnonymize" className="text-xs text-[var(--text-muted)]">
+              ปิดบังข้อมูลระบุตัวบุคคลก่อนส่ง AI
             </dt>
             <dd className="font-semibold text-base text-[var(--text-primary)] mt-1">
               {setting.aiAnonymize ? "เปิดใช้งาน" : "ปิดใช้งาน"}
@@ -106,8 +106,8 @@ export function EvaluationSettingReadOnly({ setting }: EvaluationSettingReadOnly
         </div>
         <dl className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           <div className="p-3 rounded-[var(--radius-md)] bg-[var(--surface-subtle)]">
-            <dt className="text-xs text-[var(--text-muted)]">
-              ตัวชี้วัดศักยภาพหลักจากทะเบียน (potentialMetric)
+            <dt title="potentialMetric" className="text-xs text-[var(--text-muted)]">
+              ตัวชี้วัดหลักสำหรับประเมินศักยภาพ
             </dt>
             <dd className="font-semibold text-base text-[var(--text-primary)] mt-1">
               {POTENTIAL_METRIC_LABEL_TH[setting.potentialMetric]}
@@ -117,8 +117,8 @@ export function EvaluationSettingReadOnly({ setting }: EvaluationSettingReadOnly
             </p>
           </div>
           <div className="p-3 rounded-[var(--radius-md)] bg-[var(--surface-subtle)]">
-            <dt className="text-xs text-[var(--text-muted)]">
-              ความครอบคลุมขั้นต่ำของภาค (minRegionCoverage)
+            <dt title="minRegionCoverage" className="text-xs text-[var(--text-muted)]">
+              สัดส่วนข้อมูลขั้นต่ำของภาค
             </dt>
             <dd className="font-semibold text-base text-[var(--text-primary)] mt-1 tabular-nums">
               {formatDecimal(setting.minRegionCoverage)}
@@ -140,8 +140,8 @@ export function EvaluationSettingReadOnly({ setting }: EvaluationSettingReadOnly
         </div>
         <dl className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           <div className="p-3 rounded-[var(--radius-md)] bg-[var(--surface-subtle)]">
-            <dt className="text-xs text-[var(--text-muted)]">
-              สัดส่วนฐานประวัติ α (targetSuggestionAlpha)
+            <dt title="targetSuggestionAlpha" className="text-xs text-[var(--text-muted)]">
+              สัดส่วนประวัติยอดขายที่ใช้เสนอเป้า
             </dt>
             <dd className="font-semibold text-base text-[var(--text-primary)] mt-1 tabular-nums">
               {formatDecimal(setting.targetSuggestionAlpha)}
@@ -151,8 +151,8 @@ export function EvaluationSettingReadOnly({ setting }: EvaluationSettingReadOnly
             </p>
           </div>
           <div className="p-3 rounded-[var(--radius-md)] bg-[var(--surface-subtle)]">
-            <dt className="text-xs text-[var(--text-muted)]">
-              จำนวนเดือนย้อนหลังของฐานประวัติ (targetLookbackMonths)
+            <dt title="targetLookbackMonths" className="text-xs text-[var(--text-muted)]">
+              จำนวนเดือนย้อนหลังที่ใช้เสนอเป้า
             </dt>
             <dd className="font-semibold text-base text-[var(--text-primary)] mt-1">
               {setting.targetLookbackMonths} เดือน
@@ -162,8 +162,8 @@ export function EvaluationSettingReadOnly({ setting }: EvaluationSettingReadOnly
             </p>
           </div>
           <div className="p-3 rounded-[var(--radius-md)] bg-[var(--surface-subtle)]">
-            <dt className="text-xs text-[var(--text-muted)]">
-              สัดส่วนบิลผิดปกติ Outlier (targetOutlierThreshold)
+            <dt title="targetOutlierThreshold" className="text-xs text-[var(--text-muted)]">
+              สัดส่วนบิลสูงผิดปกติที่ต้องตัดออก
             </dt>
             <dd className="font-semibold text-base text-[var(--text-primary)] mt-1 tabular-nums">
               {formatDecimal(setting.targetOutlierThreshold)}
@@ -173,8 +173,8 @@ export function EvaluationSettingReadOnly({ setting }: EvaluationSettingReadOnly
             </p>
           </div>
           <div className="p-3 rounded-[var(--radius-md)] bg-[var(--surface-subtle)]">
-            <dt className="text-xs text-[var(--text-muted)]">
-              อัตราเติบโตเป้าหมาย (targetGrowthRate)
+            <dt title="targetGrowthRate" className="text-xs text-[var(--text-muted)]">
+              อัตราเติบโตที่ใช้คำนวณเป้าหมาย
             </dt>
             <dd className="font-semibold text-base text-[var(--text-primary)] mt-1 tabular-nums">
               {formatDecimal(setting.targetGrowthRate)}

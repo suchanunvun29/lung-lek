@@ -23,7 +23,9 @@ export function AuthGuard({ children }: AuthGuardProps) {
   useEffect(() => {
     if (!hasHydrated) return;
     if (!token || !user) {
-      router.replace("/login");
+      // Preserve where the user was trying to go so login can send them back.
+      const next = encodeURIComponent(`${window.location.pathname}${window.location.search}`);
+      router.replace(`/login?next=${next}`);
       return;
     }
     if (user.mustChangePassword) {

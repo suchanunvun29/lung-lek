@@ -34,8 +34,8 @@ export interface KpiTileProps {
 
 const VALUE_COLOR: Record<NonNullable<KpiTileProps["status"]>, string> = {
   default: "text-[var(--text-primary)]",
-  positive: "text-emerald-700",
-  warning: "text-amber-700",
+  positive: "text-success-text",
+  warning: "text-warning-text",
 };
 
 export function KpiTile({
@@ -58,7 +58,7 @@ export function KpiTile({
         )}
       </div>
       <p className="mt-1">
-        <span className={`text-3xl font-semibold ${VALUE_COLOR[status]}`}>{value}</span>
+        <span className={`font-kpi-lg ${VALUE_COLOR[status]}`}>{value}</span>
         {unit && <span className="ml-1.5 text-sm text-[var(--text-secondary)]">{unit}</span>}
       </p>
       {comparison && (

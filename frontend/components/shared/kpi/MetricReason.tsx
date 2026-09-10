@@ -31,7 +31,7 @@ export function MetricReason({ label, reason, className }: MetricReasonProps) {
   if (!reason && !label) return null;
 
   return (
-    <p className={cn("text-xs text-amber-700", className)}>
+    <p className={cn("text-xs text-warning-text", className)}>
       {label && <span className="font-medium">{label}{reason ? ": " : ""}</span>}
       {reason}
     </p>

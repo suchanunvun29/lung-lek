@@ -95,6 +95,10 @@ public static class KpiEndpoints
             {
                 hospitalId = hId;
             }
+            else
+            {
+                return TerritoryEndpoints.Invalid("hospitalId ไม่ถูกต้อง");
+            }
         }
 
         var user = currentUserService.User!;

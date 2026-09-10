@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { docsUrl } from "@/lib/docs";
 
 export interface UploadFormProps {
   onUpload: (file: File) => Promise<void>;
@@ -43,6 +44,15 @@ export function UploadForm({ onUpload, disabled }: UploadFormProps) {
   return (
     <div className="rounded-lg border border-border bg-surface p-6">
       <div
+        role="button"
+        tabIndex={disabled ? -1 : 0}
+        aria-disabled={disabled}
+        onKeyDown={(e) => {
+          if (!disabled && (e.key === "Enter" || e.key === " ")) {
+            e.preventDefault();
+            inputRef.current?.click();
+          }
+        }}
         onDragOver={(e) => {
           e.preventDefault();
           setIsDragging(true);
@@ -53,8 +63,10 @@ export function UploadForm({ onUpload, disabled }: UploadFormProps) {
           setIsDragging(false);
           pickFile(e.dataTransfer.files?.[0]);
         }}
-        onClick={() => inputRef.current?.click()}
-        className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-10 text-center transition-colors ${
+        onClick={() => {
+          if (!disabled) inputRef.current?.click();
+        }}
+        className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-10 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
           isDragging ? "border-primary bg-surface-subtle" : "border-border"
         }`}
       >
@@ -71,6 +83,20 @@ export function UploadForm({ onUpload, disabled }: UploadFormProps) {
         <p className="text-xs text-text-muted">รองรับไฟล์ .xlsx เท่านั้น ขนาดไม่เกิน 20MB</p>
       </div>
 
+      {!selectedFile && (
+        <p className="mt-3 text-center text-xs text-text-muted">
+          ไม่แน่ใจเรื่องรูปแบบไฟล์หรือขั้นตอน?{" "}
+          <a
+            href={docsUrl("/tasks/import-monthly-sales")}
+            target="_blank"
+            rel="noopener"
+            className="font-medium text-primary underline-offset-2 hover:underline"
+          >
+            ดูคู่มือการนำเข้าข้อมูล
+          </a>
+        </p>
+      )}
+
       {error && <p className="mt-3 text-sm text-danger">{error}</p>}
 
       <div className="mt-4 flex justify-end">
@@ -80,7 +106,7 @@ export function UploadForm({ onUpload, disabled }: UploadFormProps) {
           onClick={() => void handleUploadClick()}
           className="disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {isUploading ? "กำลังนำเข้า..." : "นำเข้าไฟล์"}
+          {isUploading ? "กำลังตรวจสอบ..." : "ตรวจสอบก่อนนำเข้า"}
         </Button>
       </div>
     </div>

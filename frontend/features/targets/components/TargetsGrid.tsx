@@ -62,6 +62,8 @@ export interface TargetsGridProps {
   ) => Promise<boolean>;
   onOpenProductGroups?: (target: Target) => void;
   onViewHistory?: (target: Target) => void;
+  /** Reports the unsaved-cell count so the page can guard context switches (e.g. changing the year). */
+  onDirtyCountChange?: (count: number) => void;
 }
 
 interface BulkFailure {
@@ -90,6 +92,7 @@ export function TargetsGrid({
   onSave,
   onOpenProductGroups,
   onViewHistory,
+  onDirtyCountChange,
 }: TargetsGridProps) {
   const [drafts, setDrafts] = useState<Record<string, TargetCellDraft | undefined>>({});
   const [savingAll, setSavingAll] = useState(false);
@@ -113,6 +116,11 @@ export function TargetsGrid({
     [drafts, targetsByKey]
   );
   const dirtyCount = dirtyEntries.length;
+
+  // Let the page guard context switches (year change) while drafts exist.
+  useEffect(() => {
+    onDirtyCountChange?.(dirtyCount);
+  }, [dirtyCount, onDirtyCountChange]);
 
   // Warn before leaving with unsaved edits.
   useEffect(() => {
@@ -223,7 +231,7 @@ export function TargetsGrid({
         }`}
         role="status"
       >
-        <p className="text-sm font-medium text-warning">
+        <p className="text-sm font-medium text-warning-text">
           มี {dirtyCount.toLocaleString("th-TH")} ช่องยังไม่บันทึก — ออกจากหน้านี้โดยไม่บันทึกแล้วข้อมูลที่แก้ไขจะหาย
         </p>
         <div className="flex gap-2 sm:ml-auto">
@@ -248,7 +256,7 @@ export function TargetsGrid({
           </Button>
         </div>
         {bulkFailures && (
-          <ul className="w-full space-y-1 text-xs text-danger">
+          <ul className="w-full space-y-1 text-xs text-danger-text">
             {bulkFailures.map((failure, index) => (
               <li key={`${failure.ownerName}-${failure.month}-${index}`}>
                 {failure.ownerName} — {formatThaiMonth(failure.month)}: {failure.reason}

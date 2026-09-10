@@ -108,6 +108,15 @@ public class TargetRevisionsResponse
     public List<TargetRevisionDto> Revisions { get; set; } = new();
 }
 
+/// <summary>GET /targets/{id}/revisions?page=&pageSize= — T-UX-025; same shape as the other paginated lists.</summary>
+public class TargetRevisionsPageResponse
+{
+    public List<TargetRevisionDto> Items { get; set; } = new();
+    public int Total { get; set; }
+    public int Page { get; set; }
+    public int PageSize { get; set; }
+}
+
 /// <summary>One contribution line of GET /targets/derived — a TERRITORY or TERRITORY_GROUP target split by active owners.</summary>
 public class DerivedTargetContributionDto
 {

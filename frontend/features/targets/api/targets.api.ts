@@ -30,8 +30,8 @@ export interface CopyTargetsResult {
   skipped: number[];
 }
 
-export function listTargets(token: string, year: number, scope: TargetScope = "SALESPERSON") {
-  return request<{ targets: Target[] }>(`/targets?year=${year}&scope=${scope}`, { method: "GET" }, token);
+export function listTargets(token: string, year: number, scope: TargetScope = "SALESPERSON", signal?: AbortSignal) {
+  return request<{ targets: Target[] }>(`/targets?year=${year}&scope=${scope}`, { method: "GET", signal }, token);
 }
 
 export function upsertTarget(
@@ -90,8 +90,17 @@ export function upsertTerritoryGroupTarget(
   );
 }
 
-export function listTargetRevisions(token: string, targetId: number) {
-  return request<{ revisions: TargetRevision[] }>(`/targets/${targetId}/revisions`, { method: "GET" }, token);
+export function listTargetRevisions(token: string, targetId: number, signal?: AbortSignal) {
+  return request<{ revisions: TargetRevision[] }>(`/targets/${targetId}/revisions`, { method: "GET", signal }, token);
+}
+
+/** T-UX-025 — server pagination, newest first. */
+export function listTargetRevisionsPage(token: string, targetId: number, page: number, pageSize: number, signal?: AbortSignal) {
+  return request<{ items: TargetRevision[]; total: number; page: number; pageSize: number }>(
+    `/targets/${targetId}/revisions?page=${page}&pageSize=${pageSize}`,
+    { method: "GET", signal },
+    token
+  );
 }
 
 export function copyTargets(token: string, input: CopyTargetsInput) {

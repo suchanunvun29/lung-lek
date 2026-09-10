@@ -182,13 +182,13 @@ export default function HospitalMovesPage() {
       />
 
       {!canEdit && (
-        <div className="rounded-lg border border-warning/30 bg-warning-subtle p-3 text-sm text-warning">
+        <div className="rounded-lg border border-warning/30 bg-warning-subtle p-3 text-sm text-warning-text">
           คุณดูข้อมูลได้เท่านั้น การแก้ไขสงวนไว้สำหรับผู้จัดการ
         </div>
       )}
 
       {error && (
-        <div className="rounded-lg border border-danger/30 bg-danger-subtle p-3 text-sm text-danger">
+        <div className="rounded-lg border border-danger/30 bg-danger-subtle p-3 text-sm text-danger-text">
           {error}
         </div>
       )}
@@ -299,7 +299,7 @@ export default function HospitalMovesPage() {
                 )}
 
                 {singleSuccess && (
-                  <p className="rounded-md border border-success/30 bg-success-subtle p-3 text-sm text-success font-medium">
+                  <p className="rounded-md border border-success/30 bg-success-subtle p-3 text-sm text-success-text font-medium">
                     {singleSuccess}
                   </p>
                 )}
@@ -364,7 +364,7 @@ export default function HospitalMovesPage() {
                 {province && (
                   <div className="rounded-md border border-border bg-surface-subtle p-3 text-sm">
                     <p className="font-medium text-text-primary">
-                      สรุปผลกระทบ (Preview):
+                      สรุปผลกระทบก่อนดำเนินการ:
                     </p>
                     <p className="mt-1 text-text-secondary">
                       มีโรงพยาบาลในจังหวัด{province} ทั้งหมด{" "}
@@ -395,7 +395,7 @@ export default function HospitalMovesPage() {
                 )}
 
                 {bulkSuccess && (
-                  <p className="rounded-md border border-success/30 bg-success-subtle p-3 text-sm text-success font-medium">
+                  <p className="rounded-md border border-success/30 bg-success-subtle p-3 text-sm text-success-text font-medium">
                     {bulkSuccess}
                   </p>
                 )}
@@ -410,7 +410,7 @@ export default function HospitalMovesPage() {
         <ConfirmDialog
           title="ยืนยันการย้ายโรงพยาบาลยกทั้งจังหวัด"
           description={`คุณกำลังจะย้ายโรงพยาบาลทั้งหมดในจังหวัด${province} จำนวน ${bulkHospitalCount.toLocaleString("th-TH")} แห่ง ไปยังเขต ${territoryName(bulkTerritoryId)}`}
-          consequence="การย้ายนี้จะมีผลต่อการจัดกลุ่มข้อมูลและการคำนวณ KPI ทันที และจะถูกบันทึกในประวัติการย้าย (HospitalTerritoryChange)"
+          consequence="การย้ายนี้จะมีผลต่อการจัดกลุ่มข้อมูลและการคำนวณ KPI ทันที และจะถูกบันทึกในประวัติการย้ายโรงพยาบาล"
           tone="danger"
           confirmLabel="ยืนยันย้ายทั้งจังหวัด"
           cancelLabel="ยกเลิก"

@@ -17,7 +17,7 @@
  * not happen.
  */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   HospitalNameReviewTable,
   SalesmanNameReviewTable,
@@ -39,6 +39,10 @@ import { PageHeader } from "@/components/shared/layout/PageHeader";
 import { InlineMessage } from "@/components/shared/feedback/InlineMessage";
 import { ConfirmDialog } from "@/components/shared/feedback/ConfirmDialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { EmptyState } from "@/components/shared/feedback/EmptyState";
+import { SkeletonTable } from "@/components/shared/feedback/Skeleton";
+import { useAbortableEffect } from "@/lib/useAbortableEffect";
+import { docsUrl } from "@/lib/docs";
 
 type Tab = "hospitals" | "credits" | "salesmen";
 
@@ -61,30 +65,39 @@ export default function NameReviewsPage() {
   const [pendingMerge, setPendingMerge] = useState<PendingMerge | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
 
-  useEffect(() => {
-    if (!token || user?.role !== "MANAGER") return;
-    let ignore = false;
-    Promise.all([listHospitalNameReviews(token), listSalesmanNameRules(token), listSalesmanNameReviews(token), listSalespeople(token)])
-      .then(([reviewsData, rulesData, salesmanReviewsData, salespeopleData]) => {
-        if (ignore) return;
+  useAbortableEffect(
+    async (signal) => {
+      if (!token || user?.role !== "MANAGER") return;
+      setLoading(true);
+      try {
+        const [reviewsData, rulesData, salesmanReviewsData, salespeopleData] = await Promise.all([
+          listHospitalNameReviews(token, signal),
+          listSalesmanNameRules(token, signal),
+          listSalesmanNameReviews(token, signal),
+          listSalespeople(token, signal),
+        ]);
+        if (signal.aborted) return;
         setHospitalReviews(reviewsData.hospitalNameReviews);
         setSalesmanRules(rulesData.salesmanNameRules);
         setSalesmanReviews(salesmanReviewsData.salesmanNameReviews);
         setMergeTargets(salespeopleData.salespeople.map((sp) => ({ id: sp.id, displayName: sp.displayName })));
-        setError(null);
-      })
-      .catch((loadError: unknown) => {
-        if (!ignore) setError(getErrorMessage(loadError, "โหลดคิวการยืนยันชื่อไม่สำเร็จ"));
-      })
-      .finally(() => {
-        if (!ignore) setLoading(false);
-      });
-    return () => {
-      ignore = true;
-    };
-  }, [token, user?.role]);
+        setLoadError(null);
+      } catch (err: unknown) {
+        if (!signal.aborted) {
+          setLoadError(getErrorMessage(err, "โหลดคิวการยืนยันชื่อไม่สำเร็จ"));
+        }
+      } finally {
+        if (!signal.aborted) {
+          setLoading(false);
+        }
+      }
+    },
+    [token, user?.role, reloadNonce]
+  );
 
   if (user?.role !== "MANAGER") {
     return <ForbiddenState reason="หน้านี้สำหรับผู้จัดการเท่านั้น" />;
@@ -92,31 +105,31 @@ export default function NameReviewsPage() {
 
   async function handleHospitalDecision(review: HospitalNameReview, decision: "MERGED" | "KEPT_SEPARATE") {
     if (!token) return;
-    setError(null);
+    setActionError(null);
     try {
       await decideHospitalNameReview(token, review.id, { decision });
       // Remove only after success — a failure keeps the row in the queue.
       setHospitalReviews((reviews) => reviews.filter((item) => item.id !== review.id));
       void refreshQueueCounts(token);
-    } catch (actionError) {
-      setError(getErrorMessage(actionError, "บันทึกการตัดสินใจไม่สำเร็จ — รายการยังอยู่ในคิวเดิม"));
+    } catch (err) {
+      setActionError(getErrorMessage(err, "บันทึกการตัดสินใจไม่สำเร็จ — รายการยังอยู่ในคิวเดิม"));
     }
   }
 
   async function handleRuleSave(rule: SalesmanNameRule, shares: number[]) {
     if (!token) return;
-    setError(null);
+    setActionError(null);
     try {
       const result = await updateSalesmanNameRule(token, rule.id, rule.members.map((member, index) => ({ salespersonId: member.salespersonId, sharePercent: shares[index] })));
       setSalesmanRules((rules) => rules.map((item) => item.id === rule.id ? result.salesmanNameRule : item));
-    } catch (actionError) {
-      setError(getErrorMessage(actionError, "บันทึกสัดส่วนเครดิตไม่สำเร็จ"));
+    } catch (err) {
+      setActionError(getErrorMessage(err, "บันทึกสัดส่วนเครดิตไม่สำเร็จ"));
     }
   }
 
   async function handleSalesmanReviewDecision(review: SalesmanNameReview, decision: { decision: "MERGED"; mergedIntoId: number } | { decision: "KEPT_SEPARATE" }) {
     if (!token) return;
-    setError(null);
+    setActionError(null);
     try {
       await decideSalesmanNameReview(token, review.id, decision);
       // MERGED deletes the duplicate person server-side; KEPT_SEPARATE keeps
@@ -124,8 +137,8 @@ export default function NameReviewsPage() {
       // the request resolves so a failure restores (never removed) the row.
       setSalesmanReviews((reviews) => reviews.filter((item) => item.id !== review.id));
       void refreshQueueCounts(token);
-    } catch (actionError) {
-      setError(getErrorMessage(actionError, "บันทึกการตัดสินใจไม่สำเร็จ — รายการยังอยู่ในคิวเดิม"));
+    } catch (err) {
+      setActionError(getErrorMessage(err, "บันทึกการตัดสินใจไม่สำเร็จ — รายการยังอยู่ในคิวเดิม"));
     }
   }
 
@@ -186,58 +199,88 @@ export default function NameReviewsPage() {
         }
       />
 
-      {error && (
+      {actionError && (
         <div className="mb-4">
-          <InlineMessage variant="destructive">{error}</InlineMessage>
+          <InlineMessage variant="destructive">{actionError}</InlineMessage>
         </div>
+      )}
+
+      {loadError && (
+        <EmptyState
+          headingLevel={2}
+          variant="error"
+          title="โหลดคิวการยืนยันชื่อไม่สำเร็จ"
+          description={loadError}
+          onRetry={() => setReloadNonce((n) => n + 1)}
+          isRetrying={loading}
+        />
       )}
 
       {loading ? (
-        <p className="mt-6 text-text-muted">กำลังโหลด...</p>
-      ) : (
-      <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)}>
-        <div className="overflow-x-auto">
-          <TabsList className="max-w-full">
-            <TabsTrigger value="hospitals">
-              ชื่อโรงพยาบาล{hospitalReviews.length > 0 ? ` (${hospitalReviews.length})` : ""}
-            </TabsTrigger>
-            <TabsTrigger value="credits">
-              เครดิตดีลร่วม{salesmanRules.length > 0 ? ` (${salesmanRules.length})` : ""}
-            </TabsTrigger>
-            <TabsTrigger value="salesmen">
-              พนักงานขาย{salesmanReviews.length > 0 ? ` (${salesmanReviews.length})` : ""}
-            </TabsTrigger>
-          </TabsList>
-        </div>
+        <SkeletonTable rows={6} columns={4} />
+      ) : !loadError && hospitalReviews.length === 0 && salesmanRules.length === 0 && salesmanReviews.length === 0 ? (
+        <EmptyState
+          headingLevel={2}
+          title="ไม่มีรายการที่ต้องยืนยัน"
+          description="เมื่อระบบพบชื่อที่อาจซ้ำจากการนำเข้า รายการจะปรากฏที่หน้านี้"
+          action={(
+            <a
+              href={docsUrl("/tasks/resolve-name-duplicates")}
+              target="_blank"
+              rel="noopener"
+              className="text-sm font-medium text-primary underline-offset-2 hover:underline"
+            >
+              ดูวิธีพิจารณาชื่อซ้ำ
+            </a>
+          )}
+        />
+      ) : !loadError ? (
+        <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)}>
+          <div className="overflow-x-auto">
+            <TabsList className="max-w-full">
+              <TabsTrigger value="hospitals">
+                ชื่อโรงพยาบาล{hospitalReviews.length > 0 ? ` (${hospitalReviews.length})` : ""}
+              </TabsTrigger>
+              <TabsTrigger value="credits">
+                เครดิตดีลร่วม{salesmanRules.length > 0 ? ` (${salesmanRules.length})` : ""}
+              </TabsTrigger>
+              <TabsTrigger value="salesmen">
+                พนักงานขาย{salesmanReviews.length > 0 ? ` (${salesmanReviews.length})` : ""}
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
-        <TabsContent value="hospitals" className="mt-4">
-          <HospitalNameReviewTable
-            reviews={hospitalReviews}
-            onDecide={handleHospitalDecision}
-            onRequestMerge={(review) => setPendingMerge({ kind: "hospital", hospitalReview: review })}
-          />
-        </TabsContent>
+          <TabsContent value="hospitals" className="mt-4">
+            <p className="mb-3 text-sm text-text-secondary">
+              โรงพยาบาลใหม่ที่นำเข้าตรงกับชื่อที่มีอยู่แล้ว — ตัดสินแล้วจะจำไว้สำหรับการนำเข้าครั้งถัดไป
+            </p>
+            <HospitalNameReviewTable
+              reviews={hospitalReviews}
+              onDecide={handleHospitalDecision}
+              onRequestMerge={(review) => setPendingMerge({ kind: "hospital", hospitalReview: review })}
+            />
+          </TabsContent>
 
-        <TabsContent value="credits" className="mt-4">
-          <p className="mb-3 text-sm text-text-secondary">
-            กติกาแบ่งเครดิตใช้กับดีลที่มีพนักงานขายร่วมกัน — สัดส่วนรวมต้องเท่ากับ 100%
-          </p>
-          <SalesmanNameRuleTable rules={salesmanRules} onSave={handleRuleSave} />
-        </TabsContent>
+          <TabsContent value="credits" className="mt-4">
+            <p className="mb-3 text-sm text-text-secondary">
+              กติกาแบ่งเครดิตใช้กับดีลที่มีพนักงานขายร่วมกัน — สัดส่วนรวมต้องเท่ากับ 100%
+            </p>
+            <SalesmanNameRuleTable rules={salesmanRules} onSave={handleRuleSave} />
+          </TabsContent>
 
-        <TabsContent value="salesmen" className="mt-4">
-          <p className="mb-3 text-sm text-text-secondary">
-            การ “รวม” จะย้ายดีล/เครดิตทั้งหมดไปยังคนเป้าหมายแล้วลบแถวที่ถูกสร้างซ้ำ — ตัดสินแล้วจะไม่ถามซ้ำ
-          </p>
-          <SalesmanNameReviewTable
-            reviews={salesmanReviews}
-            mergeTargets={mergeTargets}
-            onDecide={handleSalesmanKeepSeparate}
-            onRequestMerge={handleSalesmanMerge}
-          />
-        </TabsContent>
-      </Tabs>
-      )}
+          <TabsContent value="salesmen" className="mt-4">
+            <p className="mb-3 text-sm text-text-secondary">
+              การ “รวม” จะย้ายดีล/เครดิตทั้งหมดไปยังคนเป้าหมายแล้วลบแถวที่ถูกสร้างซ้ำ — ตัดสินแล้วจะไม่ถามซ้ำ
+            </p>
+            <SalesmanNameReviewTable
+              reviews={salesmanReviews}
+              mergeTargets={mergeTargets}
+              onDecide={handleSalesmanKeepSeparate}
+              onRequestMerge={handleSalesmanMerge}
+            />
+          </TabsContent>
+        </Tabs>
+      ) : null}
 
       {pendingMerge && (
         <ConfirmDialog

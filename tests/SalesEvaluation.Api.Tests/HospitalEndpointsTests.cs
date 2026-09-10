@@ -160,4 +160,116 @@ public class HospitalEndpointsTests : IClassFixture<CustomWebApplicationFactory>
         Assert.NotNull(result);
         Assert.NotNull(result.Hospitals);
     }
+
+    // ------------------------------------------------- T-UX-026 bulk assign
+
+    [Fact]
+    public async Task BulkAssignTerritory_WithManagerToken_AssignsAllAndReportsSuccess()
+    {
+        var token = _factory.CreateToken(_factory.ManagerUserId, UserRole.MANAGER);
+        SetBearerToken(token);
+
+        var payload = new { territoryId = _factory.TerritoryId2, hospitalIds = new[] { _factory.HospitalId2, _factory.HospitalId3 }, note = "T-UX-026 bulk" };
+        var response = await _client.PostAsJsonAsync("/hospitals/territory/bulk", payload);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var result = await response.Content.ReadFromJsonAsync<BulkAssignTerritoryResponse>(CustomWebApplicationFactory.DefaultJsonOptions);
+        Assert.NotNull(result);
+        Assert.Equal(2, result.RequestedCount);
+        Assert.Equal(2, result.AssignedCount);
+        Assert.Empty(result.Failed);
+        Assert.Equal(0, result.FailedCount);
+
+        // Verify persisted state through the list endpoint.
+        var hospitals = await _client.GetFromJsonAsync<HospitalsResponse>("/hospitals", CustomWebApplicationFactory.DefaultJsonOptions);
+        Assert.NotNull(hospitals);
+        Assert.All(hospitals.Hospitals.Where(h => h.Id == _factory.HospitalId2 || h.Id == _factory.HospitalId3), h =>
+        {
+            Assert.Equal(_factory.TerritoryId2, h.TerritoryId);
+            Assert.Equal("MANUAL", h.TerritorySource);
+        });
+    }
+
+    [Fact]
+    public async Task BulkAssignTerritory_MissingHospitalInBatch_ReportsPartialFailureWithoutBlockingOthers()
+    {
+        var token = _factory.CreateToken(_factory.ManagerUserId, UserRole.MANAGER);
+        SetBearerToken(token);
+
+        var payload = new { territoryId = _factory.TerritoryId1, hospitalIds = new[] { _factory.HospitalId2, 9999 } };
+        var response = await _client.PostAsJsonAsync("/hospitals/territory/bulk", payload);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var result = await response.Content.ReadFromJsonAsync<BulkAssignTerritoryResponse>(CustomWebApplicationFactory.DefaultJsonOptions);
+        Assert.NotNull(result);
+        Assert.Equal(2, result.RequestedCount);
+        Assert.Equal(1, result.AssignedCount);
+        Assert.Contains(_factory.HospitalId2, result.Assigned);
+        Assert.Equal(1, result.FailedCount);
+        var failure = Assert.Single(result.Failed);
+        Assert.Equal(9999, failure.HospitalId);
+        Assert.False(string.IsNullOrWhiteSpace(failure.Error));
+    }
+
+    [Fact]
+    public async Task BulkAssignTerritory_DuplicateIds_CountedOnce()
+    {
+        var token = _factory.CreateToken(_factory.ManagerUserId, UserRole.MANAGER);
+        SetBearerToken(token);
+
+        var payload = new { territoryId = _factory.TerritoryId1, hospitalIds = new[] { _factory.HospitalId2, _factory.HospitalId2 } };
+        var response = await _client.PostAsJsonAsync("/hospitals/territory/bulk", payload);
+
+        var result = await response.Content.ReadFromJsonAsync<BulkAssignTerritoryResponse>(CustomWebApplicationFactory.DefaultJsonOptions);
+        Assert.NotNull(result);
+        Assert.Equal(1, result.RequestedCount);
+        Assert.Equal(1, result.AssignedCount);
+    }
+
+    [Fact]
+    public async Task BulkAssignTerritory_EmptyHospitalIds_Returns400()
+    {
+        var token = _factory.CreateToken(_factory.ManagerUserId, UserRole.MANAGER);
+        SetBearerToken(token);
+
+        var payload = new { territoryId = _factory.TerritoryId1, hospitalIds = Array.Empty<int>() };
+        var response = await _client.PostAsJsonAsync("/hospitals/territory/bulk", payload);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.True(doc.RootElement.TryGetProperty("details", out _));
+    }
+
+    [Fact]
+    public async Task BulkAssignTerritory_MissingHospitalIds_Returns400()
+    {
+        var token = _factory.CreateToken(_factory.ManagerUserId, UserRole.MANAGER);
+        SetBearerToken(token);
+
+        var payload = new { territoryId = _factory.TerritoryId1 };
+        var response = await _client.PostAsJsonAsync("/hospitals/territory/bulk", payload);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task BulkAssignTerritory_UnknownTerritory_Returns404()
+    {
+        var token = _factory.CreateToken(_factory.ManagerUserId, UserRole.MANAGER);
+        SetBearerToken(token);
+
+        var payload = new { territoryId = 9999, hospitalIds = new[] { _factory.HospitalId2 } };
+        var response = await _client.PostAsJsonAsync("/hospitals/territory/bulk", payload);
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task BulkAssignTerritory_AsSalesperson_Returns403()
+    {
+        var token = _factory.CreateToken(_factory.SalespersonUserId, UserRole.SALESPERSON);
+        SetBearerToken(token);
+
+        var payload = new { territoryId = _factory.TerritoryId1, hospitalIds = new[] { _factory.HospitalId2 } };
+        var response = await _client.PostAsJsonAsync("/hospitals/territory/bulk", payload);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
 }

@@ -5,6 +5,7 @@ import { Target, TerritorySuggestedTotal } from "@/lib/types";
 import { formatTargetMoney } from "@/features/targets/utils/targetLabels";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ConfirmDialog } from "@/components/shared/feedback/ConfirmDialog";
 
 export interface AcceptOffersPanelProps {
   totals: TerritorySuggestedTotal[];
@@ -26,13 +27,17 @@ function OfferRow({
 }) {
   const [revenueRaw, setRevenueRaw] = useState(String(total.suggestedTotal));
   const [saved, setSaved] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const revenue = Number(revenueRaw);
   const valid = Number.isFinite(revenue) && revenue >= 0;
 
   async function handleSave() {
     if (!valid || saving) return;
     const ok = await onSave(total.territoryId, revenue);
-    if (ok) setSaved(true);
+    if (ok) {
+      setSaved(true);
+      setConfirming(false);
+    }
   }
 
   return (
@@ -60,12 +65,33 @@ function OfferRow({
           type="button"
           size="sm"
           disabled={!valid || saving}
-          onClick={() => void handleSave()}
+          onClick={() => setConfirming(true)}
           className="text-xs px-3 py-1.5"
         >
           {saving ? "กำลังบันทึก..." : "รับข้อเสนอ"}
         </Button>
       </td>
+
+      {/* T-UX-011 ระดับ 2 — รับข้อเสนอ = เขียนเป้าจริงระดับเขต (overwrite, ไม่มี undo)
+          จึงต้องผ่าน ConfirmDialog สรุปค่าที่จะถูกเขียนก่อนเสมอ (dialog อ่านค่าปัจจุบัน
+          ตอนกดปุ่ม เพราะ confirmOpen เปิดหลังแก้ตัวเลขเสร็จแล้ว) */}
+      {confirming && (
+        <ConfirmDialog
+          title={`ยืนยันรับข้อเสนอเขต ${total.territoryName}`}
+          description={`บันทึกเป้ายอดขายของเขตนี้ (งวดปัจจุบัน) เป็น ${formatTargetMoney(revenue)}`}
+          consequence={
+            existing
+              ? `เป้าปัจจุบันของเขตคือ ${formatTargetMoney(existing.revenueTarget)} และจะถูกเขียนทับทันที ระบบไม่มีปุ่มย้อนคืนค่าเดิม — แก้ค่าได้ภายหลังในหน้าตั้งเป้า`
+              : "จะสร้างเป้าระดับเขตทันที (เดิมยังไม่มีเป้า) ระบบไม่มีปุ่มย้อน — แก้ค่าได้ภายหลังในหน้าตั้งเป้า"
+          }
+          confirmLabel="รับข้อเสนอ"
+          cancelLabel="ยกเลิก"
+          tone="default"
+          pending={saving}
+          onConfirm={handleSave}
+          onCancel={() => setConfirming(false)}
+        />
+      )}
     </tr>
   );
 }
@@ -84,7 +110,7 @@ export function AcceptOffersPanel({ totals, existingByTerritoryId, savingTerrito
       <header className="border-b border-border bg-surface-subtle/70 px-4 py-3">
         <h3 className="text-base font-semibold text-text-primary">รับข้อเสนอเข้าเป้ารายเขต</h3>
         <p className="mt-1 text-xs text-text-muted">
-          ค่าที่เสนอ = Σ suggested ทุกภาค + ยอดที่ระบุภาคไม่ได้ · แก้ตัวเลขก่อนบันทึกได้ ·
+          ค่าที่เสนอ = ผลรวมเป้าที่เสนอทุกภาค + ยอดที่ระบุภาคไม่ได้ · แก้ตัวเลขก่อนบันทึกได้ ·
           เขียนผ่านเป้ารายเขต (TERRITORY) เดิม และไม่แก้เป้าลูกค้าใหม่ของเขต
         </p>
       </header>

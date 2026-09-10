@@ -1,8 +1,8 @@
 import { request } from "@/lib/api-client";
 import { ProductMasterItem } from "@/lib/types";
 
-export function listProducts(token: string) {
-  return request<{ products: ProductMasterItem[] }>("/products", { method: "GET" }, token);
+export function listProducts(token: string, signal?: AbortSignal) {
+  return request<{ products: ProductMasterItem[] }>("/products", { method: "GET", signal }, token);
 }
 
 export interface UpdateProductInput {
@@ -19,10 +19,10 @@ export function updateProduct(token: string, id: number, input: UpdateProductInp
   );
 }
 
-export function listProductTypes(token: string) {
+export function listProductTypes(token: string, signal?: AbortSignal) {
   return request<{ productTypes: { id: number; name: string }[] }>(
     "/product-types",
-    { method: "GET" },
+    { method: "GET", signal },
     token
   );
 }

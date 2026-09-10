@@ -1,6 +1,5 @@
 namespace SalesEvaluation.Api.Endpoints;
 
-using System.Globalization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -85,7 +84,10 @@ public static class CoachingInsightEndpoints
             if (!Enum.TryParse<PeriodType>(ptProp.GetString(), out var pt))
                 return TerritoryEndpoints.Invalid("periodType must be MONTH, QUARTER, or YEAR");
 
-            var period = new AppPeriodKey(pt, yearProp.GetInt32(), pnProp.GetInt32());
+            // T-UX-029 — same range rules as the query parser (YEAR normalizes periodNumber to 0).
+            var periodResult = PeriodQueryParser.ValidateBodyPeriod(pt, yearProp.GetInt32(), pnProp.GetInt32());
+            if (periodResult.Error != null) return periodResult.Error;
+            var period = periodResult.Period;
 
             try
             {
@@ -103,14 +105,9 @@ public static class CoachingInsightEndpoints
     private static (AppPeriodKey Period, IResult? Error) ParsePeriodFromQuery(
         string? periodType, string? year, string? periodNumber)
     {
-        if (string.IsNullOrEmpty(periodType))
-            return (default, TerritoryEndpoints.Invalid("periodType is required"));
-        if (!Enum.TryParse<PeriodType>(periodType, out var pt))
-            return (default, TerritoryEndpoints.Invalid("periodType must be MONTH, QUARTER, or YEAR"));
-        if (!int.TryParse(year, NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var yr))
-            return (default, TerritoryEndpoints.Invalid("year must be an integer"));
-        if (!int.TryParse(periodNumber, NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var pn))
-            return (default, TerritoryEndpoints.Invalid("periodNumber must be an integer"));
-        return (new AppPeriodKey(pt, yr, pn), null);
+        // T-UX-029 — single period parser shared across endpoint families.
+        return PeriodQueryParser.TryParsePeriod(periodType, year, periodNumber, out var period, out var error)
+            ? (period, null)
+            : (default, error);
     }
 }

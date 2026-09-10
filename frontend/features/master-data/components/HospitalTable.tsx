@@ -3,14 +3,34 @@
 import { useCallback, useMemo, useState } from "react";
 import { Hospital } from "@/lib/types";
 import { DataTable, type DataTableColumn } from "@/components/shared/data-table/DataTable";
+import { Input } from "@/components/ui/input";
 
 export interface HospitalTableProps {
   hospitals: Hospital[];
   canEdit: boolean;
   onToggle: (hospital: Hospital, isPreExistingCustomer: boolean) => Promise<void>;
+  /** T-UX-025 — server pagination, owned by the screen. */
+  loading?: boolean;
+  page?: number;
+  pageSize?: number;
+  total?: number;
+  onPageChange?: (page: number) => void;
+  search?: string;
+  onSearchChange?: (value: string) => void;
 }
 
-export function HospitalTable({ hospitals, canEdit, onToggle }: HospitalTableProps) {
+export function HospitalTable({
+  hospitals,
+  canEdit,
+  onToggle,
+  loading = false,
+  page,
+  pageSize,
+  total,
+  onPageChange,
+  search,
+  onSearchChange,
+}: HospitalTableProps) {
   const [busyId, setBusyId] = useState<number | null>(null);
 
   const handleToggle = useCallback(async (hospital: Hospital) => {
@@ -81,23 +101,47 @@ export function HospitalTable({ hospitals, canEdit, onToggle }: HospitalTablePro
     },
   ], [canEdit, busyId, handleToggle]);
 
+  const serverPaginated = typeof page === "number" && typeof pageSize === "number" && typeof total === "number" && !!onPageChange;
+
   return (
-    <DataTable
-      caption="ตารางโรงพยาบาล"
-      density="comfortable"
-      columns={columns}
-      rows={hospitals}
-      getRowId={(h) => h.id}
-      searchable
-      searchPlaceholder="ค้นหาชื่อโรงพยาบาล, จังหวัด หรือชื่อในไฟล์…"
-      searchPredicate={(h, query) =>
-        h.displayName.toLowerCase().includes(query) ||
-        h.nameInFile.toLowerCase().includes(query) ||
-        (h.province?.toLowerCase().includes(query) ?? false)
-      }
-      emptyTitle="ยังไม่มีข้อมูลโรงพยาบาล"
-      emptyDescription="ยังไม่พบข้อมูลโรงพยาบาลในระบบ"
-    />
+    <div>
+      {/* Server-paginated mode: DataTable hides its own search UI, so the screen
+          provides the input and sends `q` with the page request (T-UX-025). */}
+      {serverPaginated && onSearchChange && (
+        <div className="mb-3">
+          <Input
+            type="search"
+            value={search ?? ""}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder="ค้นหาชื่อโรงพยาบาล, จังหวัด หรือชื่อในไฟล์…"
+            aria-label="ค้นหาชื่อโรงพยาบาล, จังหวัด หรือชื่อในไฟล์"
+            className="w-full max-w-xs"
+          />
+        </div>
+      )}
+      <DataTable
+        caption="ตารางโรงพยาบาล"
+        density="comfortable"
+        columns={columns}
+        rows={hospitals}
+        getRowId={(h) => h.id}
+        loading={loading}
+        serverPaginated={serverPaginated}
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        onPageChange={onPageChange}
+        searchable={!serverPaginated}
+        searchPlaceholder="ค้นหาชื่อโรงพยาบาล, จังหวัด หรือชื่อในไฟล์…"
+        searchPredicate={(h, query) =>
+          h.displayName.toLowerCase().includes(query) ||
+          h.nameInFile.toLowerCase().includes(query) ||
+          (h.province?.toLowerCase().includes(query) ?? false)
+        }
+        emptyTitle="ยังไม่มีข้อมูลโรงพยาบาล"
+        emptyDescription="ยังไม่พบข้อมูลโรงพยาบาลในระบบ"
+      />
+    </div>
   );
 }
 

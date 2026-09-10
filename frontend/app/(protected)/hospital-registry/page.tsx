@@ -74,7 +74,7 @@ function RegistryImportSummary({ result }: { result: RegistryImportResult }) {
 }
 
 function ImportCount({ label, value, tone = "default" }: { label: string; value: number; tone?: "default" | "success" | "warning" }) {
-  const toneClass = tone === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-900" : tone === "warning" ? "border-warning/30 bg-warning-subtle text-warning" : "border-border bg-surface-subtle text-text-primary";
+  const toneClass = tone === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-900" : tone === "warning" ? "border-warning/30 bg-warning-subtle text-warning-text" : "border-border bg-surface-subtle text-text-primary";
   return <div className={`rounded-lg border p-4 ${toneClass}`}><p className="text-sm">{label}</p><p className="mt-1 text-2xl font-semibold">{value.toLocaleString("th-TH")}</p></div>;
 }
 

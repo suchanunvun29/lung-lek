@@ -1,9 +1,9 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { FormEvent, Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { login } from "@/features/auth/api/auth.api";
-import { getErrorMessage } from "@/lib/api-client";
+import { getErrorMessage, SESSION_EXPIRED_STORAGE_KEY } from "@/lib/api-client";
 import { useAuthStore } from "@/store/useAuthStore";
 import { FullScreenLoading } from "@/components/shared/layout/FullScreenLoading";
 import { Button } from "@/components/ui/button";
@@ -13,8 +13,37 @@ import { FormField } from "@/components/shared/form/FormField";
 import { Alert } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 
+// Only same-app relative paths — rejects "//host" style open redirects.
+function sanitizeNextPath(raw: string | null): string | null {
+  if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return null;
+  return raw;
+}
+
+function consumeSessionExpiredMessage(): string | null {
+  try {
+    if (window.sessionStorage.getItem(SESSION_EXPIRED_STORAGE_KEY) === "1") {
+      window.sessionStorage.removeItem(SESSION_EXPIRED_STORAGE_KEY);
+      return "เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่";
+    }
+  } catch {
+    // storage unavailable (or prerendered) — nothing to show
+  }
+  return null;
+}
+
+// Suspense boundary is required because the form reads useSearchParams().
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<FullScreenLoading />}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const nextPath = sanitizeNextPath(searchParams.get("next"));
   const token = useAuthStore((state) => state.token);
   const user = useAuthStore((state) => state.user);
   const hasHydrated = useAuthStore((state) => state.hasHydrated);
@@ -22,15 +51,18 @@ export default function LoginPage() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  // Consumed once per mount — safe because the form only renders after store
+  // hydration, so the alert is never part of the hydration-compared markup.
+  const [error, setError] = useState<string | null>(() => consumeSessionExpiredMessage());
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!hasHydrated) return;
     if (token && user) {
-      router.replace(user.mustChangePassword ? "/change-password" : "/dashboard");
+      // Forced password change always outranks ?next=.
+      router.replace(user.mustChangePassword ? "/change-password" : (nextPath ?? "/dashboard"));
     }
-  }, [hasHydrated, token, user, router]);
+  }, [hasHydrated, token, user, router, nextPath]);
 
   if (!hasHydrated || (token && user)) {
     return <FullScreenLoading />;
@@ -43,7 +75,9 @@ export default function LoginPage() {
     try {
       const data = await login(email, password);
       setAuth(data.token, data.user);
-      router.replace(data.user.mustChangePassword ? "/change-password" : "/dashboard");
+      router.replace(
+        data.user.mustChangePassword ? "/change-password" : (nextPath ?? "/dashboard")
+      );
     } catch (err) {
       setError(getErrorMessage(err, "เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่"));
     } finally {

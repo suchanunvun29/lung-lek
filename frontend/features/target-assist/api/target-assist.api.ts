@@ -10,14 +10,15 @@ export function getTargetSuggestions(
   year: number,
   month: number,
   mode: SuggestionMode,
-  targetGrowthRate?: number
+  targetGrowthRate?: number,
+  signal?: AbortSignal
 ) {
   const params = new URLSearchParams({ mode });
   // Territory & Potential Rules ข้อ 5.1 — per-round override; omitting it lets the backend fall back to EvaluationSetting.
   if (targetGrowthRate !== undefined) params.set("targetGrowthRate", String(targetGrowthRate));
   return request<TargetSuggestionPreview>(
     `/target-suggestions/${year}/${month}?${params.toString()}`,
-    { method: "GET" },
+    { method: "GET", signal },
     token
   );
 }

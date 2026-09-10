@@ -33,6 +33,39 @@ public class HospitalService : IHospitalService
         };
     }
 
+    public async Task<HospitalsPageResponse> ListHospitalsPageAsync(int page, int pageSize, string? q = null, CancellationToken cancellationToken = default)
+    {
+        var query = _dbContext.Hospitals
+            .AsNoTracking()
+            .Include(h => h.Territory)
+            .Include(h => h.Aliases)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            var needle = q.Trim().ToLower();
+            query = query.Where(h =>
+                h.DisplayName.ToLower().Contains(needle) ||
+                h.NameInFile.ToLower().Contains(needle) ||
+                (h.Province != null && h.Province.ToLower().Contains(needle)));
+        }
+
+        var total = await query.CountAsync(cancellationToken);
+        var hospitals = await query
+            .OrderBy(h => h.DisplayName).ThenBy(h => h.Id)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return new HospitalsPageResponse
+        {
+            Items = hospitals.Select(MapToDto).ToList(),
+            Total = total,
+            Page = page,
+            PageSize = pageSize
+        };
+    }
+
     public async Task<HospitalResponse> UpdateHospitalAsync(int id, UpdateHospitalRequest request, CancellationToken cancellationToken = default)
     {
         var hospital = await _dbContext.Hospitals
@@ -105,7 +138,7 @@ public class HospitalService : IHospitalService
 
         if (existingAlias != null)
         {
-            throw new ConflictException($"Hospital alias with key '{normalizedKey}' already exists");
+            throw new ConflictException($"Hospital alias with key '{normalizedKey}' already exists", "ALIAS_DUPLICATE");
         }
 
         var alias = new HospitalAlias
@@ -243,6 +276,66 @@ public class HospitalService : IHospitalService
         {
             UpdatedCount = hospitals.Count
         };
+    }
+
+    public async Task<BulkAssignTerritoryResponse> BulkAssignTerritoryAsync(BulkAssignTerritoryRequest request, int userId, CancellationToken cancellationToken = default)
+    {
+        if (request.TerritoryId != null)
+        {
+            var territoryExists = await _dbContext.Territories
+                .AnyAsync(t => t.Id == request.TerritoryId.Value, cancellationToken);
+
+            if (!territoryExists)
+            {
+                throw new NotFoundException("Territory not found");
+            }
+        }
+
+        // Duplicates would just re-patch the same row; count each hospital once.
+        var hospitalIds = request.HospitalIds.Distinct().ToList();
+        var response = new BulkAssignTerritoryResponse { RequestedCount = hospitalIds.Count };
+
+        foreach (var hospitalId in hospitalIds)
+        {
+            try
+            {
+                var hospital = await _dbContext.Hospitals
+                    .FirstOrDefaultAsync(h => h.Id == hospitalId, cancellationToken);
+
+                if (hospital == null)
+                {
+                    response.Failed.Add(new BulkAssignTerritoryFailure { HospitalId = hospitalId, Error = "ไม่พบโรงพยาบาล" });
+                    continue;
+                }
+
+                var fromTerritoryId = hospital.TerritoryId;
+                hospital.TerritoryId = request.TerritoryId;
+                hospital.TerritorySource = TerritoryLinkSource.MANUAL;
+                hospital.UpdatedAt = DateTime.UtcNow;
+
+                _dbContext.HospitalTerritoryChanges.Add(new HospitalTerritoryChange
+                {
+                    HospitalId = hospital.Id,
+                    FromTerritoryId = fromTerritoryId,
+                    ToTerritoryId = request.TerritoryId,
+                    ChangedById = userId,
+                    Note = request.Note,
+                    ChangedAt = DateTime.UtcNow
+                });
+
+                // Per-item atomic (T-UX-026): one hospital failing must not roll back the others.
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                response.Assigned.Add(hospital.Id);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                response.Failed.Add(new BulkAssignTerritoryFailure { HospitalId = hospitalId, Error = "บันทึกไม่สำเร็จ กรุณาลองใหม่" });
+            }
+        }
+
+        response.AssignedCount = response.Assigned.Count;
+        response.FailedCount = response.Failed.Count;
+        return response;
     }
 
     public async Task<UnassignedTerritoryHospitalsResponse> ListUnassignedTerritoryHospitalsAsync(CancellationToken cancellationToken = default)

@@ -9,13 +9,14 @@ import {
 export function getTerritoryLeaderboard(
   token: string,
   criteria: LeaderboardCriteria,
-  period: PeriodKey
+  period: PeriodKey,
+  signal?: AbortSignal
 ) {
   const params = new URLSearchParams(periodQueryParams(period));
   params.set("criteria", criteria);
   return request<TerritoryLeaderboardResponse>(
     `/leaderboard/territories?${params.toString()}`,
-    { method: "GET" },
+    { method: "GET", signal },
     token
   );
 }
@@ -23,24 +24,26 @@ export function getTerritoryLeaderboard(
 export function exportTerritoryLeaderboard(
   token: string,
   criteria: LeaderboardCriteria,
-  period: PeriodKey
+  period: PeriodKey,
+  signal?: AbortSignal
 ) {
   const params = new URLSearchParams(periodQueryParams(period));
   params.set("criteria", criteria);
-  return downloadFile(`/leaderboard/territories/export?${params.toString()}`, token);
+  return downloadFile(`/leaderboard/territories/export?${params.toString()}`, token, signal);
 }
 
 export function getTerritoryLeaderboardPeople(
   token: string,
   territoryId: number,
   criteria: LeaderboardCriteria,
-  period: PeriodKey
+  period: PeriodKey,
+  signal?: AbortSignal
 ) {
   const params = new URLSearchParams(periodQueryParams(period));
   params.set("criteria", criteria);
   return request<LeaderboardPeopleOrSummary>(
     `/leaderboard/territories/${territoryId}/people?${params.toString()}`,
-    { method: "GET" },
+    { method: "GET", signal },
     token
   );
 }

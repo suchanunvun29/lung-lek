@@ -16,7 +16,22 @@ public record DryRunPreview(
 
 public record RemovalSample(string InvoiceNo, string HospitalName, string Total);
 
-public record ImportResult(bool DryRun, ImportBatchDto? ImportBatch, DryRunPreview? Preview);
+/// <summary>
+/// T-UX-027 — summary of an APPEND dry-run (confirm=false). Counts what the real import
+/// WOULD do; nothing was persisted. IssueCounts counts issues per level (WARNING/ERROR).
+/// </summary>
+public record IssueLevelCount(string Level, int Count);
+
+public record AppendPreview(
+    int TotalRows,
+    int InsertedRows,
+    int UpdatedRows,
+    int ErrorRows,
+    List<IssueLevelCount> IssueCounts,
+    List<Period> PeriodsFound,
+    string? FatalError);
+
+public record ImportResult(bool DryRun, ImportBatchDto? ImportBatch, DryRunPreview? Preview, AppendPreview? AppendPreview = null);
 
 public interface IImportService
 {
@@ -44,6 +59,14 @@ public interface IImportService
         CancellationToken cancellationToken = default);
 
     Task<List<ImportBatchDto>> ListImportBatchesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>T-UX-025 — paged variant; total counts after status/q filters.</summary>
+    Task<ImportBatchesPageDto> ListImportBatchesPageAsync(
+        int page,
+        int pageSize,
+        string? status = null,
+        string? q = null,
+        CancellationToken cancellationToken = default);
 
     Task<ImportBatchDto?> GetImportBatchAsync(int id, CancellationToken cancellationToken = default);
 
@@ -139,6 +162,15 @@ public class SalesLineDto
 public class SalesLinesPageDto
 {
     public List<SalesLineDto> Data { get; init; } = new();
+    public int Total { get; init; }
+    public int Page { get; init; }
+    public int PageSize { get; init; }
+}
+
+/// <summary>GET /import-batches?page=&pageSize= — T-UX-025; same shape as the other paginated lists.</summary>
+public class ImportBatchesPageDto
+{
+    public List<ImportBatchDto> Items { get; init; } = new();
     public int Total { get; init; }
     public int Page { get; init; }
     public int PageSize { get; init; }

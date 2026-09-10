@@ -14,10 +14,10 @@ export function InlineMessage({
   className,
   ...props
 }: InlineMessageProps) {
-  const role = variant === "destructive" ? "alert" : "status";
-
+  // Role comes from Alert itself (T-UX-009): destructive/warning → "alert",
+  // everything else → "status". A consumer-provided role still wins via props.
   return (
-    <Alert variant={variant} role={role} className={className} {...props}>
+    <Alert variant={variant} className={className} {...props}>
       {title && <AlertTitle>{title}</AlertTitle>}
       <AlertDescription>{children}</AlertDescription>
     </Alert>

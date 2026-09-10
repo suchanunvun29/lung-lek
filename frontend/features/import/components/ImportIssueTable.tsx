@@ -5,13 +5,9 @@ import { ImportIssue, ImportIssueLevel } from "@/lib/types";
 import { DataTable, type DataTableColumn } from "@/components/shared/data-table/DataTable";
 import { StatusBadge } from "@/components/shared/status/StatusBadge";
 import { Select } from "@/components/ui/select";
+import { importIssueCodeLabelTh } from "@/lib/importLabels";
 
 type LevelFilter = ImportIssueLevel | "ALL";
-
-const SHARED_CREDIT_ISSUE_LABELS: Record<string, string> = {
-  SHARED_CREDIT_RULE_CREATED: "สร้างกฎแบ่งเครดิตดีลร่วมใหม่",
-  UNKNOWN_SALESMAN_IN_SHARED_DEAL: "ไม่พบพนักงานขายในดีลร่วม",
-};
 
 export interface ImportIssueTableProps {
   issues: ImportIssue[];
@@ -42,21 +38,20 @@ const COLUMNS: DataTableColumn<ImportIssue>[] = [
   },
   {
     key: "code",
-    header: "รหัส",
+    header: "ประเภทปัญหา",
     priority: 2,
     mobileRole: "meta",
     sortable: true,
     sortValue: (issue) => issue.code,
     render: (issue) => {
-      const friendlyLabel = SHARED_CREDIT_ISSUE_LABELS[issue.code];
-      if (friendlyLabel) {
-        return (
-          <span className="inline-flex rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-700">
-            {friendlyLabel}
-          </span>
-        );
-      }
-      return <span className="font-mono text-xs text-text-muted">{issue.code}</span>;
+      return (
+        <span
+          title={`รหัสปัญหา: ${issue.code}`}
+          className="inline-flex rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-700"
+        >
+          {importIssueCodeLabelTh(issue.code)}
+        </span>
+      );
     },
   },
   {
@@ -141,7 +136,7 @@ export function ImportIssueTable({ issues }: ImportIssueTableProps) {
                 <option value="ALL">รหัสปัญหาทั้งหมด ({availableCodes.length})</option>
                 {availableCodes.map((code) => (
                   <option key={code} value={code}>
-                    {SHARED_CREDIT_ISSUE_LABELS[code] ?? code}
+                    {importIssueCodeLabelTh(code)}
                   </option>
                 ))}
               </Select>

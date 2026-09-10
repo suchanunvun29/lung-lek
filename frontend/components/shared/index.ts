@@ -1,4 +1,3 @@
-export * from "./data-table/Pagination";
 export * from "./data-table/DataTable";
 export * from "./data-table/RestrictedValue";
 export * from "./kpi/MetricReason";

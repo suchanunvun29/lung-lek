@@ -4,6 +4,8 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using SalesEvaluation.Domain.Enums;
 using Xunit;
 
@@ -124,6 +126,243 @@ public class ErrorContractTests : IClassFixture<CustomWebApplicationFactory>
         var error = json.GetProperty("error").GetString()!;
         Assert.Equal("Hospital not found", error);
         Assert.True(KnownErrorTranslations.ContainsKey(error));
+    }
+
+    // ─── T-UX-022: conflict codes ───────────────────────────────────────────
+
+    [Fact]
+    public async Task DuplicateAlias_Returns409WithAliasDuplicateCode()
+    {
+        var token = _factory.CreateToken(_factory.ManagerUserId, UserRole.MANAGER);
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/hospitals/{_factory.HospitalId1}/aliases");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(new { sampleRaw = "รพ.เชียงใหม่ (ซ้ำ)", normalizedKey = "CHIANGMAI" });
+
+        var response = await _client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Contains("already exists", json.GetProperty("error").GetString(), StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("ALIAS_DUPLICATE", json.GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task ReviewAlreadyDecided_Returns409WithReviewAlreadyDecidedCode()
+    {
+        var token = _factory.CreateToken(_factory.ManagerUserId, UserRole.MANAGER);
+
+        using var first = new HttpRequestMessage(HttpMethod.Patch, $"/hospital-name-reviews/{_factory.HospitalReviewId1}");
+        first.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        first.Content = JsonContent.Create(new { decision = "KEPT_SEPARATE" });
+        var firstResponse = await _client.SendAsync(first);
+        Assert.Equal(HttpStatusCode.OK, firstResponse.StatusCode);
+
+        using var second = new HttpRequestMessage(HttpMethod.Patch, $"/hospital-name-reviews/{_factory.HospitalReviewId1}");
+        second.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        second.Content = JsonContent.Create(new { decision = "KEPT_SEPARATE" });
+        var secondResponse = await _client.SendAsync(second);
+        Assert.Equal(HttpStatusCode.Conflict, secondResponse.StatusCode);
+
+        var json = await secondResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Contains("ถูกตัดสินไปแล้ว", json.GetProperty("error").GetString());
+        Assert.Equal("REVIEW_ALREADY_DECIDED", json.GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task SalespersonAlreadyAssignedToAnotherUser_Returns409WithAssignmentConflictCode()
+    {
+        // Seeded: salesperson 1 is linked to user 2 — assigning it to user 3 hits the
+        // link-assignment conflict. (The territory-assignment unique-constraint path
+        // cannot be reproduced on the EF InMemory test provider, which does not
+        // enforce relational unique indexes; its envelope is pinned by
+        // GlobalExceptionHandlerMiddlewareTests.ConflictException_WithCode.)
+        var token = _factory.CreateToken(_factory.ManagerUserId, UserRole.MANAGER);
+        using var request = new HttpRequestMessage(HttpMethod.Patch, $"/users/{_factory.Salesperson2UserId}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(new { salespersonId = _factory.SalespersonId1 });
+
+        var response = await _client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Contains("already linked", json.GetProperty("error").GetString(), StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("ASSIGNMENT_CONFLICT", json.GetProperty("code").GetString());
+    }
+
+    // ─── T-UX-023: invalid input → 400 (no silent no-op) ────────────────────
+
+    [Fact]
+    public async Task PatchUserWithInvalidRole_Returns400WithThaiFieldMessage()
+    {
+        var token = _factory.CreateToken(_factory.ManagerUserId, UserRole.MANAGER);
+        using var request = new HttpRequestMessage(HttpMethod.Patch, $"/users/{_factory.Salesperson2UserId}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(new { role = "MANGER" });
+
+        var response = await _client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("role ไม่ถูกต้อง", json.GetProperty("details").GetString());
+    }
+
+    [Fact]
+    public async Task PatchUserWithValidRole_StillSucceeds()
+    {
+        var token = _factory.CreateToken(_factory.ManagerUserId, UserRole.MANAGER);
+        using var request = new HttpRequestMessage(HttpMethod.Patch, $"/users/{_factory.Salesperson2UserId}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(new { role = "SALESPERSON" });
+
+        var response = await _client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task KpiDrillDownWithNonNumericHospitalId_Returns400WithThaiFieldMessage()
+    {
+        var token = _factory.CreateToken(_factory.ManagerUserId, UserRole.MANAGER);
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/kpi/{_factory.SalespersonId1}/drill-down/REVENUE_VS_TARGET?periodType=YEAR&year=2026&hospitalId=abc");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await _client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("hospitalId ไม่ถูกต้อง", json.GetProperty("details").GetString());
+    }
+
+    [Fact]
+    public async Task KpiDrillDownWithNumericHospitalId_StillSucceeds()
+    {
+        var token = _factory.CreateToken(_factory.ManagerUserId, UserRole.MANAGER);
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/kpi/{_factory.SalespersonId1}/drill-down/REVENUE_VS_TARGET?periodType=YEAR&year=2026&hospitalId={_factory.HospitalId1}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await _client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task TerritoryViewWithNonNumericProductTypeId_Returns400WithThaiFieldMessage()
+    {
+        var token = _factory.CreateToken(_factory.SalespersonUserId, UserRole.SALESPERSON);
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/my-territory-view/{_factory.SalespersonId1}?periodType=YEAR&year=2026&productTypeId=abc");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await _client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("productTypeId ไม่ถูกต้อง", json.GetProperty("details").GetString());
+    }
+
+    [Fact]
+    public async Task TerritoryViewWithNumericProductTypeId_StillSucceeds()
+    {
+        var token = _factory.CreateToken(_factory.SalespersonUserId, UserRole.SALESPERSON);
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/my-territory-view/{_factory.SalespersonId1}?periodType=YEAR&year=2026&productTypeId={_factory.ProductTypeId1}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await _client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    // ─── T-UX-024: password policy + login rate limit ───────────────────────
+
+    [Fact]
+    public async Task ChangePasswordWithShortPassword_Returns400WithThaiMessage()
+    {
+        var token = _factory.CreateToken(_factory.SalespersonUserId, UserRole.SALESPERSON);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/auth/change-password");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(new { currentPassword = "whatever1", newPassword = "short7" });
+
+        var response = await _client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัวอักษร", json.GetProperty("details").GetString());
+    }
+
+    [Fact]
+    public async Task ChangePasswordWithEightCharPassword_PassesLengthGate()
+    {
+        var token = _factory.CreateToken(_factory.SalespersonUserId, UserRole.SALESPERSON);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/auth/change-password");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(new { currentPassword = "whatever1", newPassword = "8charsok" });
+
+        var response = await _client.SendAsync(request);
+        // Seed user's password hash is not a real BCrypt hash, so the current-password
+        // check fails with 401 — reaching that (not 400) proves the length gate passed.
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Current password is incorrect", json.GetProperty("error").GetString());
+    }
+
+    [Fact]
+    public async Task ResetPasswordWithShortTemporaryPassword_Returns400()
+    {
+        var token = _factory.CreateToken(_factory.ManagerUserId, UserRole.MANAGER);
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/users/{_factory.Salesperson2UserId}/reset-password");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(new { temporaryPassword = "abc" });
+
+        var response = await _client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("รหัสผ่านชั่วคราวต้องมีอย่างน้อย 8 ตัวอักษร", json.GetProperty("details").GetString());
+    }
+
+    [Fact]
+    public async Task ResetPasswordWithGeneratedTemporaryPassword_MeetsMinimumLength_AndFirstLoginFlowWorks()
+    {
+        var managerToken = _factory.CreateToken(_factory.ManagerUserId, UserRole.MANAGER);
+        using var resetRequest = new HttpRequestMessage(HttpMethod.Post, $"/users/{_factory.Salesperson2UserId}/reset-password");
+        resetRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", managerToken);
+        resetRequest.Content = JsonContent.Create(new { });
+
+        var resetResponse = await _client.SendAsync(resetRequest);
+        Assert.Equal(HttpStatusCode.OK, resetResponse.StatusCode);
+
+        var resetJson = await resetResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var tempPassword = resetJson.GetProperty("temporaryPassword").GetString()!;
+        Assert.True(tempPassword.Length >= 8, $"generated temporary password must be >= 8 chars, got {tempPassword.Length}");
+
+        var loginResponse = await _client.PostAsJsonAsync("/auth/login", new { email = "sales2@example.com", password = tempPassword });
+        Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
+
+        var loginJson = await loginResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.True(loginJson.GetProperty("user").GetProperty("mustChangePassword").GetBoolean());
+    }
+
+    [Fact]
+    public async Task RepeatedFailedLogins_BecomeRateLimitedWith429AndThaiMessage()
+    {
+        const string email = "bruteforce@example.com";
+        for (var i = 0; i < 5; i++)
+        {
+            var failed = await _client.PostAsJsonAsync("/auth/login", new { email, password = "wrong-pass-1" });
+            Assert.Equal(HttpStatusCode.Unauthorized, failed.StatusCode);
+        }
+
+        var blocked = await _client.PostAsJsonAsync("/auth/login", new { email, password = "right-pass-9" });
+        Assert.Equal(HttpStatusCode.TooManyRequests, blocked.StatusCode);
+
+        var json = await blocked.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("RATE_LIMITED", json.GetProperty("code").GetString());
+        Assert.Contains("เข้าสู่ระบบ", json.GetProperty("error").GetString());
+    }
+
+    [Fact]
+    public async Task FailedLoginForDifferentEmail_IsNotBlocked()
+    {
+        var failed = await _client.PostAsJsonAsync("/auth/login", new { email = "other-user@example.com", password = "wrong-pass-1" });
+        Assert.Equal(HttpStatusCode.Unauthorized, failed.StatusCode);
+        var json = await failed.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Invalid email or password", json.GetProperty("error").GetString());
     }
 
     [Fact]

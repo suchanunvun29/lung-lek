@@ -1,11 +1,13 @@
 "use client";
-
-import { useEffect, useState } from "react";
+ 
+import { useState } from "react";
 import { getTerritoryLeaderboardPeople } from "@/features/leaderboard/api/leaderboard.api";
 import { getErrorMessage } from "@/lib/api-client";
 import { LeaderboardCriteria, LeaderboardPeopleOrSummary, LeaderboardUnit, PeriodKey } from "@/lib/types";
 import { Modal } from "@/components/ui/modal";
 import { EmptyState } from "@/components/shared/feedback/EmptyState";
+import { SkeletonCard } from "@/components/shared/feedback/Skeleton";
+import { useAbortableEffect } from "@/lib/useAbortableEffect";
 
 export interface LeaderboardPeopleModalProps {
   token: string;
@@ -31,25 +33,29 @@ export function LeaderboardPeopleModal({ token, criteria, period, unit, onClose 
   const [data, setData] = useState<LeaderboardPeopleOrSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [reloadNonce, setReloadNonce] = useState(0);
 
-  useEffect(() => {
-    // The modal mounts fresh per opening, so loading starts true and error null —
-    // no synchronous reset needed here.
-    let cancelled = false;
-    getTerritoryLeaderboardPeople(token, unit.territoryId, criteria, period)
-      .then((response) => {
-        if (!cancelled) setData(response);
-      })
-      .catch((loadError: unknown) => {
-        if (!cancelled) setError(getErrorMessage(loadError, "โหลดข้อมูลรายบุคคลไม่สำเร็จ"));
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [token, unit.territoryId, criteria, period]);
+  useAbortableEffect(
+    async (signal) => {
+      if (!token) return;
+      setLoading(true);
+      try {
+        const response = await getTerritoryLeaderboardPeople(token, unit.territoryId, criteria, period, signal);
+        if (signal.aborted) return;
+        setData(response);
+        setError(null);
+      } catch (loadError: unknown) {
+        if (!signal.aborted) {
+          setError(getErrorMessage(loadError, "โหลดข้อมูลรายบุคคลไม่สำเร็จ"));
+        }
+      } finally {
+        if (!signal.aborted) {
+          setLoading(false);
+        }
+      }
+    },
+    [token, unit.territoryId, criteria, period, reloadNonce]
+  );
 
   return (
     <Modal
@@ -57,8 +63,16 @@ export function LeaderboardPeopleModal({ token, criteria, period, unit, onClose 
       onClose={onClose}
       widthClassName="max-w-2xl"
     >
-      {error && <p className="text-sm text-danger">{error}</p>}
-      {loading && !error && <p className="text-sm text-text-muted">กำลังโหลด...</p>}
+      {loading && <SkeletonCard />}
+      {error && !loading && (
+        <EmptyState
+          variant="error"
+          title="โหลดข้อมูลรายบุคคลไม่สำเร็จ"
+          description={error}
+          onRetry={() => setReloadNonce((n) => n + 1)}
+          isRetrying={loading}
+        />
+      )}
 
       {!loading && !error && data === null && (
         <EmptyState
@@ -86,7 +100,7 @@ export function LeaderboardPeopleModal({ token, criteria, period, unit, onClose 
       )}
 
       {!loading && !error && data?.mode === "SELF_SUMMARY" && (
-        <div className="rounded-lg border border-warning/30 bg-warning-subtle p-4 text-sm text-warning">
+        <div className="rounded-lg border border-warning/30 bg-warning-subtle p-4 text-sm text-warning-text">
           <p className="font-semibold">สรุปเฉพาะของคุณในเขตนี้</p>
           <p className="mt-1 text-xs opacity-90">
             สิทธิ์การดูของคุณจำกัดเฉพาะอันดับและสถิติของตัวเองเทียบค่าเฉลี่ยทีม — ไม่มีรายชื่อของผู้อื่นในการตอบนี้

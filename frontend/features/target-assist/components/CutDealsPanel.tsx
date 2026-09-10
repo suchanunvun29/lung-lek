@@ -15,7 +15,7 @@ export function CutDealsPanel({ cutDeals, reinstatedInvoiceNos, pendingInvoiceNo
   return (
     <section className="rounded-lg border border-border bg-surface shadow-xs">
       <header className="border-b border-border bg-surface-subtle/70 px-4 py-3">
-        <h3 className="text-base font-semibold text-text-primary">ดีลที่ถูกตัดเป็น outlier</h3>
+        <h3 className="text-base font-semibold text-text-primary">ดีลยอดสูงผิดปกติที่ถูกตัดออก</h3>
         <p className="mt-1 text-xs text-text-muted">
           เกณฑ์ตัดต่อใบกำกับ (ไม่มีการตัดเงียบ) · การเอากลับมีผลเฉพาะตัวอย่างการคำนวณนี้เท่านั้น
           จนกว่าจะกดรับข้อเสนอเข้าเป้าจริง
@@ -53,11 +53,11 @@ export function CutDealsPanel({ cutDeals, reinstatedInvoiceNos, pendingInvoiceNo
                   <td className="px-4 py-3 text-text-secondary font-numeric">{formatRatioPercent(deal.ratio)}</td>
                   <td className="px-4 py-3">
                     {reinstated ? (
-                      <span className="rounded-full bg-success-subtle border border-success/30 px-2 py-0.5 text-xs font-medium text-success">
+                      <span className="rounded-full bg-success-subtle border border-success/30 px-2 py-0.5 text-xs font-medium text-success-text">
                         เอากลับเข้าคำนวณแล้ว
                       </span>
                     ) : (
-                      <span className="rounded-full bg-danger-subtle border border-danger/30 px-2 py-0.5 text-xs font-medium text-danger">
+                      <span className="rounded-full bg-danger-subtle border border-danger/30 px-2 py-0.5 text-xs font-medium text-danger-text">
                         ถูกตัดออกจากฐาน
                       </span>
                     )}

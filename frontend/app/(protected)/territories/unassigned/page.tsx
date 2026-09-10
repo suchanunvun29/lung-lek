@@ -5,11 +5,13 @@ import {
   listTerritories,
   listUnassignedTerritoryHospitals,
   moveHospitalToTerritory,
+  bulkAssignHospitalsToTerritory,
 } from "@/features/territories/api/territories.api";
 import { getErrorMessage } from "@/lib/api-client";
 import { formatMoney } from "@/lib/importLabels";
 import { Territory, UnassignedTerritoryHospital } from "@/lib/types";
 import { useAuthStore } from "@/store/useAuthStore";
+import { toast } from "@/components/shared/feedback/toast/ToastProvider";
 import { refreshQueueCounts } from "@/components/shared/navigation/useQueueCounts";
 import { PageContainer } from "@/components/shared/layout/PageContainer";
 import { PageHeader } from "@/components/shared/layout/PageHeader";
@@ -42,6 +44,11 @@ export default function UnassignedTerritoriesPage() {
   const [confirmingMulti, setConfirmingMulti] = useState(false);
   const [multiResult, setMultiResult] = useState<MultiAssignResult | null>(null);
 
+  // Quick-assign (T-UX-011 จุดที่ 4) — เลือกเขตเก็บใน state ก่อน แล้วกดปุ่มยืนยัน
+  // จึงยิง API (เดิมยิงทันทีที่ onChange ไม่มี in-flight guard)
+  const [quickAssignChoice, setQuickAssignChoice] = useState<Record<number, string>>({});
+  const [assigningId, setAssigningId] = useState<number | null>(null);
+
   const load = useCallback(async () => {
     if (!token) return;
     setLoading(true);
@@ -69,46 +76,57 @@ export default function UnassignedTerritoriesPage() {
 
   // Single-row quick assignment
   const assignSingle = useCallback(
-    async (hospitalId: number, territoryId: string) => {
-      if (!token || !territoryId) return;
+    async (hospital: UnassignedTerritoryHospital, territoryId: string) => {
+      if (!token || !territoryId || assigningId !== null) return;
+      const territoryName = territories.find((t) => String(t.id) === territoryId)?.name;
+      setAssigningId(hospital.id);
       try {
-        await moveHospitalToTerritory(token, hospitalId, Number(territoryId));
+        await moveHospitalToTerritory(token, hospital.id, Number(territoryId));
+        // T-UX-011 ระดับ 1 — เขียนเกิดแล้วแจ้งผลชัด (ยังไม่มี undo จึงไม่อวดปุ่มย้อน)
+        toast.success(
+          `ผูก ${hospital.displayName} เข้าเขต ${territoryName ?? ""} เรียบร้อยแล้ว`
+        );
+        setQuickAssignChoice((prev) => {
+          const next = { ...prev };
+          delete next[hospital.id];
+          return next;
+        });
         await load();
         // WACC-P1-015 — the unassigned count just dropped; refresh the sidebar badge.
         void refreshQueueCounts(token);
       } catch (err) {
         setError(getErrorMessage(err, "ผูกเขตให้โรงพยาบาลไม่สำเร็จ"));
+      } finally {
+        setAssigningId(null);
       }
     },
-    [token, load]
+    [token, load, assigningId, territories]
   );
 
-  // Multi-row sequential assignment
+  // Multi-row assignment — T-UX-026: one POST per batch (per-item atomic server-side),
+  // replacing the old sequential PATCH loop; the partial report UI is unchanged.
   async function executeMultiAssign() {
     if (!token || !bulkTerritoryId || selectedIds.size === 0) return;
     setAssigningMulti(true);
     setMultiResult(null);
 
     const ids = Array.from(selectedIds).map(Number);
-    let success = 0;
-    const failed: { id: number; name: string; error: string }[] = [];
-
-    for (const id of ids) {
-      const hospital = hospitals.find((h) => h.id === id);
-      const hospitalName = hospital?.displayName ?? `ID: ${id}`;
-      try {
-        await moveHospitalToTerritory(token, id, Number(bulkTerritoryId));
-        success++;
-      } catch (err) {
-        failed.push({
-          id,
-          name: hospitalName,
-          error: getErrorMessage(err, "ล้มเหลว"),
-        });
-      }
+    try {
+      const report = await bulkAssignHospitalsToTerritory(token, ids, Number(bulkTerritoryId));
+      setMultiResult({
+        total: report.requestedCount,
+        success: report.assignedCount,
+        failed: report.failed.map((f) => ({
+          id: f.hospitalId,
+          name: hospitals.find((h) => h.id === f.hospitalId)?.displayName ?? `ID: ${f.hospitalId}`,
+          error: f.error,
+        })),
+      });
+    } catch (err) {
+      // The batch request itself failed — nothing was reported per item.
+      setError(getErrorMessage(err, "ผูกเขตหลายรายการไม่สำเร็จ"));
     }
 
-    setMultiResult({ total: ids.length, success, failed });
     setSelectedIds(new Set());
     setBulkTerritoryId("");
     setConfirmingMulti(false);
@@ -122,11 +140,9 @@ export default function UnassignedTerritoriesPage() {
 
   function handleStartMultiAssign() {
     if (!bulkTerritoryId || selectedIds.size === 0) return;
-    if (selectedIds.size > 10) {
-      setConfirmingMulti(true);
-    } else {
-      void executeMultiAssign();
-    }
+    // T-UX-011 จุดที่ 6 — เกณฑ์เดียวตาม policy: กระทบหลายรายการ = ConfirmDialog
+    // ที่ระบุจำนวนจริงเสมอ (เดิมใช้ threshold 10 ตัดขาด — ≤10 ยิงเลยไม่มีเกราะ)
+    setConfirmingMulti(true);
   }
 
   const selectedTerritoryName = territories.find(
@@ -182,21 +198,39 @@ export default function UnassignedTerritoriesPage() {
         header: "ผูกเขตอย่างเร็ว",
         render: (item) =>
           canEdit ? (
-            <Select
-              defaultValue=""
-              onChange={(event) => void assignSingle(item.id, event.target.value)}
-              className="w-36 text-xs h-8"
-              aria-label={`ผูกเขตให้ ${item.displayName}`}
-            >
-              <option value="">เลือกเขต</option>
-              {territories
-                .filter((t) => t.isActive)
-                .map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-            </Select>
+            <div className="flex items-center gap-1.5">
+              <Select
+                value={quickAssignChoice[item.id] ?? ""}
+                onChange={(event) =>
+                  setQuickAssignChoice((prev) => ({
+                    ...prev,
+                    [item.id]: event.target.value,
+                  }))
+                }
+                className="w-32 text-xs h-8"
+                disabled={assigningId !== null}
+                aria-label={`เลือกเขตสำหรับ ${item.displayName}`}
+              >
+                <option value="">เลือกเขต</option>
+                {territories
+                  .filter((t) => t.isActive)
+                  .map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+              </Select>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                disabled={!quickAssignChoice[item.id] || assigningId !== null}
+                onClick={() => void assignSingle(item, quickAssignChoice[item.id])}
+                className="text-xs px-2.5 py-1.5 h-8"
+              >
+                {assigningId === item.id ? "กำลังผูก..." : "ผูกเขต"}
+              </Button>
+            </div>
           ) : (
             "—"
           ),
@@ -204,7 +238,7 @@ export default function UnassignedTerritoriesPage() {
         mobileRole: "meta",
       },
     ],
-    [canEdit, territories, assignSingle]
+    [canEdit, territories, assignSingle, quickAssignChoice, assigningId]
   );
 
   const selectionToolbar = canEdit && selectedIds.size > 0 ? (
@@ -250,7 +284,7 @@ export default function UnassignedTerritoriesPage() {
         </Button>
       </div>
       <p className="text-xs text-text-muted">
-        หมายเหตุ: การผูกเขตหลายรายการดำเนินการแบบเรียงลำดับทีละรายการ (Sequential) ไม่ใช่ Transaction เดียวกัน (Non-atomic)
+        หมายเหตุ: ส่งข้อมูลทั้งชุดให้เซิร์ฟเวอร์ประมวลผลในครั้งเดียว — บันทึกรายการต่อรายการ (per-item atomic) รายการที่ล้มเหลวจะรายงานกลับโดยไม่ดึงรายการอื่นลง
       </p>
     </div>
   ) : null;
@@ -263,13 +297,13 @@ export default function UnassignedTerritoriesPage() {
       />
 
       {!canEdit && (
-        <div className="rounded-lg border border-warning/30 bg-warning-subtle p-3 text-sm text-warning">
+        <div className="rounded-lg border border-warning/30 bg-warning-subtle p-3 text-sm text-warning-text">
           คุณดูข้อมูลได้เท่านั้น การแก้ไขสงวนไว้สำหรับผู้จัดการ
         </div>
       )}
 
       {error && (
-        <div className="rounded-lg border border-danger/30 bg-danger-subtle p-3 text-sm text-danger">
+        <div className="rounded-lg border border-danger/30 bg-danger-subtle p-3 text-sm text-danger-text">
           {error}
         </div>
       )}
@@ -279,8 +313,8 @@ export default function UnassignedTerritoriesPage() {
         <div
           className={`rounded-lg border p-4 space-y-2 text-sm ${
             multiResult.failed.length === 0
-              ? "border-success/30 bg-success-subtle text-success"
-              : "border-warning/30 bg-warning-subtle text-warning"
+              ? "border-success/30 bg-success-subtle text-success-text"
+              : "border-warning/30 bg-warning-subtle text-warning-text"
           }`}
         >
           <p className="font-semibold">
@@ -289,7 +323,7 @@ export default function UnassignedTerritoriesPage() {
               : `ดำเนินการเสร็จสิ้น: สำเร็จ ${multiResult.success} แห่ง, ไม่สำเร็จ ${multiResult.failed.length} แห่ง`}
           </p>
           {multiResult.failed.length > 0 && (
-            <ul className="list-disc pl-5 text-xs text-danger space-y-1">
+            <ul className="list-disc pl-5 text-xs text-danger-text space-y-1">
               {multiResult.failed.map((f) => (
                 <li key={f.id}>
                   {f.name}: {f.error}
@@ -315,6 +349,7 @@ export default function UnassignedTerritoriesPage() {
         selectable={canEdit}
         selectedRowIds={selectedIds}
         onSelectionChange={setSelectedIds}
+        getRowLabel={(item) => item.displayName}
         selectionToolbar={selectionToolbar}
         emptyTitle="ไม่มีโรงพยาบาลค้างผูกเขต"
         emptyDescription="โรงพยาบาลทั้งหมดได้รับการจัดเขตเรียบร้อยแล้ว"
@@ -325,7 +360,7 @@ export default function UnassignedTerritoriesPage() {
         <ConfirmDialog
           title="ยืนยันการผูกเขตหลายรายการ"
           description={`คุณกำลังจะผูกโรงพยาบาลที่เลือกจำนวน ${selectedIds.size} แห่ง เข้าเขต ${selectedTerritoryName}`}
-          consequence="การประมวลผลนี้ดำเนินการทีละรายการต่อเนื่องกัน ไม่ใช่ Transaction เดียวกัน (Non-atomic) หากมีข้อผิดพลาดเกิดขึ้น รายการที่สำเร็จไปแล้วจะยังคงมีผล"
+          consequence="เซิร์ฟเวอร์จะบันทึกทีละรายการ (per-item atomic) — รายการที่สำเร็จจะมีผลทันทีแม้รายการอื่นล้มเหลว และจะมีรายงานสรุปผลรายรายการให้ตรวจสอบหลังเสร็จ"
           tone="default"
           confirmLabel="ยืนยันการผูกเขต"
           cancelLabel="ยกเลิก"

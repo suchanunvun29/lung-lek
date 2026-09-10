@@ -68,7 +68,7 @@ export function ForbiddenState({
       </div>
 
       <p
-        className="max-w-sm rounded-[var(--radius-lg)] border border-amber-300 bg-amber-50 px-5 py-4 text-sm text-amber-900"
+        className="max-w-sm rounded-[var(--radius-lg)] border border-warning/20 bg-warning-subtle px-5 py-4 text-sm text-warning-text"
         role="alert"
       >
         {reason}

@@ -75,6 +75,12 @@ public class ImportService : IImportService
     {
         if (mode == ImportMode.APPEND)
         {
+            // T-UX-027 — APPEND now honors confirm like REPLACE/PERIOD_DELETE: confirm=false
+            // parses + validates inside a transaction that is rolled back (batch row included),
+            // so the manager sees a summary before anything reaches the database.
+            if (!confirm)
+                return await RunAppendDryRunAsync(fileBuffer, fileName, fileSizeBytes, uploadedById, cancellationToken);
+
             var batch = await ImportSalesFileLegacyAsync(fileBuffer, fileName, fileSizeBytes, uploadedById, cancellationToken);
             return new ImportResult(DryRun: false, ImportBatch: batch, Preview: null);
         }
@@ -175,6 +181,47 @@ public class ImportService : IImportService
             .ToListAsync(cancellationToken);
 
         return batches.Select(b => MapBatch(b, false)).ToList();
+    }
+
+    public async Task<ImportBatchesPageDto> ListImportBatchesPageAsync(
+        int page,
+        int pageSize,
+        string? status = null,
+        string? q = null,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _db.ImportBatches
+            .AsNoTracking()
+            .Include(b => b.UploadedBy)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<ImportStatus>(status, true, out var parsedStatus))
+        {
+            query = query.Where(b => b.Status == parsedStatus);
+        }
+
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            var needle = q.Trim().ToLower();
+            query = query.Where(b =>
+                b.FileName.ToLower().Contains(needle) ||
+                (b.UploadedBy != null && b.UploadedBy.DisplayName.ToLower().Contains(needle)));
+        }
+
+        var total = await query.CountAsync(cancellationToken);
+        var batches = await query
+            .OrderByDescending(b => b.StartedAt).ThenByDescending(b => b.Id)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return new ImportBatchesPageDto
+        {
+            Items = batches.Select(b => MapBatch(b, false)).ToList(),
+            Total = total,
+            Page = page,
+            PageSize = pageSize,
+        };
     }
 
     public async Task<ImportBatchDto?> GetImportBatchAsync(int id, CancellationToken cancellationToken = default)
@@ -542,95 +589,26 @@ public class ImportService : IImportService
                 throw new ImportInProgressException();
             }
 
-            var (hospitalsIdx, salespersonIdx, productTypeCache, productIdx, productTypeNames) =
-                await BuildIndexesAsync(cancellationToken);
+            var outcome = await StageAppendRowsAsync(parsed, batch.Id, issues, cancellationToken);
 
-            var rowKeys = parsed.ParsedRows.Select(r => r.RowKey).ToList();
-            var existingByRowKey = rowKeys.Count > 0
-                ? (await _db.SalesLines.Where(s => rowKeys.Contains(s.RowKey)).Select(s => new { s.Id, s.RowKey }).ToListAsync(cancellationToken))
-                    .ToDictionary(s => s.RowKey, s => s.Id)
-                : new Dictionary<string, int>();
-
-            int inserted = 0, updated = 0;
-            var creditErrorRows = 0;
-
-            foreach (var row in parsed.ParsedRows)
-            {
-                var credits = await ResolveSalesmanCreditsAsync(salespersonIdx, row.SalesmanRaw, issues, parsed.FirstSheetName, row.RowNumber, cancellationToken);
-                if (credits == null) { creditErrorRows++; continue; }
-
-                var hospitalId = await ResolveHospitalViaAliasAsync(hospitalsIdx, row.HospitalName, row.Province, issues, parsed.FirstSheetName, row.RowNumber, cancellationToken);
-                var productTypeId = await ResolveProductTypeAsync(productTypeCache, row.ProductTypeName, cancellationToken);
-                var product = await ResolveProductViaAliasAsync(productIdx, row.ProductName, productTypeId, cancellationToken);
-
-                if (product.ProductTypeId != productTypeId)
-                {
-                    issues.Add(new IssueInput("WARNING", "PRODUCT_TYPE_ALIAS_MISMATCH",
-                        $"สินค้า \"{row.ProductName}\" ถูกจับคู่กับทะเบียนที่ Product type = {productTypeNames.GetValueOrDefault(product.ProductTypeId, product.ProductTypeId.ToString())} แต่ไฟล์ระบุ \"{row.ProductTypeName}\" — ระบบใช้ type ตามทะเบียน",
-                        SheetName: parsed.FirstSheetName, RowNumber: row.RowNumber));
-                }
-
-                var primaryCredit = credits.FirstOrDefault(c => c.IsPrimary) ?? credits[0];
-
-                if (existingByRowKey.TryGetValue(row.RowKey, out var existingId))
-                {
-                    var existing = await _db.SalesLines.FindAsync([existingId], cancellationToken);
-                    if (existing != null)
-                    {
-                        UpdateSalesLineFields(existing, row, hospitalId, primaryCredit.SalespersonId, product, batch.Id, parsed.FirstSheetName);
-                        _db.SalesLines.Update(existing);
-                        var oldCredits = await _db.SalesLineCredits.Where(c => c.SalesLineId == existingId).ToListAsync(cancellationToken);
-                        _db.SalesLineCredits.RemoveRange(oldCredits);
-
-                        _db.SalesLineCredits.AddRange(credits.Select(c => new SalesLineCredit
-                        {
-                            SalesLineId = existingId,
-                            SalespersonId = c.SalespersonId,
-                            SharePercent = c.SharePercent,
-                            IsPrimary = c.IsPrimary,
-                        }));
-                    }
-                    updated++;
-                }
-                else
-                {
-                    var sl = new SalesLine();
-                    UpdateSalesLineFields(sl, row, hospitalId, primaryCredit.SalespersonId, product, batch.Id, parsed.FirstSheetName);
-                    sl.RowKey = row.RowKey;
-                    foreach (var c in credits)
-                    {
-                        sl.Credits.Add(new SalesLineCredit
-                        {
-                            SalespersonId = c.SalespersonId,
-                            SharePercent = c.SharePercent,
-                            IsPrimary = c.IsPrimary,
-                        });
-                    }
-                    _db.SalesLines.Add(sl);
-                    inserted++;
-                }
-
-                periodsTouched.Add(PeriodKey(row.Year, row.Month));
-            }
-
-            errorRows += creditErrorRows;
-            await _db.SaveChangesAsync(cancellationToken);
+            errorRows += outcome.CreditErrorRows;
             await tx.CommitAsync(cancellationToken);
 
-            insertedRows = inserted;
-            updatedRows = updated;
+            insertedRows = outcome.Inserted;
+            updatedRows = outcome.Updated;
+            periodsTouched = outcome.PeriodsTouched;
 
             await SaveIssuesAsync(batch.Id, issues, cancellationToken);
             await MarkInsightsStaleAsync(periodsTouched, cancellationToken);
 
-            var status = DetermineStatus(totalRows, errorRows, inserted, updated);
+            var status = DetermineStatus(totalRows, errorRows, insertedRows, updatedRows);
             batch.Status = status;
             batch.FinishedAt = DateTime.UtcNow;
             batch.SheetsFound = JsonSerializer.Serialize(sheetNames);
             batch.SheetsImported = JsonSerializer.Serialize(new[] { parsed.FirstSheetName });
             batch.TotalRows = totalRows;
-            batch.InsertedRows = inserted;
-            batch.UpdatedRows = updated;
+            batch.InsertedRows = insertedRows;
+            batch.UpdatedRows = updatedRows;
             batch.ErrorRows = errorRows;
             batch.PeriodsTouched = JsonSerializer.Serialize(periodsTouched.Select(k => {
                 var parts = k.Split('-');
@@ -652,6 +630,192 @@ public class ImportService : IImportService
             return await LoadBatchAsync(batch.Id, includeIssues: true, cancellationToken);
         }
     }
+
+    /// <summary>
+    /// APPEND with confirm=false (T-UX-027) — parse + resolve + stage everything inside a
+    /// transaction that is always rolled back, so neither sales data, master data created by
+    /// name resolution, nor the temporary batch row survives the preview. The advisory lock is
+    /// transaction-scoped, so a concurrent import is still refused with 409.
+    /// </summary>
+    private async Task<ImportResult> RunAppendDryRunAsync(
+        byte[] fileBuffer, string fileName, int fileSizeBytes, int uploadedById,
+        CancellationToken cancellationToken)
+    {
+        ParsedWorkbook parsed;
+        try
+        {
+            parsed = ParseSalesWorkbook(fileBuffer);
+        }
+        catch (Exception ex)
+        {
+            var message = ex.Message == "HEADER_NOT_FOUND"
+                ? $"ไม่พบแถว header ที่มีคอลัมน์ครบใน {MaxHeaderSearchRows} แถวแรก"
+                : ex.Message;
+            var fatal = new AppendPreview(
+                TotalRows: 0, InsertedRows: 0, UpdatedRows: 0, ErrorRows: 0,
+                IssueCounts: [new IssueLevelCount("ERROR", 1)],
+                PeriodsFound: [], FatalError: message);
+            return new ImportResult(DryRun: true, ImportBatch: null, Preview: null, AppendPreview: fatal);
+        }
+
+        var inProgress = await _db.ImportBatches
+            .Where(b => b.Status == ImportStatus.PROCESSING)
+            .Select(b => b.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (inProgress != 0)
+            throw new ImportInProgressException();
+
+        var issues = new List<IssueInput>(parsed.Issues);
+
+        using var tx = await _db.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            var locked = await _lockService.TryAcquireTransactionLockAsync(ImportAdvisoryLockKey, cancellationToken);
+            if (!locked)
+            {
+                await tx.RollbackAsync(cancellationToken);
+                throw new ImportInProgressException();
+            }
+
+            // แถว batch ชั่วคราวอยู่ใน transaction เดียวกันเพื่อให้ SalesLine.ImportBatchId
+            // ผูกได้ตอนจำลอง และถูก rollback ทิ้งพร้อมข้อมูลทั้งหมดเมื่อจบ preview
+            var tempBatch = new ImportBatch
+            {
+                FileName = fileName,
+                FileSizeBytes = fileSizeBytes,
+                UploadedById = uploadedById,
+                Status = ImportStatus.PROCESSING,
+                Mode = ImportMode.APPEND,
+            };
+            _db.ImportBatches.Add(tempBatch);
+            await _db.SaveChangesAsync(cancellationToken);
+
+            var outcome = await StageAppendRowsAsync(parsed, tempBatch.Id, issues, cancellationToken);
+
+            var preview = BuildAppendPreview(
+                parsed, issues, outcome.CreditErrorRows, outcome.Inserted, outcome.Updated, outcome.PeriodsTouched);
+            return new ImportResult(DryRun: true, ImportBatch: null, Preview: null, AppendPreview: preview);
+        }
+        finally
+        {
+            await tx.RollbackAsync(cancellationToken);
+        }
+    }
+
+    private static AppendPreview BuildAppendPreview(
+        ParsedWorkbook parsed, List<IssueInput> issues, int creditErrorRows,
+        int inserted, int updated, HashSet<string> periodsTouched)
+    {
+        var issueCounts = issues
+            .GroupBy(i => i.Level)
+            .Select(g => new IssueLevelCount(g.Key, g.Count()))
+            .OrderBy(c => c.Level)
+            .ToList();
+
+        var periodsFound = periodsTouched
+            .Select(k =>
+            {
+                var parts = k.Split('-');
+                return new Period(int.Parse(parts[0]), int.Parse(parts[1]));
+            })
+            .OrderBy(p => p.Year).ThenBy(p => p.Month)
+            .ToList();
+
+        return new AppendPreview(
+            TotalRows: parsed.TotalRows,
+            InsertedRows: inserted,
+            UpdatedRows: updated,
+            ErrorRows: parsed.ErrorRows + creditErrorRows,
+            IssueCounts: issueCounts,
+            PeriodsFound: periodsFound,
+            FatalError: null);
+    }
+
+    /// <summary>
+    /// Core APPEND row pipeline shared by the real import and the dry-run: builds master-data
+    /// indexes, resolves credits/hospitals/products per row and stages SalesLine upserts plus
+    /// SaveChanges. The caller owns the transaction and the advisory lock.
+    /// </summary>
+    private async Task<AppendRowOutcome> StageAppendRowsAsync(
+        ParsedWorkbook parsed, int batchId, List<IssueInput> issues, CancellationToken cancellationToken)
+    {
+        var (hospitalsIdx, salespersonIdx, productTypeCache, productIdx, productTypeNames) =
+            await BuildIndexesAsync(cancellationToken);
+
+        var rowKeys = parsed.ParsedRows.Select(r => r.RowKey).ToList();
+        var existingByRowKey = rowKeys.Count > 0
+            ? (await _db.SalesLines.Where(s => rowKeys.Contains(s.RowKey)).Select(s => new { s.Id, s.RowKey }).ToListAsync(cancellationToken))
+                .ToDictionary(s => s.RowKey, s => s.Id)
+            : new Dictionary<string, int>();
+
+        int inserted = 0, updated = 0;
+        var creditErrorRows = 0;
+        var periodsTouched = new HashSet<string>();
+
+        foreach (var row in parsed.ParsedRows)
+        {
+            var credits = await ResolveSalesmanCreditsAsync(salespersonIdx, row.SalesmanRaw, issues, parsed.FirstSheetName, row.RowNumber, cancellationToken);
+            if (credits == null) { creditErrorRows++; continue; }
+
+            var hospitalId = await ResolveHospitalViaAliasAsync(hospitalsIdx, row.HospitalName, row.Province, issues, parsed.FirstSheetName, row.RowNumber, cancellationToken);
+            var productTypeId = await ResolveProductTypeAsync(productTypeCache, row.ProductTypeName, cancellationToken);
+            var product = await ResolveProductViaAliasAsync(productIdx, row.ProductName, productTypeId, cancellationToken);
+
+            if (product.ProductTypeId != productTypeId)
+            {
+                issues.Add(new IssueInput("WARNING", "PRODUCT_TYPE_ALIAS_MISMATCH",
+                    $"สินค้า \"{row.ProductName}\" ถูกจับคู่กับทะเบียนที่ Product type = {productTypeNames.GetValueOrDefault(product.ProductTypeId, product.ProductTypeId.ToString())} แต่ไฟล์ระบุ \"{row.ProductTypeName}\" — ระบบใช้ type ตามทะเบียน",
+                    SheetName: parsed.FirstSheetName, RowNumber: row.RowNumber));
+            }
+
+            var primaryCredit = credits.FirstOrDefault(c => c.IsPrimary) ?? credits[0];
+
+            if (existingByRowKey.TryGetValue(row.RowKey, out var existingId))
+            {
+                var existing = await _db.SalesLines.FindAsync([existingId], cancellationToken);
+                if (existing != null)
+                {
+                    UpdateSalesLineFields(existing, row, hospitalId, primaryCredit.SalespersonId, product, batchId, parsed.FirstSheetName);
+                    _db.SalesLines.Update(existing);
+                    var oldCredits = await _db.SalesLineCredits.Where(c => c.SalesLineId == existingId).ToListAsync(cancellationToken);
+                    _db.SalesLineCredits.RemoveRange(oldCredits);
+
+                    _db.SalesLineCredits.AddRange(credits.Select(c => new SalesLineCredit
+                    {
+                        SalesLineId = existingId,
+                        SalespersonId = c.SalespersonId,
+                        SharePercent = c.SharePercent,
+                        IsPrimary = c.IsPrimary,
+                    }));
+                }
+                updated++;
+            }
+            else
+            {
+                var sl = new SalesLine();
+                UpdateSalesLineFields(sl, row, hospitalId, primaryCredit.SalespersonId, product, batchId, parsed.FirstSheetName);
+                sl.RowKey = row.RowKey;
+                foreach (var c in credits)
+                {
+                    sl.Credits.Add(new SalesLineCredit
+                    {
+                        SalespersonId = c.SalespersonId,
+                        SharePercent = c.SharePercent,
+                        IsPrimary = c.IsPrimary,
+                    });
+                }
+                _db.SalesLines.Add(sl);
+                inserted++;
+            }
+
+            periodsTouched.Add(PeriodKey(row.Year, row.Month));
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+        return new AppendRowOutcome(inserted, updated, creditErrorRows, periodsTouched);
+    }
+
+    private sealed record AppendRowOutcome(int Inserted, int Updated, int CreditErrorRows, HashSet<string> PeriodsTouched);
 
     // -----------------------------------------------------------------------
     //  REPLACE_PERIOD mode

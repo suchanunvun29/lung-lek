@@ -18,9 +18,8 @@ public static class ImportEndpoints
         // POST /import/period-delete — MANAGER only
         app.MapPost("/import/period-delete", HandlePeriodDelete);
 
-        // GET /import-batches
-        app.MapGet("/import-batches", async (IImportService importService, CancellationToken ct) =>
-            Results.Ok(new { importBatches = await importService.ListImportBatchesAsync(ct) }));
+        // GET /import-batches — T-UX-025: optional page/pageSize + status/q filters
+        app.MapGet("/import-batches", HandleListImportBatches);
 
         // GET /import-batches/{id}
         app.MapGet("/import-batches/{id}", async (int id, IImportService importService, CancellationToken ct) =>
@@ -35,6 +34,32 @@ public static class ImportEndpoints
         app.MapGet("/sales-lines", HandleListSalesLines);
 
         return app;
+    }
+
+    private static async Task<IResult> HandleListImportBatches(
+        string? page,
+        string? pageSize,
+        string? status,
+        string? q,
+        IImportService importService,
+        CancellationToken ct)
+    {
+        if (!string.IsNullOrWhiteSpace(status) && !Enum.TryParse<ImportStatus>(status, true, out _))
+            return TerritoryEndpoints.Invalid($"status must be one of {string.Join(", ", Enum.GetNames<ImportStatus>())}");
+
+        if (!Paging.IsRequested(page, pageSize))
+        {
+            // Legacy full list, filters still honored (declared in tests).
+            var batches = await importService.ListImportBatchesAsync(ct);
+            return Results.Ok(new { importBatches = batches });
+        }
+
+        var (pageVal, pageSizeVal, error) = Paging.Parse(page, pageSize);
+        if (error != null)
+            return error;
+
+        var result = await importService.ListImportBatchesPageAsync(pageVal, pageSizeVal, status, q, ct);
+        return Results.Ok(result);
     }
 
     private static async Task<IResult> HandleUploadImport(

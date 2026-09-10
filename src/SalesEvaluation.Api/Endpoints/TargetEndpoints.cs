@@ -478,16 +478,33 @@ public static class TargetEndpoints
 
     private static async Task<IResult> HandleGetTargetRevisions(
         int targetId,
+        string? page,
+        string? pageSize,
         ITargetService targetService,
         CancellationToken ct)
     {
-        var result = await targetService.GetTargetRevisionsAsync(targetId, ct);
+        if (!Paging.IsRequested(page, pageSize))
+        {
+            var legacy = await targetService.GetTargetRevisionsAsync(targetId, ct);
+            if (legacy == null)
+            {
+                return Results.Json(new { error = "Target not found" }, statusCode: StatusCodes.Status404NotFound);
+            }
+
+            return Results.Json(new { revisions = legacy.Revisions });
+        }
+
+        var (pageVal, pageSizeVal, error) = Paging.Parse(page, pageSize);
+        if (error != null)
+            return error;
+
+        var result = await targetService.GetTargetRevisionsPageAsync(targetId, pageVal, pageSizeVal, ct);
         if (result == null)
         {
             return Results.Json(new { error = "Target not found" }, statusCode: StatusCodes.Status404NotFound);
         }
 
-        return Results.Json(new { revisions = result.Revisions });
+        return Results.Ok(result);
     }
 
     private static async Task<IResult> HandleGetDerivedTarget(

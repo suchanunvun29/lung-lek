@@ -38,6 +38,8 @@ public class CoachingInsightDto
     public string? Provider { get; init; }
     public string? Model { get; init; }
     public string? ErrorMessage { get; init; }
+    /// <summary>T-UX-028 — Thai reason shown to the user when Status = FAILED (rule-based fallback).</summary>
+    public string? FallbackReason { get; init; }
     public bool IsStale { get; init; }
     public int? GeneratedById { get; init; }
     public DateTime GeneratedAt { get; init; }

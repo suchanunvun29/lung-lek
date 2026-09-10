@@ -30,6 +30,9 @@ public interface ITargetService
     /// <summary>GET /targets/:targetId/revisions — newest first, with changedBy. Returns null when the target does not exist.</summary>
     Task<TargetRevisionsResponse?> GetTargetRevisionsAsync(int targetId, CancellationToken cancellationToken = default);
 
+    /// <summary>T-UX-025 — paged variant, newest first. Returns null when the target does not exist.</summary>
+    Task<TargetRevisionsPageResponse?> GetTargetRevisionsPageAsync(int targetId, int page, int pageSize, CancellationToken cancellationToken = default);
+
     /// <summary>GET /targets/derived/:salespersonId/:year/:month. Returns null when the salesperson does not exist.</summary>
     Task<DerivedTargetResponse?> GetDerivedTargetAsync(int salespersonId, int year, int month, CancellationToken cancellationToken = default);
 }

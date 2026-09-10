@@ -20,8 +20,8 @@ export interface TerritoryInput {
   note?: string | null;
 }
 
-export function listTerritories(token: string) {
-  return request<{ territories: Territory[] }>("/territories", { method: "GET" }, token);
+export function listTerritories(token: string, signal?: AbortSignal) {
+  return request<{ territories: Territory[] }>("/territories", { method: "GET", signal }, token);
 }
 
 export function createTerritory(token: string, input: TerritoryInput) {
@@ -34,14 +34,15 @@ export function updateTerritory(token: string, id: number, input: Partial<Territ
 
 export function listTerritoryAssignments(
   token: string,
-  filters: { territoryId?: number; salespersonId?: number; status?: "ACTIVE" | "INACTIVE" } = {}
+  filters: { territoryId?: number; salespersonId?: number; status?: "ACTIVE" | "INACTIVE" } = {},
+  signal?: AbortSignal
 ) {
   const params = new URLSearchParams();
   Object.entries(filters).forEach(([key, value]) => value !== undefined && params.set(key, String(value)));
   const query = params.toString();
   return request<{ territoryAssignments: TerritoryAssignment[] }>(
     `/territory-assignments${query ? `?${query}` : ""}`,
-    { method: "GET" },
+    { method: "GET", signal },
     token
   );
 }
@@ -85,6 +86,28 @@ export function moveHospitalToTerritory(token: string, hospitalId: number, terri
   );
 }
 
+export interface BulkAssignTerritoryResult {
+  requestedCount: number;
+  assignedCount: number;
+  assigned: number[];
+  failedCount: number;
+  failed: { hospitalId: number; error: string }[];
+}
+
+/** T-UX-026 — one request per batch instead of a PATCH loop; server is per-item atomic. */
+export function bulkAssignHospitalsToTerritory(
+  token: string,
+  hospitalIds: number[],
+  territoryId: number,
+  note?: string
+) {
+  return request<BulkAssignTerritoryResult>(
+    "/hospitals/territory/bulk",
+    { method: "POST", body: JSON.stringify({ territoryId, hospitalIds, note }) },
+    token
+  );
+}
+
 export function bulkMoveHospitalsByProvince(token: string, province: string, territoryId: number | null, note?: string) {
   return request<{ updatedCount: number }>(
     "/hospitals/territory/bulk-by-province",
@@ -93,10 +116,10 @@ export function bulkMoveHospitalsByProvince(token: string, province: string, ter
   );
 }
 
-export function listUnassignedTerritoryHospitals(token: string) {
+export function listUnassignedTerritoryHospitals(token: string, signal?: AbortSignal) {
   return request<{ unassignedBucket: number; hospitalCount: number; hospitals: UnassignedTerritoryHospital[] }>(
     "/hospitals/unassigned-territory",
-    { method: "GET" },
+    { method: "GET", signal },
     token
   );
 }
@@ -110,8 +133,8 @@ export function getDerivedTarget(token: string, salespersonId: number, year: num
 }
 
 
-export function listTerritoryGroups(token: string) {
-  return request<{ territoryGroups: TerritoryGroup[] }>("/territory-groups", { method: "GET" }, token);
+export function listTerritoryGroups(token: string, signal?: AbortSignal) {
+  return request<{ territoryGroups: TerritoryGroup[] }>("/territory-groups", { method: "GET", signal }, token);
 }
 
 export function createTerritoryGroup(token: string, input: { name: string; isActive?: boolean; note?: string | null }) {
@@ -151,62 +174,66 @@ export function updateTerritoryGroupMember(
 
 export function getMyTerritoryView(
   token: string,
-  salespersonId: string,
+  salespersonId: string | number,
   period: PeriodKey,
-  filters: { productTypeId?: string; creditOnly?: boolean } = {}
+  filters: { productTypeId?: string; creditOnly?: boolean } = {},
+  signal?: AbortSignal
 ) {
   const params = new URLSearchParams(periodQueryParams(period));
   if (filters.productTypeId) params.set("productTypeId", filters.productTypeId);
   if (filters.creditOnly) params.set("creditOnly", "true");
-  return request<MyTerritoryViewResponse>(`/my-territory-view/${salespersonId}?${params.toString()}`, { method: "GET" }, token);
+  return request<MyTerritoryViewResponse>(`/my-territory-view/${salespersonId}?${params.toString()}`, { method: "GET", signal }, token);
 }
 
 export function getNeverSoldHospitals(
   token: string,
-  salespersonId: string,
+  salespersonId: string | number,
   period: PeriodKey,
   filters: {
     topN?: number;
     provinceMappingId?: string;
     potentialMetric?: string;
     productTypeId?: string;
-  } = {}
+  } = {},
+  signal?: AbortSignal
 ) {
   const params = new URLSearchParams(periodQueryParams(period));
   if (filters.topN) params.set("topN", String(filters.topN));
   if (filters.provinceMappingId) params.set("provinceMappingId", filters.provinceMappingId);
   if (filters.potentialMetric) params.set("potentialMetric", filters.potentialMetric);
   if (filters.productTypeId) params.set("productTypeId", filters.productTypeId);
-  return request<NeverSoldHospitalsResponse>(`/my-territory-view/${salespersonId}/never-sold?${params.toString()}`, { method: "GET" }, token);
+  return request<NeverSoldHospitalsResponse>(`/my-territory-view/${salespersonId}/never-sold?${params.toString()}`, { method: "GET", signal }, token);
 }
 
 export function exportMyTerritoryView(
   token: string,
-  salespersonId: string,
+  salespersonId: string | number,
   period: PeriodKey,
-  filters: { productTypeId?: string; creditOnly?: boolean } = {}
+  filters: { productTypeId?: string; creditOnly?: boolean } = {},
+  signal?: AbortSignal
 ) {
   const params = new URLSearchParams(periodQueryParams(period));
   if (filters.productTypeId) params.set("productTypeId", filters.productTypeId);
   if (filters.creditOnly) params.set("creditOnly", "true");
-  return downloadFile(`/my-territory-view/${salespersonId}/export?${params.toString()}`, token);
+  return downloadFile(`/my-territory-view/${salespersonId}/export?${params.toString()}`, token, signal);
 }
 
 export function exportNeverSoldHospitals(
   token: string,
-  salespersonId: string,
+  salespersonId: string | number,
   period: PeriodKey,
   filters: {
     topN?: number;
     provinceMappingId?: string;
     potentialMetric?: string;
     productTypeId?: string;
-  } = {}
+  } = {},
+  signal?: AbortSignal
 ) {
   const params = new URLSearchParams(periodQueryParams(period));
   if (filters.topN) params.set("topN", String(filters.topN));
   if (filters.provinceMappingId) params.set("provinceMappingId", filters.provinceMappingId);
   if (filters.potentialMetric) params.set("potentialMetric", filters.potentialMetric);
   if (filters.productTypeId) params.set("productTypeId", filters.productTypeId);
-  return downloadFile(`/my-territory-view/${salespersonId}/never-sold/export?${params.toString()}`, token);
+  return downloadFile(`/my-territory-view/${salespersonId}/never-sold/export?${params.toString()}`, token, signal);
 }

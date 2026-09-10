@@ -110,6 +110,10 @@ public static class ReviewQueueEndpoints
                 {
                     request.MergedIntoId = mId;
                 }
+                else
+                {
+                    return TerritoryEndpoints.Invalid("mergedIntoId ไม่ถูกต้อง");
+                }
             }
 
             if (root.TryGetProperty("note", out var noteProp) && noteProp.ValueKind == JsonValueKind.String)
@@ -189,6 +193,10 @@ public static class ReviewQueueEndpoints
                 {
                     request.MergedIntoId = mId;
                 }
+                else
+                {
+                    return TerritoryEndpoints.Invalid("mergedIntoId ไม่ถูกต้อง");
+                }
             }
 
             if (root.TryGetProperty("note", out var noteProp) && noteProp.ValueKind == JsonValueKind.String)
@@ -263,7 +271,7 @@ public static class ReviewQueueEndpoints
                 {
                     if (item.TryGetProperty("salespersonId", out var spProp) && item.TryGetProperty("sharePercent", out var shareProp))
                     {
-                        int spId = 0;
+                        int spId;
                         if (spProp.ValueKind == JsonValueKind.Number)
                         {
                             spId = spProp.GetInt32();
@@ -272,8 +280,12 @@ public static class ReviewQueueEndpoints
                         {
                             spId = parsedId;
                         }
+                        else
+                        {
+                            return TerritoryEndpoints.Invalid("salespersonId ไม่ถูกต้อง");
+                        }
 
-                        decimal share = 0m;
+                        decimal share;
                         if (shareProp.ValueKind == JsonValueKind.Number)
                         {
                             share = shareProp.GetDecimal();
@@ -281,6 +293,10 @@ public static class ReviewQueueEndpoints
                         else if (shareProp.ValueKind == JsonValueKind.String && decimal.TryParse(shareProp.GetString(), out var s))
                         {
                             share = s;
+                        }
+                        else
+                        {
+                            return TerritoryEndpoints.Invalid("sharePercent ไม่ถูกต้อง");
                         }
                         request.Members.Add(new SalesmanNameRuleMemberInputDto
                         {
@@ -339,7 +355,7 @@ public static class ReviewQueueEndpoints
                 {
                     if (item.TryGetProperty("salespersonId", out var spProp) && item.TryGetProperty("sharePercent", out var shareProp))
                     {
-                        int spId = 0;
+                        int spId;
                         if (spProp.ValueKind == JsonValueKind.Number)
                         {
                             spId = spProp.GetInt32();
@@ -348,8 +364,12 @@ public static class ReviewQueueEndpoints
                         {
                             spId = parsedId;
                         }
+                        else
+                        {
+                            return TerritoryEndpoints.Invalid("salespersonId ไม่ถูกต้อง");
+                        }
 
-                        decimal share = 0m;
+                        decimal share;
                         if (shareProp.ValueKind == JsonValueKind.Number)
                         {
                             share = shareProp.GetDecimal();
@@ -357,6 +377,10 @@ public static class ReviewQueueEndpoints
                         else if (shareProp.ValueKind == JsonValueKind.String && decimal.TryParse(shareProp.GetString(), out var s))
                         {
                             share = s;
+                        }
+                        else
+                        {
+                            return TerritoryEndpoints.Invalid("sharePercent ไม่ถูกต้อง");
                         }
                         request.Members.Add(new SalesmanNameRuleMemberInputDto
                         {

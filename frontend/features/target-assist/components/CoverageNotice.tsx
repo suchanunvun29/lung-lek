@@ -18,7 +18,7 @@ export function CoverageNotice({ coveragePercent, regionName }: CoverageNoticePr
   if (coveragePercent === null || coveragePercent === 0) {
     const message = regionName === BANGKOK_REGION_NAME ? BANGKOK_NOT_COVERED_MESSAGE_TH : ZERO_LINKED_SALES_MESSAGE_TH;
     return (
-      <p className="rounded-md border border-warning/30 bg-warning-subtle px-3 py-2 text-sm text-warning">
+      <p className="rounded-md border border-warning/30 bg-warning-subtle px-3 py-2 text-sm text-warning-text">
         {message}
       </p>
     );

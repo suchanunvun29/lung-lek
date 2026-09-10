@@ -1,13 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { getKpiDrillDown } from "@/features/kpi/api/kpi.api";
 import { getErrorMessage } from "@/lib/api-client";
 import { formatMoney, formatThaiMonth } from "@/lib/importLabels";
 import { metricLabelTh } from "@/lib/kpiLabels";
 import { DrillDownMetric, KpiDrillDownResponse, PeriodKey } from "@/lib/types";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useAbortableEffect } from "@/lib/useAbortableEffect";
 import { Modal } from "@/components/ui/modal";
+import { EmptyState } from "@/components/shared/feedback/EmptyState";
+import { SkeletonTable } from "@/components/shared/feedback/Skeleton";
 
 export interface KpiDrillDownModalProps {
   salespersonId: number;
@@ -28,30 +31,42 @@ export function KpiDrillDownModal({
   const [data, setData] = useState<KpiDrillDownResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
 
-  useEffect(() => {
-    if (!token) return;
-
-    async function load() {
+  useAbortableEffect(
+    async (signal) => {
+      if (!token) return;
       setLoading(true);
       try {
-        const res = await getKpiDrillDown(token!, salespersonId, metric, period, hospitalId);
+        const res = await getKpiDrillDown(token, salespersonId, metric, period, hospitalId, signal);
+        if (signal.aborted) return;
         setData(res);
         setLoadError(null);
       } catch (err) {
-        setLoadError(getErrorMessage(err, "โหลดรายการที่มาไม่สำเร็จ"));
+        if (!signal.aborted) {
+          setLoadError(getErrorMessage(err, "โหลดรายการที่มาไม่สำเร็จ"));
+        }
       } finally {
-        setLoading(false);
+        if (!signal.aborted) {
+          setLoading(false);
+        }
       }
-    }
-
-    void load();
-  }, [token, salespersonId, metric, period, hospitalId]);
+    },
+    [token, salespersonId, metric, period, hospitalId, reloadNonce]
+  );
 
   return (
     <Modal title={`ที่มาของ: ${metricLabelTh(metric)}`} onClose={onClose} widthClassName="max-w-4xl">
-      {loading && <p className="text-text-muted">กำลังโหลด...</p>}
-      {loadError && <p className="text-sm text-danger">{loadError}</p>}
+      {loading && <SkeletonTable rows={5} columns={6} />}
+      {loadError && !loading && (
+        <EmptyState
+          variant="error"
+          title="โหลดรายการที่มาไม่สำเร็จ"
+          description={loadError}
+          onRetry={() => setReloadNonce((n) => n + 1)}
+          isRetrying={loading}
+        />
+      )}
 
       {data && !loading && (
         <div className="space-y-3">
@@ -75,7 +90,7 @@ export function KpiDrillDownModal({
                   <th className="px-3 py-2">โรงพยาบาล</th>
                   <th className="px-3 py-2">สินค้า</th>
                   <th className="px-3 py-2">กลุ่มสินค้า</th>
-                  <th className="px-3 py-2 text-right">ยอดรวม (Total)</th>
+                  <th className="px-3 py-2 text-right">ยอดรวม</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">

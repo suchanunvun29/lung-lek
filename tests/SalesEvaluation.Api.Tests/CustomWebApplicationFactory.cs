@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using SalesEvaluation.Api.Converters;
@@ -108,6 +109,10 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             {
                 options.UseInMemoryDatabase(_dbName);
                 options.UseInternalServiceProvider(inMemoryServiceProvider);
+                // Import flows open real transactions (T-UX-027 dry-run). The InMemory store
+                // ignores them — these tests pin HTTP contract shapes only; the rollback
+                // guarantee itself is proven against SQLite in ImportAppendDryRunTests.
+                options.ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning));
             });
 
             services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<AppDbContext>());

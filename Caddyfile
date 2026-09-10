@@ -1,0 +1,14 @@
+:3000 {
+  # Canonical trailing slash makes VitePress resolve relative assets correctly.
+  redir /docs /docs/ 308
+
+  # Strip /docs before forwarding: the static VitePress output is rooted at /,
+  # while its generated links and assets are prefixed with /docs/.
+  handle_path /docs/* {
+    reverse_proxy docs:80
+  }
+
+  handle {
+    reverse_proxy frontend:3000
+  }
+}

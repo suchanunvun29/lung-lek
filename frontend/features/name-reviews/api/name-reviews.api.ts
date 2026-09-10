@@ -5,10 +5,10 @@ import {
   SalesmanNameRule,
 } from "@/lib/types";
 
-export function listHospitalNameReviews(token: string) {
+export function listHospitalNameReviews(token: string, signal?: AbortSignal) {
   return request<{ hospitalNameReviews: HospitalNameReview[] }>(
     "/hospital-name-reviews",
-    { method: "GET" },
+    { method: "GET", signal },
     token
   );
 }
@@ -29,18 +29,18 @@ export function decideHospitalNameReview(
   );
 }
 
-export function listSalesmanNameRules(token: string) {
+export function listSalesmanNameRules(token: string, signal?: AbortSignal) {
   return request<{ salesmanNameRules: SalesmanNameRule[] }>(
     "/salesman-name-rules",
-    { method: "GET" },
+    { method: "GET", signal },
     token
   );
 }
 
-export function listSalesmanNameReviews(token: string) {
+export function listSalesmanNameReviews(token: string, signal?: AbortSignal) {
   return request<{ salesmanNameReviews: SalesmanNameReview[] }>(
     "/salesman-name-reviews",
-    { method: "GET" },
+    { method: "GET", signal },
     token
   );
 }
