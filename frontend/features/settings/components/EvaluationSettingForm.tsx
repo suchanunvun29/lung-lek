@@ -202,7 +202,7 @@ export function EvaluationSettingForm({ setting, onSubmit }: EvaluationSettingFo
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField
             id="churnMonths"
-            label="เกณฑ์ตัดสินลูกค้าหยุดสั่งซื้อ (churnMonths)"
+            label={<span title="churnMonths">จำนวนเดือนที่ไม่สั่งซื้อถือว่าหยุดเป็นลูกค้า</span>}
             hint="กำหนดจำนวนเดือนที่ไม่มีการสั่งซื้อต่อเนื่อง ก่อนระบบจะนับว่าลูกค้าหลุดมือ (กระทบเกณฑ์ Retention)"
             error={fieldErrors.churnMonths}
           >
@@ -227,7 +227,7 @@ export function EvaluationSettingForm({ setting, onSubmit }: EvaluationSettingFo
 
           <FormField
             id="minMonthsForChurn"
-            label="ข้อมูลย้อนหลังขั้นต่ำสำหรับ Retention (minMonthsForChurn)"
+            label={<span title="minMonthsForChurn">จำนวนเดือนขั้นต่ำสำหรับวัดการรักษาลูกค้า</span>}
             hint="ต้องมีข้อมูลย้อนหลังอย่างน้อยตามจำนวนเดือนนี้ มิฉะนั้นเกณฑ์ Retention จะคำนวณไม่ได้ (Non-computable)"
             error={fieldErrors.minMonthsForChurn}
           >
@@ -252,7 +252,7 @@ export function EvaluationSettingForm({ setting, onSubmit }: EvaluationSettingFo
 
           <FormField
             id="minMonthsForConsistency"
-            label="ข้อมูลย้อนหลังขั้นต่ำสำหรับ Consistency (minMonthsForConsistency)"
+            label={<span title="minMonthsForConsistency">จำนวนเดือนขั้นต่ำสำหรับวัดความสม่ำเสมอ</span>}
             hint="ต้องมีข้อมูลย้อนหลังอย่างน้อยตามจำนวนเดือนนี้ มิฉะนั้นเกณฑ์ Consistency จะคำนวณไม่ได้ (Non-computable)"
             className="md:col-span-2"
             error={fieldErrors.minMonthsForConsistency}
@@ -290,7 +290,7 @@ export function EvaluationSettingForm({ setting, onSubmit }: EvaluationSettingFo
           <label className="flex items-start justify-between gap-4 p-3 rounded-[var(--radius-md)] bg-[var(--surface-subtle)] border border-[var(--border)] cursor-pointer">
             <div>
               <span className="text-sm font-medium text-[var(--text-primary)]">
-                เปิดใช้งานวิเคราะห์จุดแข็งและโอกาสพัฒนาด้วย AI (aiEnabled)
+                <span title="aiEnabled">เปิดวิเคราะห์จุดแข็งและโอกาสพัฒนาด้วย AI</span>
               </span>
               <p className="text-xs text-[var(--text-muted)] mt-0.5">
                 เปิดระบบสร้างบทวิเคราะห์ Coaching อัตโนมัติบนหน้ารายงานผลงานพนักงานขาย
@@ -307,7 +307,7 @@ export function EvaluationSettingForm({ setting, onSubmit }: EvaluationSettingFo
           <label className="flex items-start justify-between gap-4 p-3 rounded-[var(--radius-md)] bg-[var(--surface-subtle)] border border-[var(--border)] cursor-pointer">
             <div>
               <span className="text-sm font-medium text-[var(--text-primary)]">
-                ปิดบังข้อมูลระบุตัวบุคคลก่อนส่งให้ AI (aiAnonymize)
+                <span title="aiAnonymize">ปิดบังข้อมูลระบุตัวบุคคลก่อนส่งให้ AI</span>
               </span>
               <p className="text-xs text-[var(--text-muted)] mt-0.5">
                 ปกป้องข้อมูลส่วนบุคคล (PII) โดยปิดบังชื่อพนักงานขายและชื่อโรงพยาบาลก่อนส่งคำขอไปยังโมเดลภายนอก (ตาม Business Rule I)
@@ -334,7 +334,7 @@ export function EvaluationSettingForm({ setting, onSubmit }: EvaluationSettingFo
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField
             id="potentialMetric"
-            label="ตัวชี้วัดศักยภาพหลักจากทะเบียน (potentialMetric)"
+            label={<span title="potentialMetric">ตัวชี้วัดหลักสำหรับประเมินศักยภาพ</span>}
             hint="เลือกเกณฑ์จากทะเบียนโรงพยาบาลที่นำมาคำนวณน้ำหนักศักยภาพเขตการขาย (เช่น จำนวนเตียง หรือ CMI)"
             error={fieldErrors.potentialMetric}
           >
@@ -357,7 +357,7 @@ export function EvaluationSettingForm({ setting, onSubmit }: EvaluationSettingFo
 
           <FormField
             id="minRegionCoverage"
-            label="ความครอบคลุมขั้นต่ำของภาค 0–1 (minRegionCoverage)"
+            label={<span title="minRegionCoverage">สัดส่วนข้อมูลขั้นต่ำของภาค (0–1)</span>}
             hint="สัดส่วนข้อมูลโรงพยาบาลในภาคที่ต้องมีครบก่อนนำศักยภาพมาใช้ปรับเป้าหมายใน Target Assist"
             error={fieldErrors.minRegionCoverage}
           >
@@ -390,7 +390,7 @@ export function EvaluationSettingForm({ setting, onSubmit }: EvaluationSettingFo
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField
             id="targetSuggestionAlpha"
-            label="สัดส่วนฐานประวัติ α (targetSuggestionAlpha)"
+            label={<span title="targetSuggestionAlpha">สัดส่วนประวัติยอดขายที่ใช้เสนอเป้า (0–1)</span>}
             hint="ค่า 0 ถึง 1 — 1.000 หมายถึงคำนวณข้อเสนอเป้าหมายจากสถิติประวัติยอดขายล้วน 100% (กระทบหน้า /target-assist)"
             error={fieldErrors.targetSuggestionAlpha}
           >
@@ -412,7 +412,7 @@ export function EvaluationSettingForm({ setting, onSubmit }: EvaluationSettingFo
 
           <FormField
             id="targetLookbackMonths"
-            label="จำนวนเดือนย้อนหลังของฐานประวัติ (targetLookbackMonths)"
+            label={<span title="targetLookbackMonths">จำนวนเดือนย้อนหลังที่ใช้เสนอเป้า</span>}
             hint="ช่วงเวลาย้อนหลังที่ระบบดึงยอดขายมาคำนวณฐานเพื่อเสนอเป้าหมายใน Target Assist"
             error={fieldErrors.targetLookbackMonths}
           >
@@ -437,7 +437,7 @@ export function EvaluationSettingForm({ setting, onSubmit }: EvaluationSettingFo
 
           <FormField
             id="targetOutlierThreshold"
-            label="สัดส่วนบิลผิดปกติ Outlier 0–1 (targetOutlierThreshold)"
+            label={<span title="targetOutlierThreshold">สัดส่วนบิลสูงผิดปกติที่ต้องตัดออก (0–1)</span>}
             hint="สัดส่วนยอดต่อใบกำกับเทียบยอดรวม หากเกินเกณฑ์นี้จะถูกนับเป็น Outlier ใน Target Assist"
             error={fieldErrors.targetOutlierThreshold}
           >
@@ -447,7 +447,7 @@ export function EvaluationSettingForm({ setting, onSubmit }: EvaluationSettingFo
               inputMode="decimal"
               min={0.001}
               max={1}
-              step={0.01}
+              step={0.001}
               value={targetOutlierThreshold}
               onChange={(e) => {
                 setTargetOutlierThreshold(Number(e.target.value));
@@ -459,7 +459,7 @@ export function EvaluationSettingForm({ setting, onSubmit }: EvaluationSettingFo
 
           <FormField
             id="targetGrowthRate"
-            label="อัตราเติบโตเป้าหมาย (targetGrowthRate)"
+            label={<span title="targetGrowthRate">อัตราเติบโตที่ใช้คำนวณเป้าหมาย</span>}
             hint="ตัวคูณการเติบโตที่ระบบนำไปคูณกับฐานยอดขาย — เช่น 1.000 คือไม่เพิ่มการเติบโต, 1.050 คือเป้าโต 5%"
             error={fieldErrors.targetGrowthRate}
           >

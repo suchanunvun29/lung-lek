@@ -21,28 +21,18 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/shared/feedback/EmptyState";
 import { SkeletonTable } from "@/components/shared/feedback/Skeleton";
 import { useAbortableEffect } from "@/lib/useAbortableEffect";
+import { useUrlState } from "@/lib/useUrlState";
 
 type Tab = "salespeople" | "hospitals" | "products";
 
-function readInitialTab(): Tab {
-  if (typeof window === "undefined") return "salespeople";
-  const value = new URLSearchParams(window.location.search).get("tab");
-  return value === "hospitals" || value === "products" ? value : "salespeople";
-}
-
-function setTabInUrl(tab: Tab) {
-  if (typeof window === "undefined") return;
-  const url = new URL(window.location.href);
-  url.searchParams.set("tab", tab);
-  window.history.replaceState(null, "", url.toString());
-}
-
 export default function MasterDataPage() {
+  const { searchParams, setUrlState } = useUrlState();
   const token = useAuthStore((state) => state.token);
   const currentUser = useAuthStore((state) => state.user);
   const canEdit = currentUser?.role === "MANAGER";
 
-  const [tab, setTabState] = useState<Tab>(readInitialTab);
+  const tabParam = searchParams.get("tab");
+  const tab: Tab = tabParam === "hospitals" || tabParam === "products" ? tabParam : "salespeople";
   const [salespeople, setSalespeople] = useState<Salesperson[]>([]);
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
   const [products, setProducts] = useState<ProductMasterItem[]>([]);
@@ -61,8 +51,7 @@ export default function MasterDataPage() {
   const [hospitalsSearch, setHospitalsSearch] = useState("");
 
   function setTab(nextTab: Tab) {
-    setTabState(nextTab);
-    setTabInUrl(nextTab);
+    setUrlState({ tab: nextTab === "salespeople" ? null : nextTab });
   }
 
   useAbortableEffect(

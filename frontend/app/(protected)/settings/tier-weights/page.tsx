@@ -56,9 +56,10 @@ export default function TierWeightsSettingsPage() {
 
   return (
     <PageContainer width="standard">
+      {/* Backend/debug field: TierWeight. Keep it out of user-facing copy. */}
       <PageHeader
         title="น้ำหนักตามระดับโรงพยาบาล"
-        description="ค่าน้ำหนักถ่วงตัวชี้วัดศักยภาพตามระดับโรงพยาบาล (TierWeight) เพื่อใช้ปรับเป้าหมายในเขตการขาย"
+        description="ค่าน้ำหนักถ่วงตัวชี้วัดศักยภาพตามระดับโรงพยาบาล เพื่อใช้ปรับเป้าหมายในเขตการขาย"
       />
 
       {loadError && (

@@ -31,7 +31,7 @@ const COLUMNS: DataTableColumn<SalesLine>[] = [
   },
   {
     key: "total",
-    header: "ยอดรวม (Total)",
+    header: "ยอดรวม",
     priority: 1,
     align: "right",
     numeric: true,
@@ -96,7 +96,7 @@ const COLUMNS: DataTableColumn<SalesLine>[] = [
   },
   {
     key: "lotExpiry",
-    header: "Lot / Expiry",
+    header: "ล็อต / วันหมดอายุ",
     priority: 3,
     mobileRole: "meta",
     render: (line) => {
@@ -105,7 +105,7 @@ const COLUMNS: DataTableColumn<SalesLine>[] = [
       }
       return (
         <span className="text-xs text-text-muted">
-          {[line.lot ? `Lot: ${line.lot}` : "", line.expiryDate ? `Exp: ${line.expiryDate}` : ""]
+          {[line.lot ? `ล็อต: ${line.lot}` : "", line.expiryDate ? `หมดอายุ: ${line.expiryDate}` : ""]
             .filter(Boolean)
             .join(" · ")}
         </span>

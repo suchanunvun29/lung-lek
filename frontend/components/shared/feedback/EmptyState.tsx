@@ -10,6 +10,7 @@ export interface EmptyStateProps extends React.HTMLAttributes<HTMLDivElement> {
   onResetFilters?: () => void;
   onRetry?: () => void;
   isRetrying?: boolean;
+  headingLevel?: 2 | 3;
 }
 
 export function EmptyState({
@@ -20,9 +21,11 @@ export function EmptyState({
   onResetFilters,
   onRetry,
   isRetrying = false,
+  headingLevel = 3,
   className,
   ...props
 }: EmptyStateProps) {
+  const Heading = headingLevel === 2 ? "h2" : "h3";
   return (
     <div
       className={cn(
@@ -44,7 +47,7 @@ export function EmptyState({
         )}
       </div>
 
-      <h3 className="text-base font-medium text-text-primary">{title}</h3>
+      <Heading className="text-base font-medium text-text-primary">{title}</Heading>
 
       {description && (
         <p className="mt-1.5 text-sm text-text-muted max-w-sm">{description}</p>

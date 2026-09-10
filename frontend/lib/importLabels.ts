@@ -12,6 +12,28 @@ export const IMPORT_ISSUE_LEVEL_LABEL_TH: Record<ImportIssueLevel, string> = {
   ERROR: "ข้อผิดพลาด",
 };
 
+export const IMPORT_ISSUE_CODE_LABEL_TH: Record<string, string> = {
+  AMOUNT_RECOMPUTED: "คำนวณยอดเงินใหม่",
+  DATE_PERIOD_MISMATCH: "วันที่ไม่ตรงกับงวด",
+  HEADER_NOT_FOUND: "ไม่พบหัวตารางที่จำเป็น",
+  INVALID_DATE: "รูปแบบวันที่ไม่ถูกต้อง",
+  INVALID_NUMBER: "รูปแบบตัวเลขไม่ถูกต้อง",
+  MISSING_REQUIRED: "ข้อมูลที่จำเป็นไม่ครบ",
+  NEGATIVE_AMOUNT: "พบยอดเงินติดลบ",
+  NEW_HOSPITAL: "พบโรงพยาบาลใหม่",
+  PERIOD_OUT_OF_SCOPE: "ข้อมูลงวดอยู่นอกขอบเขต",
+  PRODUCT_TYPE_ALIAS_MISMATCH: "ชื่อกลุ่มสินค้าไม่ตรงกัน",
+  SHARED_CREDIT_RULE_CREATED: "สร้างกฎแบ่งเครดิตดีลร่วมใหม่",
+  SHEET_IGNORED: "ข้ามชีตที่ไม่ได้นำเข้า",
+  TOTAL_MISMATCH: "ยอดรวมไม่ตรงกัน",
+  UNKNOWN_SALESMAN_IN_SHARED_DEAL: "ไม่พบพนักงานขายในดีลร่วม",
+  UNKNOWN_SALESMAN: "ไม่พบพนักงานขาย",
+};
+
+export function importIssueCodeLabelTh(code: string): string {
+  return IMPORT_ISSUE_CODE_LABEL_TH[code] ?? "ปัญหาการนำเข้า";
+}
+
 export function formatFileSize(bytes: number): string {
   const KILOBYTE = 1024;
   const MEGABYTE = KILOBYTE * 1024;

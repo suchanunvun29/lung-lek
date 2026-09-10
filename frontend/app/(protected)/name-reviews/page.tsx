@@ -42,6 +42,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/shared/feedback/EmptyState";
 import { SkeletonTable } from "@/components/shared/feedback/Skeleton";
 import { useAbortableEffect } from "@/lib/useAbortableEffect";
+import { docsUrl } from "@/lib/docs";
 
 type Tab = "hospitals" | "credits" | "salesmen";
 
@@ -206,6 +207,7 @@ export default function NameReviewsPage() {
 
       {loadError && (
         <EmptyState
+          headingLevel={2}
           variant="error"
           title="โหลดคิวการยืนยันชื่อไม่สำเร็จ"
           description={loadError}
@@ -216,6 +218,22 @@ export default function NameReviewsPage() {
 
       {loading ? (
         <SkeletonTable rows={6} columns={4} />
+      ) : !loadError && hospitalReviews.length === 0 && salesmanRules.length === 0 && salesmanReviews.length === 0 ? (
+        <EmptyState
+          headingLevel={2}
+          title="ไม่มีรายการที่ต้องยืนยัน"
+          description="เมื่อระบบพบชื่อที่อาจซ้ำจากการนำเข้า รายการจะปรากฏที่หน้านี้"
+          action={(
+            <a
+              href={docsUrl("/tasks/resolve-name-duplicates")}
+              target="_blank"
+              rel="noopener"
+              className="text-sm font-medium text-primary underline-offset-2 hover:underline"
+            >
+              ดูวิธีพิจารณาชื่อซ้ำ
+            </a>
+          )}
+        />
       ) : !loadError ? (
         <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)}>
           <div className="overflow-x-auto">

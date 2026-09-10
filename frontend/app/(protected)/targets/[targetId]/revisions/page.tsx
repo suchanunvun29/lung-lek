@@ -399,7 +399,7 @@ export default function TargetRevisionsPage({ params }: TargetRevisionsPageProps
                     <div className="rounded-md border border-border/80 bg-surface-subtle/20 p-3.5">
                       <div className="flex items-center justify-between border-b border-border/60 pb-2 mb-3">
                         <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary">
-                          ก่อนแก้ (Before)
+                          ก่อนแก้ไข
                         </span>
                         {isCreate && (
                           <span className="rounded bg-surface px-1.5 py-0.5 text-[11px] font-medium text-text-muted border border-border">

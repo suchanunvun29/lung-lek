@@ -364,7 +364,7 @@ export default function HospitalMovesPage() {
                 {province && (
                   <div className="rounded-md border border-border bg-surface-subtle p-3 text-sm">
                     <p className="font-medium text-text-primary">
-                      สรุปผลกระทบ (Preview):
+                      สรุปผลกระทบก่อนดำเนินการ:
                     </p>
                     <p className="mt-1 text-text-secondary">
                       มีโรงพยาบาลในจังหวัด{province} ทั้งหมด{" "}
@@ -410,7 +410,7 @@ export default function HospitalMovesPage() {
         <ConfirmDialog
           title="ยืนยันการย้ายโรงพยาบาลยกทั้งจังหวัด"
           description={`คุณกำลังจะย้ายโรงพยาบาลทั้งหมดในจังหวัด${province} จำนวน ${bulkHospitalCount.toLocaleString("th-TH")} แห่ง ไปยังเขต ${territoryName(bulkTerritoryId)}`}
-          consequence="การย้ายนี้จะมีผลต่อการจัดกลุ่มข้อมูลและการคำนวณ KPI ทันที และจะถูกบันทึกในประวัติการย้าย (HospitalTerritoryChange)"
+          consequence="การย้ายนี้จะมีผลต่อการจัดกลุ่มข้อมูลและการคำนวณ KPI ทันที และจะถูกบันทึกในประวัติการย้ายโรงพยาบาล"
           tone="danger"
           confirmLabel="ยืนยันย้ายทั้งจังหวัด"
           cancelLabel="ยกเลิก"

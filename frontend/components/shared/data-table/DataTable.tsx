@@ -122,6 +122,12 @@ export interface DataTableProps<Row> {
   /** Row matches the (lower-cased) query; defaults to matching any column's raw `key` value. */
   searchPredicate?: (row: Row, query: string) => boolean;
   searchPlaceholder?: string;
+  /** Optional controlled URL-backed search value. Commits are debounced by 350ms. */
+  searchValue?: string;
+  onSearchValueChange?: (value: string) => void;
+  /** Optional controlled URL-backed sort state. */
+  sortValue?: SortState | null;
+  onSortValueChange?: (value: SortState | null) => void;
   /** Server-paginated mode: disables sort/search UI and renders the wired Pagination. */
   serverPaginated?: boolean;
   page?: number;
@@ -146,9 +152,9 @@ export interface DataTableProps<Row> {
   className?: string;
 }
 
-type SortDirection = "asc" | "desc";
+export type SortDirection = "asc" | "desc";
 
-interface SortState {
+export interface SortState {
   key: string;
   direction: SortDirection;
 }
@@ -173,6 +179,10 @@ export function DataTable<Row>({
   searchable = false,
   searchPredicate,
   searchPlaceholder = "ค้นหา…",
+  searchValue,
+  onSearchValueChange,
+  sortValue,
+  onSortValueChange,
   serverPaginated = false,
   page,
   pageSize,
@@ -187,8 +197,8 @@ export function DataTable<Row>({
   getRowLabel,
   className,
 }: DataTableProps<Row>) {
-  const [sort, setSort] = React.useState<SortState | null>(null);
-  const [query, setQuery] = React.useState("");
+  const [internalSort, setInternalSort] = React.useState<SortState | null>(null);
+  const [query, setQuery] = React.useState(searchValue ?? "");
   const [clientPage, setClientPage] = React.useState(1);
   const [expandedCardIds, setExpandedCardIds] = React.useState<Set<string>>(new Set());
   const [internalSelectedIds, setInternalSelectedIds] = React.useState<Set<string | number>>(new Set());
@@ -196,9 +206,16 @@ export function DataTable<Row>({
   const selectedIds = selectedRowIds ?? internalSelectedIds;
   const updateSelection = onSelectionChange ?? setInternalSelectedIds;
 
+  const sort = sortValue === undefined ? internalSort : sortValue;
   const normalizedQuery = query.trim().toLowerCase();
   const searchEnabled = searchable && !serverPaginated;
   const clientPaginated = !serverPaginated && typeof pageSize === "number" && pageSize > 0;
+
+  React.useEffect(() => {
+    if (searchValue === undefined || !onSearchValueChange || query === searchValue) return;
+    const timeoutId = window.setTimeout(() => onSearchValueChange(query), 350);
+    return () => window.clearTimeout(timeoutId);
+  }, [onSearchValueChange, query, searchValue]);
 
   const sortedRows = React.useMemo(() => {
     if (serverPaginated || !sort) return rows;
@@ -253,10 +270,12 @@ export function DataTable<Row>({
 
   function toggleSort(columnKey: string) {
     setClientPage(1);
-    setSort((current) => {
-      if (current?.key !== columnKey) return { key: columnKey, direction: "asc" };
-      return { key: columnKey, direction: current.direction === "asc" ? "desc" : "asc" };
-    });
+    const next: SortState =
+      sort?.key !== columnKey
+        ? { key: columnKey, direction: "asc" }
+        : { key: columnKey, direction: sort.direction === "asc" ? "desc" : "asc" };
+    if (onSortValueChange) onSortValueChange(next);
+    else setInternalSort(next);
   }
 
   function toggleCardExpanded(rowKey: string) {
@@ -336,7 +355,10 @@ export function DataTable<Row>({
               variant="filtered"
               title="ไม่พบรายการที่ตรงกับการค้นหา"
               description={`ไม่มีรายการที่ตรงกับ "${query.trim()}"`}
-              onResetFilters={() => setQuery("")}
+              onResetFilters={() => {
+                setQuery("");
+                onSearchValueChange?.("");
+              }}
             />
           ) : (
             <EmptyState variant="empty" title={emptyTitle} description={emptyDescription} />

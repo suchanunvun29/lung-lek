@@ -242,8 +242,20 @@ export default function TargetAssistPage() {
 
       <PageHeader
         title="ตัวช่วยตั้งเป้า"
-        description="เทียบฐานประวัติ (historyBased) กับฐานศักยภาพ (potentialBased) รายเขตในแต่ละภาค พร้อมตัวเลขที่ระบบเสนอ (suggested) — ตัวเลขจะถูกเขียนลงเป้าจริงเมื่อผู้จัดการกดรับข้อเสนอเท่านั้น"
+        description="เปรียบเทียบฐานประวัติยอดขายกับฐานศักยภาพรายเขตในแต่ละภาค พร้อมตัวเลขเป้าที่ระบบเสนอ — ตัวเลขจะถูกเขียนลงเป้าจริงเมื่อผู้จัดการกดรับข้อเสนอเท่านั้น"
       />
+
+      <aside className="mb-6 rounded-lg border border-border bg-surface-subtle p-4" aria-labelledby="target-assist-glossary">
+        <h2 id="target-assist-glossary" className="text-sm font-semibold text-text-primary">
+          คำศัพท์ในตัวช่วยตั้งเป้า
+        </h2>
+        <dl className="mt-2 grid gap-2 text-xs text-text-secondary sm:grid-cols-2">
+          <div><dt className="font-medium text-text-primary">ฐานประวัติยอดขาย (Historical baseline)</dt><dd>ยอดเฉลี่ยหลังตัดบิลผิดปกติ</dd></div>
+          <div><dt className="font-medium text-text-primary">ฐานศักยภาพ (Potential baseline)</dt><dd>ยอดตามสัดส่วนศักยภาพของเขต</dd></div>
+          <div><dt className="font-medium text-text-primary">เป้าที่เสนอ (Suggested target)</dt><dd>ตัวเลขผสมตามน้ำหนักที่ตั้งไว้</dd></div>
+          <div><dt className="font-medium text-text-primary">ความครอบคลุมข้อมูล (Coverage)</dt><dd>สัดส่วนยอดที่มีข้อมูลศักยภาพ</dd></div>
+        </dl>
+      </aside>
 
       {/* Pattern F: Sticky Parameter Bar */}
       <div className="sticky top-14 z-20 -mx-4 sm:-mx-6 px-4 sm:px-6 py-3 mb-6 bg-surface/95 backdrop-blur-xs border-y border-border shadow-xs">
@@ -371,13 +383,13 @@ export default function TargetAssistPage() {
                     </dd>
                   </div>
                   <div className="flex justify-between gap-2 border-b border-border/40 py-1">
-                    <dt className="text-text-muted">coverage ขั้นต่ำของภาค</dt>
+                    <dt className="text-text-muted">ความครอบคลุมข้อมูลขั้นต่ำของภาค</dt>
                     <dd className="font-medium text-text-primary font-numeric">
                       {formatRatioPercent(preview.settings.minRegionCoverage)}
                     </dd>
                   </div>
                   <div className="flex justify-between gap-2 border-b border-border/40 py-1">
-                    <dt className="text-text-muted">เกณฑ์ตัด outlier</dt>
+                    <dt className="text-text-muted">เกณฑ์ตัดบิลยอดสูงผิดปกติ</dt>
                     <dd className="font-medium text-text-primary font-numeric">
                       {formatRatioPercent(preview.settings.targetOutlierThreshold)}
                     </dd>
@@ -427,12 +439,12 @@ export default function TargetAssistPage() {
                       ?
                     </span>
                     <div className="invisible group-hover:visible group-focus:visible absolute left-0 bottom-full mb-2 w-80 p-2.5 bg-surface text-text-secondary text-xs rounded-md shadow-lg border border-border z-30 pointer-events-none">
-                      ยอดจากโรงพยาบาลที่ยังไม่มีการ map จังหวัด → ภาค ผ่านฝั่งประวัติ 100% ไม่เข้าสูตรศักยภาพและไม่เข้า R ของภาคใด (ผ่าน 100% ไม่ถูก blend หรือ gate)
+                      ยอดจากโรงพยาบาลที่ยังไม่ได้เชื่อมจังหวัดกับภาค จะใช้ฐานประวัติ 100% โดยไม่เข้าสูตรศักยภาพหรือเป้าอ้างอิงของภาค
                     </div>
                   </div>
                 </div>
                 <p className="mb-3 text-xs text-text-muted">
-                  ยอดจากโรงพยาบาลที่ยังไม่มีการ map จังหวัด → ภาค ผ่านฝั่งประวัติ 100% ไม่เข้าสูตรศักยภาพและไม่เข้า R ของภาคใด
+                  ยอดจากโรงพยาบาลที่ยังไม่ได้เชื่อมจังหวัดกับภาค จะใช้ฐานประวัติ 100% โดยไม่เข้าสูตรศักยภาพหรือเป้าอ้างอิงของภาค
                 </p>
                 <div className="overflow-x-auto rounded-md border border-border bg-surface">
                   <table className="min-w-full divide-y divide-border text-sm">
@@ -440,7 +452,7 @@ export default function TargetAssistPage() {
                       <tr>
                         <th className="px-4 py-3">เขต</th>
                         <th className="px-4 py-3">ยอด / เดือน</th>
-                        <th className="px-4 py-3">จำนวนโรงพยาบาลที่ยังไม่ได้ map</th>
+                        <th className="px-4 py-3">จำนวนโรงพยาบาลที่ยังไม่ได้เชื่อมภาค</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">

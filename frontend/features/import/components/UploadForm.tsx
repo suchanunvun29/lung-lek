@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { docsUrl } from "@/lib/docs";
 
 export interface UploadFormProps {
   onUpload: (file: File) => Promise<void>;
@@ -81,6 +82,20 @@ export function UploadForm({ onUpload, disabled }: UploadFormProps) {
         </p>
         <p className="text-xs text-text-muted">รองรับไฟล์ .xlsx เท่านั้น ขนาดไม่เกิน 20MB</p>
       </div>
+
+      {!selectedFile && (
+        <p className="mt-3 text-center text-xs text-text-muted">
+          ไม่แน่ใจเรื่องรูปแบบไฟล์หรือขั้นตอน?{" "}
+          <a
+            href={docsUrl("/tasks/import-monthly-sales")}
+            target="_blank"
+            rel="noopener"
+            className="font-medium text-primary underline-offset-2 hover:underline"
+          >
+            ดูคู่มือการนำเข้าข้อมูล
+          </a>
+        </p>
+      )}
 
       {error && <p className="mt-3 text-sm text-danger">{error}</p>}
 

@@ -334,13 +334,13 @@ export default function LeaderboardPage() {
             <div>
               <dt className="text-text-muted">ยอดส่วนบุคคล</dt>
               <dd className="mt-1 font-semibold text-text-primary font-numeric">
-                {data.buckets.personalBucket.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                {data.buckets.personalBucket.toLocaleString("th-TH", { maximumFractionDigits: 2 })}
               </dd>
             </div>
             <div>
               <dt className="text-text-muted">ยอดที่ยังไม่กำหนดเขต ({data.buckets.unassignedHospitalCount} โรงพยาบาล)</dt>
               <dd className="mt-1 font-semibold text-text-primary font-numeric">
-                {data.buckets.unassignedBucket.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                {data.buckets.unassignedBucket.toLocaleString("th-TH", { maximumFractionDigits: 2 })}
               </dd>
             </div>
           </dl>

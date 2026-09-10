@@ -11,7 +11,7 @@
  */
 
 import { useRouter } from "next/navigation";
-import { Menu, User, LogOut, Settings } from "lucide-react";
+import { CircleHelp, Menu, User, LogOut, Settings } from "lucide-react";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useContextStore } from "@/store/useContextStore";
 import { Breadcrumb } from "@/components/shared/navigation/Breadcrumb";
@@ -24,6 +24,7 @@ import {
   DropdownLabel,
 } from "@/components/shared/navigation/DropdownMenu";
 import type { BreadcrumbSegment } from "@/components/shared/navigation/Breadcrumb";
+import { docsUrl } from "@/lib/docs";
 
 const ROLE_LABEL_TH: Record<string, string> = {
   MANAGER: "ผู้จัดการ",
@@ -88,6 +89,10 @@ export function AppHeader({ onMenuToggle, breadcrumbSegments }: AppHeaderProps) 
               <DropdownItem href="/account">
                 <Settings size={14} aria-hidden="true" />
                 บัญชีของฉัน
+              </DropdownItem>
+              <DropdownItem externalHref={docsUrl("/")}>
+                <CircleHelp size={14} aria-hidden="true" />
+                คู่มือการใช้งาน
               </DropdownItem>
               <DropdownSeparator />
               <DropdownItem onClick={handleLogout} dangerous>

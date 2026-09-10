@@ -19,7 +19,7 @@
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { BookOpen, ChevronLeft, ChevronRight, X } from "lucide-react";
 import {
   NAV_GROUPS,
   isGroupActive,
@@ -28,6 +28,7 @@ import {
 import { useQueueCounts, type QueueBadgeKey } from "./useQueueCounts";
 import { useDialogA11y } from "@/lib/useDialogA11y";
 import type { UserRole } from "@/lib/types";
+import { docsUrl } from "@/lib/docs";
 
 const SIDEBAR_COLLAPSED_KEY = "sidebar-collapsed";
 const EXPANDED_WIDTH = 256;
@@ -199,6 +200,20 @@ export function Sidebar({ role, drawerOpen = false, onDrawerClose }: SidebarProp
           );
         })}
       </nav>
+
+      <div className="shrink-0 border-t border-[var(--border)] p-1.5">
+        <a
+          href={docsUrl("/")}
+          target="_blank"
+          rel="noopener"
+          onClick={onDrawerClose}
+          title={collapsed ? "คู่มือการใช้งาน" : undefined}
+          className="flex min-h-[40px] items-center justify-center gap-2 rounded-[var(--radius-md)] px-2 py-2 text-sm text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary)]"
+        >
+          <BookOpen size={16} aria-hidden="true" />
+          {!collapsed && <span>คู่มือการใช้งาน</span>}
+        </a>
+      </div>
 
       {/* Collapse toggle — desktop only (hidden below 1280px via parent) */}
       <div className="hidden shrink-0 border-t border-[var(--border)] p-1.5 xl:block">

@@ -46,6 +46,7 @@ import { DataTable, type DataTableColumn } from "@/components/shared/data-table/
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/shared/feedback/EmptyState";
 import { Select } from "@/components/ui/select";
+import { useUrlState } from "@/lib/useUrlState";
 
 type TerritoryTab = "sold" | "churned" | "neverSold";
 
@@ -77,42 +78,34 @@ function potentialMetricLabel(key: string): string {
   return POTENTIAL_METRIC_OPTIONS.find((opt) => opt.key === key)?.label ?? key;
 }
 
-function readTabFromUrl(): TerritoryTab {
-  if (typeof window === "undefined") return "sold";
-  const params = new URLSearchParams(window.location.search);
-  const tab = params.get("tab");
-  return tab === "churned" || tab === "neverSold" ? tab : "sold";
-}
-
-function setTabInUrl(tab: TerritoryTab) {
-  if (typeof window === "undefined") return;
-  const url = new URL(window.location.href);
-  if (tab === "sold") {
-    url.searchParams.delete("tab");
-  } else {
-    url.searchParams.set("tab", tab);
-  }
-  window.history.replaceState({}, "", url.toString());
-}
-
 export default function MyTerritoryPage() {
+  const { searchParams, setUrlState } = useUrlState();
   const token = useAuthStore((state) => state.token);
   const period = useContextStore((state) => state.period);
   const salespersonId = useContextStore((state) => state.salespersonId);
   const setSalespersonId = useContextStore((state) => state.setSalespersonId);
 
-  const [tab, setTabState] = useState<TerritoryTab>(readTabFromUrl);
+  const tabParam = searchParams.get("tab");
+  const tab: TerritoryTab = tabParam === "churned" || tabParam === "neverSold" ? tabParam : "sold";
   const [people, setPeople] = useState<TeamKpiResultRow[]>([]);
   const [accountNotLinked, setAccountNotLinked] = useState(false);
   const [productTypes, setProductTypes] = useState<{ id: number; name: string }[]>([]);
   const [provinces, setProvinces] = useState<ProvinceMapping[]>([]);
 
-  // Filter states
-  const [productTypeId, setProductTypeId] = useState<string>("");
-  const [creditOnly, setCreditOnly] = useState<boolean>(false);
-  const [topN, setTopN] = useState<number>(20);
-  const [potentialMetric, setPotentialMetric] = useState<string>("BEDS");
-  const [provinceMappingId, setProvinceMappingId] = useState<string>("");
+  // URL is the single source of truth for page-level filters (T-UX-030).
+  const productTypeId = /^\d+$/.test(searchParams.get("productGroup") ?? "")
+    ? searchParams.get("productGroup")!
+    : "";
+  const creditOnly = searchParams.get("creditOnly") === "1";
+  const topNParam = Number(searchParams.get("topN"));
+  const topN = [10, 20, 50, 100].includes(topNParam) ? topNParam : DEFAULT_TOP_N;
+  const metricParam = searchParams.get("potentialMetric");
+  const potentialMetric = POTENTIAL_METRIC_OPTIONS.some((option) => option.key === metricParam)
+    ? metricParam!
+    : DEFAULT_POTENTIAL_METRIC;
+  const provinceMappingId = /^\d+$/.test(searchParams.get("province") ?? "")
+    ? searchParams.get("province")!
+    : "";
 
   const [view, setView] = useState<MyTerritoryViewResponse | null>(null);
   const [neverSoldView, setNeverSoldView] = useState<NeverSoldHospitalsResponse | null>(null);
@@ -122,8 +115,7 @@ export default function MyTerritoryPage() {
   const [reloadNonce, setReloadNonce] = useState(0);
 
   function setTab(value: TerritoryTab) {
-    setTabState(value);
-    setTabInUrl(value);
+    setUrlState({ tab: value === "sold" ? null : value });
   }
 
   useAbortableEffect(
@@ -225,11 +217,13 @@ export default function MyTerritoryPage() {
   }
 
   function resetFilters() {
-    setProductTypeId("");
-    setCreditOnly(false);
-    setProvinceMappingId("");
-    setTopN(DEFAULT_TOP_N);
-    setPotentialMetric(DEFAULT_POTENTIAL_METRIC);
+    setUrlState({
+      productGroup: null,
+      creditOnly: null,
+      province: null,
+      topN: null,
+      potentialMetric: null,
+    });
   }
 
   const fallback = view?.mode === "NATIONWIDE_PRODUCT_TYPE_FALLBACK";
@@ -243,27 +237,27 @@ export default function MyTerritoryPage() {
     chips.push({
       key: "productType",
       label: `กลุ่มสินค้า: ${selectedProductType.name}`,
-      onRemove: () => setProductTypeId(""),
+      onRemove: () => setUrlState({ productGroup: null }),
     });
   }
   if (selectedProvince) {
     chips.push({
       key: "province",
       label: `จังหวัด: ${selectedProvince.canonicalName}`,
-      onRemove: () => setProvinceMappingId(""),
+      onRemove: () => setUrlState({ province: null }),
     });
   }
   if (creditOnly) {
-    chips.push({ key: "creditOnly", label: "เฉพาะที่ฉันมีเครดิต", onRemove: () => setCreditOnly(false) });
+    chips.push({ key: "creditOnly", label: "เฉพาะที่ฉันมีเครดิต", onRemove: () => setUrlState({ creditOnly: null }) });
   }
   if (topN !== DEFAULT_TOP_N) {
-    chips.push({ key: "topN", label: `จำนวนสูงสุด ${topN} แห่ง`, onRemove: () => setTopN(DEFAULT_TOP_N) });
+    chips.push({ key: "topN", label: `จำนวนสูงสุด ${topN} แห่ง`, onRemove: () => setUrlState({ topN: null }) });
   }
   if (potentialMetric !== DEFAULT_POTENTIAL_METRIC) {
     chips.push({
       key: "potentialMetric",
       label: `เกณฑ์ศักยภาพ: ${potentialMetricLabel(potentialMetric)}`,
-      onRemove: () => setPotentialMetric(DEFAULT_POTENTIAL_METRIC),
+      onRemove: () => setUrlState({ potentialMetric: null }),
     });
   }
 
@@ -335,17 +329,17 @@ export default function MyTerritoryPage() {
         secondaryFilters={
           <>
             <label className="text-sm font-medium text-text-secondary flex items-center gap-2">
-              จำนวนสูงสุด (Top N)
-              <Select value={String(topN)} onChange={(e) => setTopN(Number(e.target.value))} className="w-auto">
-                <option value="10">Top 10</option>
-                <option value="20">Top 20</option>
-                <option value="50">Top 50</option>
-                <option value="100">Top 100</option>
+              จำนวนสูงสุด
+              <Select value={String(topN)} onChange={(e) => setUrlState({ topN: e.target.value })} className="w-auto">
+                <option value="10">10 แห่ง</option>
+                <option value="20">20 แห่ง</option>
+                <option value="50">50 แห่ง</option>
+                <option value="100">100 แห่ง</option>
               </Select>
             </label>
             <label className="text-sm font-medium text-text-secondary flex items-center gap-2">
               เกณฑ์ศักยภาพ
-              <Select value={potentialMetric} onChange={(e) => setPotentialMetric(e.target.value)} className="w-auto">
+              <Select value={potentialMetric} onChange={(e) => setUrlState({ potentialMetric: e.target.value })} className="w-auto">
                 {POTENTIAL_METRIC_OPTIONS.map((opt) => (
                   <option key={opt.key} value={opt.key}>
                     {opt.label}
@@ -375,7 +369,7 @@ export default function MyTerritoryPage() {
           กลุ่มสินค้า
           <Select
             value={productTypeId}
-            onChange={(event) => setProductTypeId(event.target.value)}
+            onChange={(event) => setUrlState({ productGroup: event.target.value || null })}
             className="w-auto"
           >
             <option value="">ทุกกลุ่มสินค้า</option>
@@ -390,7 +384,7 @@ export default function MyTerritoryPage() {
           จังหวัด
           <Select
             value={provinceMappingId}
-            onChange={(e) => setProvinceMappingId(e.target.value)}
+            onChange={(e) => setUrlState({ province: e.target.value || null })}
             className="w-auto"
           >
             <option value="">ทุกจังหวัด</option>
@@ -405,7 +399,7 @@ export default function MyTerritoryPage() {
           <input
             type="checkbox"
             checked={creditOnly}
-            onChange={(event) => setCreditOnly(event.target.checked)}
+            onChange={(event) => setUrlState({ creditOnly: event.target.checked ? "1" : null })}
             className="cursor-pointer"
           />
           เฉพาะที่ฉันมีเครดิต
@@ -557,7 +551,7 @@ function neverSoldTableColumns(
     },
     {
       key: "tier",
-      header: "ระดับ (Tier)",
+      header: "ระดับโรงพยาบาล",
       priority: 3,
       sortable: true,
       sortValue: (row) => row.tier,

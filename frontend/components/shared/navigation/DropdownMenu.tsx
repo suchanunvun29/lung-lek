@@ -172,12 +172,14 @@ export function DropdownItem({
   children,
   onClick,
   href,
+  externalHref,
   className,
   dangerous,
 }: {
   children: ReactNode;
   onClick?: () => void;
   href?: string;
+  externalHref?: string;
   className?: string;
   dangerous?: boolean;
 }) {
@@ -204,6 +206,21 @@ export function DropdownItem({
       >
         {children}
       </Link>
+    );
+  }
+
+  if (externalHref) {
+    return (
+      <a
+        href={externalHref}
+        target="_blank"
+        rel="noopener"
+        role="menuitem"
+        className={[base, color, className].filter(Boolean).join(" ")}
+        onClick={close}
+      >
+        {children}
+      </a>
     );
   }
 

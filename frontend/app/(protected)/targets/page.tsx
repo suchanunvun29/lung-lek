@@ -16,22 +16,28 @@ import { EntitySummary, Salesperson, Target } from "@/lib/types";
 import { getErrorMessage } from "@/lib/api-client";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useAbortableEffect } from "@/lib/useAbortableEffect";
+import { useUrlState } from "@/lib/useUrlState";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/shared/feedback/ConfirmDialog";
 import { EmptyState } from "@/components/shared/feedback/EmptyState";
 import { SkeletonTable } from "@/components/shared/feedback/Skeleton";
+import { docsUrl } from "@/lib/docs";
 
 const YEAR_OFFSETS = [-1, 0, 1];
 
 export default function TargetsPage() {
   const router = useRouter();
+  const { searchParams, setUrlState } = useUrlState();
   const token = useAuthStore((state) => state.token);
   const currentUser = useAuthStore((state) => state.user);
   const canEdit = currentUser?.role === "MANAGER";
 
   const currentYear = new Date().getFullYear();
-  const [year, setYear] = useState(currentYear);
+  const yearParam = Number(searchParams.get("year"));
+  const year = YEAR_OFFSETS.map((offset) => currentYear + offset).includes(yearParam)
+    ? yearParam
+    : currentYear;
   const [salespeople, setSalespeople] = useState<Salesperson[]>([]);
   const [targets, setTargets] = useState<Target[]>([]);
   const [productTypes, setProductTypes] = useState<EntitySummary[]>([]);
@@ -137,13 +143,13 @@ export default function TargetsPage() {
       return;
     }
     setGridDirtyCount(0);
-    setYear(nextYear);
+    setUrlState({ year: nextYear === currentYear ? null : nextYear });
   }
 
   function confirmPendingYear() {
     if (pendingYear === null) return;
     setGridDirtyCount(0);
-    setYear(pendingYear);
+    setUrlState({ year: pendingYear === currentYear ? null : pendingYear });
     setPendingYear(null);
   }
 
@@ -192,11 +198,28 @@ export default function TargetsPage() {
           <SkeletonTable rows={8} columns={14} />
         ) : loadError ? (
           <EmptyState
+            headingLevel={2}
             variant="error"
             title="เกิดข้อผิดพลาดในการโหลดข้อมูลเป้า"
             description={loadError}
             onRetry={() => setReloadNonce((n) => n + 1)}
             isRetrying={loading}
+          />
+        ) : salespeople.length === 0 ? (
+          <EmptyState
+            headingLevel={2}
+            title="ยังไม่มีพนักงานขายสำหรับตั้งเป้า"
+            description="นำเข้าหรือเพิ่มข้อมูลพนักงานขายก่อน แล้วกลับมาตั้งเป้ารายเดือน"
+            action={(
+              <a
+                href={docsUrl("/tasks/set-targets")}
+                target="_blank"
+                rel="noopener"
+                className="text-sm font-medium text-primary underline-offset-2 hover:underline"
+              >
+                ดูคู่มือการตั้งเป้า
+              </a>
+            )}
           />
         ) : (
           <TargetsGrid

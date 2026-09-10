@@ -90,7 +90,7 @@ export function KpiDrillDownModal({
                   <th className="px-3 py-2">โรงพยาบาล</th>
                   <th className="px-3 py-2">สินค้า</th>
                   <th className="px-3 py-2">กลุ่มสินค้า</th>
-                  <th className="px-3 py-2 text-right">ยอดรวม (Total)</th>
+                  <th className="px-3 py-2 text-right">ยอดรวม</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">

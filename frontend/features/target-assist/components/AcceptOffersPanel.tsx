@@ -110,7 +110,7 @@ export function AcceptOffersPanel({ totals, existingByTerritoryId, savingTerrito
       <header className="border-b border-border bg-surface-subtle/70 px-4 py-3">
         <h3 className="text-base font-semibold text-text-primary">รับข้อเสนอเข้าเป้ารายเขต</h3>
         <p className="mt-1 text-xs text-text-muted">
-          ค่าที่เสนอ = Σ suggested ทุกภาค + ยอดที่ระบุภาคไม่ได้ · แก้ตัวเลขก่อนบันทึกได้ ·
+          ค่าที่เสนอ = ผลรวมเป้าที่เสนอทุกภาค + ยอดที่ระบุภาคไม่ได้ · แก้ตัวเลขก่อนบันทึกได้ ·
           เขียนผ่านเป้ารายเขต (TERRITORY) เดิม และไม่แก้เป้าลูกค้าใหม่ของเขต
         </p>
       </header>
