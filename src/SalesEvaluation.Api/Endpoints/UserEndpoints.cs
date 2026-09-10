@@ -98,11 +98,15 @@ public static class UserEndpoints
                 request.DisplayName = dispProp.GetString();
             }
 
-            if (root.TryGetProperty("role", out var roleProp) && roleProp.ValueKind == JsonValueKind.String)
+            if (root.TryGetProperty("role", out var roleProp))
             {
-                if (Enum.TryParse<UserRole>(roleProp.GetString(), out var parsedRole))
+                if (roleProp.ValueKind == JsonValueKind.String && Enum.TryParse<UserRole>(roleProp.GetString(), true, out var parsedRole))
                 {
                     request.Role = parsedRole.ToString();
+                }
+                else if (roleProp.ValueKind != JsonValueKind.Null)
+                {
+                    return TerritoryEndpoints.Invalid("role ไม่ถูกต้อง");
                 }
             }
 
@@ -128,6 +132,10 @@ public static class UserEndpoints
                 else if (spProp.ValueKind == JsonValueKind.String && int.TryParse(spProp.GetString(), out var spId))
                 {
                     request.SalespersonId = spId;
+                }
+                else
+                {
+                    return TerritoryEndpoints.Invalid("salespersonId ไม่ถูกต้อง");
                 }
             }
 

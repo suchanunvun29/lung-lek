@@ -16,9 +16,11 @@ public class DecimalToStringConverter : JsonConverter<decimal>
         if (reader.TokenType == JsonTokenType.String)
         {
             var stringVal = reader.GetString();
+            // T-UX-023 contract: an empty string must never silently become 0 —
+            // send a number, or use a nullable decimal field for "not provided".
             if (string.IsNullOrWhiteSpace(stringVal))
             {
-                return 0m;
+                throw new JsonException("Empty string is not a valid decimal value.");
             }
             if (decimal.TryParse(stringVal, NumberStyles.Any, CultureInfo.InvariantCulture, out var result))
             {

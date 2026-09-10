@@ -70,6 +70,11 @@ public class AuthService : IAuthService
             throw new ValidationException("Validation failed", "Current password and new password are required");
         }
 
+        if (request.NewPassword.Length < PasswordPolicy.MinLength)
+        {
+            throw new ValidationException("Validation failed", PasswordPolicy.NewPasswordTooShortMessage);
+        }
+
         var user = await _dbContext.Users
             .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
 

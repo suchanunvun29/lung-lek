@@ -61,6 +61,11 @@ public class UserService : IUserService
             ? request.TemporaryPassword.Trim()
             : _passwordHasher.GenerateTemporaryPassword();
 
+        if (plainPassword.Length < Auth.PasswordPolicy.MinLength)
+        {
+            throw new ValidationException("Validation failed", Auth.PasswordPolicy.TemporaryPasswordTooShortMessage);
+        }
+
         var passwordHash = _passwordHasher.HashPassword(plainPassword);
 
         var user = new User
@@ -127,7 +132,7 @@ public class UserService : IUserService
 
                 if (targetSalesperson.UserId.HasValue && targetSalesperson.UserId.Value != id)
                 {
-                    throw new ConflictException("This salesperson is already linked to another user");
+                    throw new ConflictException("This salesperson is already linked to another user", "ASSIGNMENT_CONFLICT");
                 }
 
                 var otherSalespersons = await _dbContext.Salespeople
@@ -194,6 +199,11 @@ public class UserService : IUserService
         var plainPassword = !string.IsNullOrWhiteSpace(request.TemporaryPassword)
             ? request.TemporaryPassword.Trim()
             : _passwordHasher.GenerateTemporaryPassword();
+
+        if (plainPassword.Length < Auth.PasswordPolicy.MinLength)
+        {
+            throw new ValidationException("Validation failed", Auth.PasswordPolicy.TemporaryPasswordTooShortMessage);
+        }
 
         user.PasswordHash = _passwordHasher.HashPassword(plainPassword);
         user.MustChangePassword = true;

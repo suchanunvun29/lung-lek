@@ -69,6 +69,9 @@ builder.Services.AddCors(options =>
 builder.Services.AddApplicationServices();
 builder.Services.AddInfrastructureServices(builder.Configuration);
 
+// T-UX-024 — soft in-memory login rate limiter (single-instance deployment)
+builder.Services.AddSingleton<SalesEvaluation.Api.Auth.ILoginRateLimiter, SalesEvaluation.Api.Auth.LoginRateLimiter>();
+
 // Add Health Checks
 builder.Services.AddHealthChecks();
 

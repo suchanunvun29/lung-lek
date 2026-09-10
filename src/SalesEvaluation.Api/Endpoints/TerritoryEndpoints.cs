@@ -101,6 +101,10 @@ public static class TerritoryEndpoints
                 {
                     request.RegionId = rId;
                 }
+                else
+                {
+                    return Invalid("regionId ไม่ถูกต้อง");
+                }
             }
 
             if (root.TryGetProperty("sortOrder", out var sortProp))

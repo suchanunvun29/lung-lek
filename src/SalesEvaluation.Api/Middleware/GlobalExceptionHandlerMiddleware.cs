@@ -71,7 +71,10 @@ public class GlobalExceptionHandlerMiddleware
 
             case ConflictException conflictEx:
                 context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-                await context.Response.WriteAsync(JsonSerializer.Serialize(new { error = conflictEx.Message }, ResponseJsonOptions));
+                var conflictResponse = conflictEx.Code != null
+                    ? (object)new { error = conflictEx.Message, code = conflictEx.Code }
+                    : new { error = conflictEx.Message };
+                await context.Response.WriteAsync(JsonSerializer.Serialize(conflictResponse, ResponseJsonOptions));
                 break;
 
             default:

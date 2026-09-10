@@ -45,7 +45,7 @@ public class ReviewQueueService : IReviewQueueService
 
         if (review.Status != NameReviewStatus.PENDING)
         {
-            throw new ConflictException($"รายการนี้ถูกตัดสินไปแล้ว ({review.Status})");
+            throw new ConflictException($"รายการนี้ถูกตัดสินไปแล้ว ({review.Status})", "REVIEW_ALREADY_DECIDED");
         }
 
         var decidedById = userId;
@@ -79,7 +79,7 @@ public class ReviewQueueService : IReviewQueueService
 
         if (aliasA == null || aliasB == null)
         {
-            throw new InvalidOperationException("ไม่พบ HospitalAlias ที่สอดคล้องกับคู่ที่รอตัดสิน — ข้อมูลไม่สอดคล้องกัน");
+            throw new ConflictException("ไม่พบ HospitalAlias ที่สอดคล้องกับคู่ที่รอตัดสิน — ข้อมูลไม่สอดคล้องกัน");
         }
 
         if (aliasA.HospitalId == aliasB.HospitalId)
@@ -183,7 +183,7 @@ public class ReviewQueueService : IReviewQueueService
 
         if (review.Status != NameReviewStatus.PENDING)
         {
-            throw new ConflictException($"รายการนี้ถูกตัดสินไปแล้ว ({review.Status})");
+            throw new ConflictException($"รายการนี้ถูกตัดสินไปแล้ว ({review.Status})", "REVIEW_ALREADY_DECIDED");
         }
 
         var decidedById = userId;

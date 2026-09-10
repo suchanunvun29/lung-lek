@@ -120,7 +120,7 @@ public class SalespersonService : ISalespersonService
 
                 if (isAlreadyLinked)
                 {
-                    throw new ConflictException("This user is already linked to another salesperson");
+                    throw new ConflictException("This user is already linked to another salesperson", "ASSIGNMENT_CONFLICT");
                 }
             }
 

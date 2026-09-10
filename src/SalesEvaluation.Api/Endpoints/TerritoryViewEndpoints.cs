@@ -252,6 +252,11 @@ public static class TerritoryViewEndpoints
             {
                 productTypeId = ptId;
             }
+            else
+            {
+                error = TerritoryEndpoints.Invalid("productTypeId ไม่ถูกต้อง");
+                return false;
+            }
         }
 
         var creditOnly = q.TryGetValue("creditOnly", out var coValue) && coValue == "true";
@@ -294,6 +299,11 @@ public static class TerritoryViewEndpoints
             {
                 provinceMappingId = pmId;
             }
+            else
+            {
+                error = TerritoryEndpoints.Invalid("provinceMappingId ไม่ถูกต้อง");
+                return false;
+            }
         }
 
         var potentialMetric = PotentialMetricKey.BEDS;
@@ -313,6 +323,11 @@ public static class TerritoryViewEndpoints
             if (int.TryParse(ptValue.ToString(), out var ptId))
             {
                 productTypeId = ptId;
+            }
+            else
+            {
+                error = TerritoryEndpoints.Invalid("productTypeId ไม่ถูกต้อง");
+                return false;
             }
         }
 

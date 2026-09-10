@@ -105,7 +105,7 @@ public class HospitalService : IHospitalService
 
         if (existingAlias != null)
         {
-            throw new ConflictException($"Hospital alias with key '{normalizedKey}' already exists");
+            throw new ConflictException($"Hospital alias with key '{normalizedKey}' already exists", "ALIAS_DUPLICATE");
         }
 
         var alias = new HospitalAlias

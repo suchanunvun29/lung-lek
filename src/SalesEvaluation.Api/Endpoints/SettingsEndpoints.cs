@@ -122,7 +122,8 @@ public static class SettingsEndpoints
         var setting = await settingsService.GetEvaluationSettingAsync(ct);
         if (setting == null)
         {
-            return Results.Json(new { error = "EvaluationSetting singleton row is missing" }, statusCode: StatusCodes.Status500InternalServerError);
+            // Missing singleton is a server-side data fault — never render the internal message.
+            return Results.Json(new { error = "Internal server error" }, statusCode: StatusCodes.Status500InternalServerError);
         }
 
         return Results.Json(new { setting });
