@@ -84,6 +84,30 @@
   --danger-text: #b91c1c;  /* 5.91:1 on --danger-subtle */
   --info-text: #0369a1;    /* 5.57:1 on --info-subtle */
 
+  /* Hover surfaces for solid status buttons (T-UX-018) — the previous raw
+     red-700 / emerald-700 values, tokenized. */
+  --danger-hover: #b91c1c;
+  --success-hover: #047857;
+
+  /* Scrim — the one overlay veil for the whole app (T-UX-018): Modal, FilterDrawer
+     and the Sidebar drawer backdrop all share this value (the Modal's original). */
+  --scrim: rgb(15 23 42 / 0.4);
+
+  /* Touch target floor (T-UX-019) — mobile hit area ≥44px (platform HIG);
+     desktop may shrink via explicit `lg:`/`sm:` sizes on top of the token. */
+  --touch-target: 44px;
+
+  /* z-scale (T-UX-019) — one ladder for the whole app:
+     table internals < nav < drawer < modal < toast < blocking layer. */
+  --z-table-cell: 1;          /* frozen body cell inside DataTable's scroll box */
+  --z-table-header: 10;       /* sticky table header */
+  --z-table-header-frozen: 20; /* sticky + frozen header cell */
+  --z-nav: 30;                /* sticky app header */
+  --z-drawer: 40;             /* Sidebar mobile drawer (backdrop + panel) */
+  --z-modal: 50;              /* Modal, FilterDrawer, DropdownMenu */
+  --z-toast: 60;              /* ToastProvider */
+  --z-block: 100;             /* skip link / full-screen blocking layer */
+
   --restricted: #7c3aed;
   --restricted-foreground: #ffffff;
   --restricted-subtle: #f5f3ff;
@@ -176,6 +200,10 @@
   --color-warning-text: var(--warning-text);
   --color-danger-text: var(--danger-text);
   --color-info-text: var(--info-text);
+
+  --color-danger-hover: var(--danger-hover);
+  --color-success-hover: var(--success-hover);
+  --color-scrim: var(--scrim);
 
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);

@@ -53,8 +53,8 @@ export function FilterDrawer({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 md:hidden">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden="true" />
+    <div className="fixed inset-0 z-(--z-modal) md:hidden">
+      <div className="absolute inset-0 bg-scrim" onClick={onClose} aria-hidden="true" />
       <div
         ref={panelRef}
         role="dialog"

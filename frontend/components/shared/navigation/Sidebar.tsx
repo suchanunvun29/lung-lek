@@ -16,7 +16,7 @@
  * NavBar.tsx — no entry's rule is changed here.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
@@ -40,6 +40,26 @@ export interface SidebarProps {
   onDrawerClose?: () => void;
 }
 
+// Collapse state — persisted in localStorage, only relevant at ≥1280px.
+// Read as an external store (T-UX-020 / UX-031): hydration renders the server
+// snapshot (expanded) first, then the stored value applies after mount — no
+// hydration mismatch and no setState-in-effect. Cross-tab changes propagate
+// via the native `storage` event; in-tab toggles dispatch a local event.
+const SIDEBAR_COLLAPSED_CHANGE = "sidebar-collapsed-change";
+
+function subscribeCollapsed(onChange: () => void) {
+  window.addEventListener(SIDEBAR_COLLAPSED_CHANGE, onChange);
+  window.addEventListener("storage", onChange);
+  return () => {
+    window.removeEventListener(SIDEBAR_COLLAPSED_CHANGE, onChange);
+    window.removeEventListener("storage", onChange);
+  };
+}
+
+function getCollapsedSnapshot(): boolean {
+  return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true";
+}
+
 export function Sidebar({ role, drawerOpen = false, onDrawerClose }: SidebarProps) {
   const pathname = usePathname();
   // WACC-P1-015 — lazy queue counts (fetched once after first paint, MANAGER only).
@@ -51,11 +71,7 @@ export function Sidebar({ role, drawerOpen = false, onDrawerClose }: SidebarProp
     return typeof value === "number" ? value : undefined;
   }
 
-  // Collapse state — persisted, only relevant at ≥1280px.
-  const [collapsed, setCollapsed] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true";
-  });
+  const collapsed = useSyncExternalStore(subscribeCollapsed, getCollapsedSnapshot, () => false);
 
   // Close drawer on route change.
   useEffect(() => {
@@ -73,11 +89,9 @@ export function Sidebar({ role, drawerOpen = false, onDrawerClose }: SidebarProp
   });
 
   function toggleCollapse() {
-    setCollapsed((prev) => {
-      const next = !prev;
-      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(next));
-      return next;
-    });
+    const next = !collapsed;
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(next));
+    window.dispatchEvent(new Event(SIDEBAR_COLLAPSED_CHANGE));
   }
 
   // Visible items for this role.
@@ -220,7 +234,7 @@ export function Sidebar({ role, drawerOpen = false, onDrawerClose }: SidebarProp
         <>
           {/* Backdrop */}
           <div
-            className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+            className="fixed inset-0 z-(--z-drawer) bg-scrim lg:hidden"
             aria-hidden="true"
             onClick={onDrawerClose}
           />
@@ -232,7 +246,7 @@ export function Sidebar({ role, drawerOpen = false, onDrawerClose }: SidebarProp
             aria-modal="true"
             aria-label="เมนูหลัก"
             tabIndex={-1}
-            className="fixed inset-y-0 left-0 z-50 flex flex-col bg-[var(--surface)] shadow-[var(--elevation-2)] outline-none lg:hidden"
+            className="fixed inset-y-0 left-0 z-(--z-drawer) flex flex-col bg-[var(--surface)] shadow-[var(--elevation-2)] outline-none lg:hidden"
             style={{ width: EXPANDED_WIDTH }}
           >
             {/* Close button */}

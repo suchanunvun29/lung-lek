@@ -17,7 +17,7 @@
  *   เวลากดบันทึกรัว ๆ)
  * - ตำแหน่ง: desktop ขวาล่าง / มือถือ (<sm) บนใต้ header — กันบัง dirty bar และปุ่มบันทึก
  *   ที่ sticky อยู่ล่าง (ทดสอบ 375px ตาม T-UX-012)
- * - z-[60] สูงกว่า modal/drawer (z-50) ตามลำดับ overlay ของระบบ
+ * - z-(--z-toast) (60) สูงกว่า modal/drawer ตามลำดับ overlay ของระบบ (T-UX-019 z-scale)
  */
 
 import * as React from "react";
@@ -128,7 +128,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         onMouseLeave={handleResume}
         onFocus={handlePause}
         onBlur={handleResume}
-        className="pointer-events-none fixed inset-x-3 top-16 z-[60] flex flex-col gap-2 sm:inset-x-auto sm:bottom-4 sm:right-4 sm:top-auto sm:items-end"
+        className="pointer-events-none fixed inset-x-3 top-16 z-(--z-toast) flex flex-col gap-2 sm:inset-x-auto sm:bottom-4 sm:right-4 sm:top-auto sm:items-end"
       >
         <ul className="flex w-full flex-col gap-2 sm:w-80" aria-label="รายการแจ้งเตือน">
           {items.map((item) => (

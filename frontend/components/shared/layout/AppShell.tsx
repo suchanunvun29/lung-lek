@@ -42,7 +42,7 @@ export function AppShell({ children, breadcrumbSegments }: AppShellProps) {
       {/* Skip link — hidden until focused */}
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[100] focus:rounded-[var(--radius-md)] focus:bg-[var(--primary)] focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-[var(--primary-foreground)] focus:shadow-[var(--elevation-1)]"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-(--z-block) focus:rounded-[var(--radius-md)] focus:bg-[var(--primary)] focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-[var(--primary-foreground)] focus:shadow-[var(--elevation-1)]"
       >
         ข้ามไปยังเนื้อหาหลัก
       </a>

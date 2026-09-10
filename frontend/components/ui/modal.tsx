@@ -44,7 +44,7 @@ export function Modal({
      the keyboard path out is Escape (useDialogA11y) and the dialog's own buttons. */
   const content = (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 backdrop-blur-xs p-4 sm:p-6 overflow-y-auto"
+      className="fixed inset-0 z-(--z-modal) flex items-center justify-center bg-scrim backdrop-blur-xs p-4 sm:p-6 overflow-y-auto"
       onClick={(e) => {
         if (closeOnBackdrop && e.target === e.currentTarget) {
           onClose();
@@ -69,7 +69,7 @@ export function Modal({
           <button
             type="button"
             onClick={onClose}
-            className="text-text-muted hover:text-text-primary rounded-md p-1.5 transition-colors cursor-pointer min-h-11 min-w-11 sm:min-h-8 sm:min-w-8 flex items-center justify-center"
+            className="text-text-muted hover:text-text-primary rounded-md p-1.5 transition-colors cursor-pointer min-h-(--touch-target) min-w-(--touch-target) sm:min-h-8 sm:min-w-8 flex items-center justify-center"
             aria-label="ปิด"
           >
             <span aria-hidden="true" className="text-base font-semibold">✕</span>

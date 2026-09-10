@@ -16,7 +16,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { PeriodSelector } from "@/features/kpi/components/PeriodSelector";
+import { PeriodSelector } from "./PeriodSelector";
 import { listSalespeople } from "@/features/master-data";
 import { listTerritories } from "@/features/territories/api/territories.api";
 import { getErrorMessage } from "@/lib/api-client";
@@ -107,7 +107,7 @@ export function ContextBar() {
               aria-label="เลือกเขตการขาย"
               value={territoryId ?? ""}
               onChange={(e) => setTerritoryId(Number(e.target.value) || null)}
-              className="h-8 rounded-[var(--radius-md)] border border-border-strong bg-surface px-2.5 py-1 text-xs text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-primary shrink-0"
+              className="h-8 min-h-(--touch-target) lg:min-h-8 rounded-[var(--radius-md)] border border-border-strong bg-surface px-2.5 py-1 text-xs text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-primary shrink-0"
             >
               {territories.map((t) => (
                 <option key={t.id} value={t.id}>
@@ -133,7 +133,7 @@ export function ContextBar() {
               aria-label="เลือกมุมมองพนักงานขาย"
               value={salespersonId ?? ""}
               onChange={(e) => setSalespersonId(Number(e.target.value) || null)}
-              className="h-8 rounded-[var(--radius-md)] border border-border-strong bg-surface px-2.5 py-1 text-xs text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-primary shrink-0"
+              className="h-8 min-h-(--touch-target) lg:min-h-8 rounded-[var(--radius-md)] border border-border-strong bg-surface px-2.5 py-1 text-xs text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-primary shrink-0"
             >
               {salespeople.map((sp) => (
                 <option key={sp.id} value={sp.id}>

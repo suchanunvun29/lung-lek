@@ -6,9 +6,8 @@
  * The one table component for the whole product: client-side sorting and search,
  * sticky header, optional frozen first column, density, column priority, and a
  * mobile card fallback — so screens stop each hand-rolling `<table>`.
- * It supersedes `components/ui/table.tsx` as the table surface (that file has no
- * consumers and remains untouched); `Pagination` is absorbed as an internal part
- * and stays exported from its own file for direct users.
+ * It supersedes `components/ui/table.tsx` as the table surface; `Pagination` is
+ * absorbed as an internal part and is reachable only through DataTable (T-UX-017).
  *
  * ── Data rules (behavior preservation) ────────────────────────────────────────
  * • Sorting and search operate ONLY on rows already fetched. No query parameter
@@ -42,10 +41,43 @@
 import * as React from "react";
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/feedback/EmptyState";
 import { SkeletonTable } from "@/components/shared/feedback/Skeleton";
-import { Pagination } from "./Pagination";
 import { cn } from "@/lib/utils";
+
+/* Internal pager — rendered by DataTable only; there is no second path (T-UX-017). */
+function Pagination({ page, pageSize, total, onPageChange }: { page: number; pageSize: number; total: number; onPageChange: (page: number) => void }) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  return (
+    <div className="flex items-center justify-between text-sm text-text-secondary">
+      <p>
+        ทั้งหมด {total.toLocaleString("th-TH")} รายการ · หน้า {page} จาก {totalPages}
+      </p>
+      <div className="flex gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={page <= 1}
+          onClick={() => onPageChange(page - 1)}
+        >
+          ก่อนหน้า
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={page >= totalPages}
+          onClick={() => onPageChange(page + 1)}
+        >
+          ถัดไป
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 export type DataTableMobileRole = "identity" | "metric" | "meta" | "hidden";
 
@@ -324,9 +356,9 @@ export function DataTable<Row>({
                       <th
                         scope="col"
                         className={cn(
-                          "sticky top-0 z-10 w-12 bg-surface-subtle px-1 align-middle text-center",
+                          "sticky top-0 z-(--z-table-header) w-12 bg-surface-subtle px-1 align-middle text-center",
                           rowHeightClass,
-                          frozenFirstColumn && "left-0 z-20 border-r border-border"
+                          frozenFirstColumn && "left-0 z-(--z-table-header-frozen) border-r border-border"
                         )}
                       >
                         <label className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center cursor-pointer">
@@ -369,11 +401,11 @@ export function DataTable<Row>({
                         scope="col"
                         aria-sort={ariaSort}
                         className={cn(
-                          "sticky top-0 z-10 bg-surface-subtle px-3 align-middle font-medium text-text-secondary",
+                          "sticky top-0 z-(--z-table-header) bg-surface-subtle px-3 align-middle font-medium text-text-secondary",
                           rowHeightClass,
                           alignClass,
                           PRIORITY_CLASS[column.priority ?? 2],
-                          frozen && "left-0 z-20 border-r border-border"
+                          frozen && "left-0 z-(--z-table-header-frozen) border-r border-border"
                         )}
                       >
                         {column.sortable && !serverPaginated ? (
@@ -412,7 +444,7 @@ export function DataTable<Row>({
                           className={cn(
                             "w-12 px-1 align-middle text-center",
                             rowHeightClass,
-                            frozenFirstColumn && "sticky left-0 z-[1] bg-surface border-r border-border group-hover:bg-surface-subtle"
+                            frozenFirstColumn && "sticky left-0 z-(--z-table-cell) bg-surface border-r border-border group-hover:bg-surface-subtle"
                           )}
                         >
                           <label className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center cursor-pointer">
@@ -452,7 +484,7 @@ export function DataTable<Row>({
                               alignClass,
                               column.numeric && "font-numeric",
                               PRIORITY_CLASS[column.priority ?? 2],
-                              frozen && "sticky left-0 z-[1] bg-surface border-r border-border group-hover:bg-surface-subtle"
+                              frozen && "sticky left-0 z-(--z-table-cell) bg-surface border-r border-border group-hover:bg-surface-subtle"
                             )}
                           >
                             {column.render(row)}

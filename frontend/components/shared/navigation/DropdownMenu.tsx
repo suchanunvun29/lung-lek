@@ -18,6 +18,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import Link from "next/link";
 
 /* ── Context ───────────────────────────────────────────────── */
 
@@ -82,17 +83,11 @@ export function DropdownMenu({ children }: { children: ReactNode }) {
 export function DropdownTrigger({
   children,
   className,
-  asChild,
 }: {
   children: ReactNode;
   className?: string;
-  asChild?: boolean;
 }) {
   const { open, toggle, triggerId, menuId, triggerRef } = useDropdown();
-
-  if (asChild && typeof children === "object" && children !== null && "type" in (children as object)) {
-    // Pass through to child button — not supported in this minimal impl; render as-is.
-  }
 
   return (
     <button
@@ -161,7 +156,7 @@ export function DropdownContent({
       role="menu"
       aria-orientation="vertical"
       className={[
-        "absolute top-full z-50 mt-1 min-w-[200px] rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--elevation-2)]",
+        "absolute top-full z-(--z-modal) mt-1 min-w-[200px] rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--elevation-2)]",
         "py-1 focus:outline-none",
         align === "right" ? "right-0" : "left-0",
       ].join(" ")}
@@ -199,15 +194,16 @@ export function DropdownItem({
   }
 
   if (href) {
+    // next/link — SPA navigation, no full reload (T-UX-020 / UX-030).
     return (
-      <a
+      <Link
         href={href}
         role="menuitem"
         className={[base, color, className].filter(Boolean).join(" ")}
         onClick={close}
       >
         {children}
-      </a>
+      </Link>
     );
   }
 

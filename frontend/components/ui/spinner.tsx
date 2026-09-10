@@ -15,7 +15,7 @@ export function Spinner({ className, size = "default", ...props }: SpinnerProps)
   return (
     <div
       className={cn(
-        "animate-spin rounded-full border-blue-600 border-t-transparent inline-block",
+        "animate-spin rounded-full border-primary border-t-transparent inline-block",
         sizeStyles[size],
         className
       )}

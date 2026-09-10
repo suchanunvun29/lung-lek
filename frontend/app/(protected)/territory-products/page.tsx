@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { PeriodSelector } from "@/features/kpi";
+import { PeriodSelector } from "@/components/shared/layout/PeriodSelector";
 import {
   getTerritoryProductRanking,
   getTerritoryKpiTeam,

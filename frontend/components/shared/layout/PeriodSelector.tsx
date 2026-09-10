@@ -36,7 +36,7 @@ export function PeriodSelector({ value, onChange }: PeriodSelectorProps) {
           aria-label="เลือกรอบการประเมิน"
           value={value.periodType}
           onChange={(e) => handlePeriodTypeChange(e.target.value as PeriodType)}
-          className="w-auto min-w-[76px] h-8 text-xs py-1 px-2.5"
+          className="w-auto min-w-[76px] h-8 min-h-(--touch-target) text-xs py-1 px-2.5"
         >
           {PERIOD_TYPES.map((pt) => (
             <option key={pt} value={pt}>
@@ -53,7 +53,7 @@ export function PeriodSelector({ value, onChange }: PeriodSelectorProps) {
           aria-label="เลือกปี"
           value={value.year}
           onChange={(e) => onChange({ ...value, year: Number(e.target.value) })}
-          className="w-auto min-w-[80px] h-8 text-xs py-1 px-2.5"
+          className="w-auto min-w-[80px] h-8 min-h-(--touch-target) text-xs py-1 px-2.5"
         >
           {YEAR_OFFSETS.map((offset) => {
             const y = currentYear + offset;
@@ -74,7 +74,7 @@ export function PeriodSelector({ value, onChange }: PeriodSelectorProps) {
             aria-label="เลือกเดือน"
             value={value.periodNumber}
             onChange={(e) => onChange({ ...value, periodNumber: Number(e.target.value) })}
-            className="w-auto min-w-[96px] h-8 text-xs py-1 px-2.5"
+            className="w-auto min-w-[96px] h-8 min-h-(--touch-target) text-xs py-1 px-2.5"
           >
             {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
               <option key={m} value={m}>
@@ -93,7 +93,7 @@ export function PeriodSelector({ value, onChange }: PeriodSelectorProps) {
             aria-label="เลือกไตรมาส"
             value={value.periodNumber}
             onChange={(e) => onChange({ ...value, periodNumber: Number(e.target.value) })}
-            className="w-auto min-w-[88px] h-8 text-xs py-1 px-2.5"
+            className="w-auto min-w-[88px] h-8 min-h-(--touch-target) text-xs py-1 px-2.5"
           >
             {[1, 2, 3, 4].map((q) => (
               <option key={q} value={q}>

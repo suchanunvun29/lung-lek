@@ -50,7 +50,7 @@ export function AppHeader({ onMenuToggle, breadcrumbSegments }: AppHeaderProps) 
   }
 
   return (
-    <header className="sticky top-0 z-30 h-14 border-b border-[var(--border)] bg-[var(--surface)]">
+    <header className="sticky top-0 z-(--z-nav) h-14 border-b border-[var(--border)] bg-[var(--surface)]">
       {/* Main header row */}
       <div className="flex h-full items-center justify-between gap-3 px-4 sm:px-6">
         <div className="flex items-center gap-3 overflow-hidden">
@@ -59,7 +59,7 @@ export function AppHeader({ onMenuToggle, breadcrumbSegments }: AppHeaderProps) 
             type="button"
             aria-label="เปิดเมนู"
             onClick={onMenuToggle}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-md)] text-[var(--text-muted)] hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary)] transition-colors lg:hidden cursor-pointer"
+            className="flex h-9 w-9 min-h-(--touch-target) min-w-(--touch-target) shrink-0 items-center justify-center rounded-[var(--radius-md)] text-[var(--text-muted)] hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary)] transition-colors lg:hidden cursor-pointer"
           >
             <Menu size={20} aria-hidden="true" />
           </button>
@@ -74,7 +74,7 @@ export function AppHeader({ onMenuToggle, breadcrumbSegments }: AppHeaderProps) 
         {user && (
           <DropdownMenu>
             <DropdownTrigger
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--primary-subtle)] text-[var(--primary)] hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] cursor-pointer"
+              className="flex h-9 w-9 min-h-(--touch-target) min-w-(--touch-target) lg:min-h-9 lg:min-w-9 shrink-0 items-center justify-center rounded-full bg-[var(--primary-subtle)] text-[var(--primary)] hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] cursor-pointer"
             >
               <User size={18} aria-hidden="true" />
               <span className="sr-only">เมนูโปรไฟล์</span>
