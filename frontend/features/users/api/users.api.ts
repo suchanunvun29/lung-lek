@@ -1,8 +1,8 @@
 import { request } from "@/lib/api-client";
 import { AppUser, UserRole } from "@/lib/types";
 
-export function listUsers(token: string) {
-  return request<{ users: AppUser[] }>("/users", { method: "GET" }, token);
+export function listUsers(token: string, signal?: AbortSignal) {
+  return request<{ users: AppUser[] }>("/users", { method: "GET", signal }, token);
 }
 
 export interface CreateUserInput {

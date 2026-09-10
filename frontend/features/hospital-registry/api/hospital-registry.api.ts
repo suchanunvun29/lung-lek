@@ -18,8 +18,8 @@ export function uploadHospitalRegistryFile(token: string, file: File) {
   );
 }
 
-export function listProvinces(token: string) {
-  return request<{ provinces: ProvinceMapping[]; regions: Region[] }>("/provinces", { method: "GET" }, token);
+export function listProvinces(token: string, signal?: AbortSignal) {
+  return request<{ provinces: ProvinceMapping[]; regions: Region[] }>("/provinces", { method: "GET", signal }, token);
 }
 
 export function updateProvince(token: string, id: string, input: { canonicalName?: string; regionId?: string }) {

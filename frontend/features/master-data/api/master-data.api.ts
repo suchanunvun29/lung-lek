@@ -1,8 +1,8 @@
 import { request } from "@/lib/api-client";
 import { Hospital, Salesperson } from "@/lib/types";
 
-export function listHospitals(token: string) {
-  return request<{ hospitals: Hospital[] }>("/hospitals", { method: "GET" }, token);
+export function listHospitals(token: string, signal?: AbortSignal) {
+  return request<{ hospitals: Hospital[] }>("/hospitals", { method: "GET", signal }, token);
 }
 
 export function updateHospital(token: string, id: number, isPreExistingCustomer: boolean) {
@@ -13,8 +13,8 @@ export function updateHospital(token: string, id: number, isPreExistingCustomer:
   );
 }
 
-export function listSalespeople(token: string) {
-  return request<{ salespeople: Salesperson[] }>("/salespeople", { method: "GET" }, token);
+export function listSalespeople(token: string, signal?: AbortSignal) {
+  return request<{ salespeople: Salesperson[] }>("/salespeople", { method: "GET", signal }, token);
 }
 
 export function updateSalesperson(

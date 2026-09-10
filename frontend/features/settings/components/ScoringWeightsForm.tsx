@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ScoringWeightInput } from "@/features/settings/api/settings.api";
 import { SCORED_METRIC_ORDER } from "@/lib/kpiLabels";
 import { ScoredKpiMetric, ScoringWeight } from "@/lib/types";
+import { ApiError, getErrorMessage } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -59,6 +60,7 @@ export function ScoringWeightsForm({ weights, onSubmit }: ScoringWeightsFormProp
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const total = SCORED_METRIC_ORDER.reduce(
     (sum, metric) => sum + (values[metric] || 0),
@@ -68,8 +70,29 @@ export function ScoringWeightsForm({ weights, onSubmit }: ScoringWeightsFormProp
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (submitting) return;
+
+    const newErrors: Record<string, string> = {};
+    for (const metric of SCORED_METRIC_ORDER) {
+      const val = values[metric];
+      if (!Number.isInteger(val) || val < 0 || val > TOTAL_WEIGHT) {
+        newErrors[metric] = `ค่าน้ำหนักต้องเป็นจำนวนเต็มระหว่าง 0 ถึง ${TOTAL_WEIGHT}`;
+      }
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setFieldErrors(newErrors);
+      setError("กรุณาตรวจสอบค่าน้ำหนักในเกณฑ์ที่มีข้อผิดพลาด");
+      const firstInvalid = SCORED_METRIC_ORDER.find((m) => newErrors[m]);
+      if (firstInvalid) {
+        setTimeout(() => document.getElementById(`metric-${firstInvalid}`)?.focus(), 0);
+      }
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
+    setFieldErrors({});
     announce("กำลังบันทึกน้ำหนักคะแนน...", "polite");
     try {
       await onSubmit(
@@ -79,8 +102,31 @@ export function ScoringWeightsForm({ weights, onSubmit }: ScoringWeightsFormProp
       setNote("");
       // T-UX-012 — เดิม success เป็น announce-only (มองไม่เห็นกับตา); success = toast
       toast.success("บันทึกน้ำหนักคะแนนเรียบร้อยแล้ว");
-    } catch {
-      setError("บันทึกไม่สำเร็จ กรุณาลองใหม่");
+    } catch (err) {
+      if (err instanceof ApiError && err.details) {
+        const details = err.details;
+        const serverFieldErrors: Record<string, string> = {};
+        for (const metric of SCORED_METRIC_ORDER) {
+          if (typeof details === "string" && details.toLowerCase().includes(metric.toLowerCase())) {
+            serverFieldErrors[metric] = details;
+          } else if (typeof details === "object" && details !== null) {
+            const obj = details as Record<string, unknown>;
+            if (obj[metric] && typeof obj[metric] === "string") {
+              serverFieldErrors[metric] = obj[metric] as string;
+            }
+          }
+        }
+        if (Object.keys(serverFieldErrors).length > 0) {
+          setFieldErrors(serverFieldErrors);
+          setError("ข้อมูลที่ส่งไม่ผ่านการตรวจสอบจากระบบ");
+          const firstMetric = SCORED_METRIC_ORDER.find((m) => serverFieldErrors[m]);
+          if (firstMetric) {
+            setTimeout(() => document.getElementById(`metric-${firstMetric}`)?.focus(), 0);
+          }
+          return;
+        }
+      }
+      setError(getErrorMessage(err, "บันทึกไม่สำเร็จ กรุณาลองใหม่"));
     } finally {
       setSubmitting(false);
     }
@@ -121,24 +167,49 @@ export function ScoringWeightsForm({ weights, onSubmit }: ScoringWeightsFormProp
                     {item.description}
                   </p>
                 </div>
-                <div className="flex items-center gap-2 self-end sm:self-center">
-                  <Input
-                    type="number"
-                    inputMode="numeric"
-                    min={0}
-                    max={TOTAL_WEIGHT}
-                    step={1}
-                    value={values[metric]}
-                    onChange={(e) =>
-                      setValues((prev) => ({
-                        ...prev,
-                        [metric]: Math.max(0, Number(e.target.value) || 0),
-                      }))
-                    }
-                    className="w-24 text-right tabular-nums font-medium h-11 sm:h-9"
-                    aria-label={`ค่าน้ำหนัก ${item.label}`}
-                  />
-                  <span className="text-sm font-medium text-[var(--text-secondary)]">%</span>
+                <div className="flex flex-col items-end gap-1 self-end sm:self-center">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id={`metric-${metric}`}
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      max={TOTAL_WEIGHT}
+                      step={1}
+                      value={values[metric]}
+                      onChange={(e) => {
+                        const val = Math.max(0, Number(e.target.value) || 0);
+                        setValues((prev) => ({
+                          ...prev,
+                          [metric]: val,
+                        }));
+                        if (fieldErrors[metric]) {
+                          setFieldErrors((prev) => {
+                            const next = { ...prev };
+                            delete next[metric];
+                            return next;
+                          });
+                        }
+                      }}
+                      className={`w-24 text-right tabular-nums font-medium h-11 sm:h-9 ${
+                        fieldErrors[metric] ? "border-[var(--danger)] focus-visible:ring-[var(--danger)]" : ""
+                      }`}
+                      aria-label={`ค่าน้ำหนัก ${item.label}`}
+                      aria-invalid={Boolean(fieldErrors[metric])}
+                      aria-describedby={fieldErrors[metric] ? `metric-${metric}-error` : undefined}
+                    />
+                    <span className="text-sm font-medium text-[var(--text-secondary)]">%</span>
+                  </div>
+                  {fieldErrors[metric] && (
+                    <p
+                      id={`metric-${metric}-error`}
+                      role="alert"
+                      aria-live="polite"
+                      className="text-xs text-[var(--danger)] font-medium text-right"
+                    >
+                      {fieldErrors[metric]}
+                    </p>
+                  )}
                 </div>
               </div>
             );

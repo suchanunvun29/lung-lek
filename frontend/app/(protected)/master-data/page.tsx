@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import {
   HospitalTable,
   SalespersonTable,
@@ -18,6 +18,9 @@ import { toast } from "@/components/shared/feedback/toast/ToastProvider";
 import { PageContainer } from "@/components/shared/layout/PageContainer";
 import { PageHeader } from "@/components/shared/layout/PageHeader";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { EmptyState } from "@/components/shared/feedback/EmptyState";
+import { SkeletonTable } from "@/components/shared/feedback/Skeleton";
+import { useAbortableEffect } from "@/lib/useAbortableEffect";
 
 type Tab = "salespeople" | "hospitals" | "products";
 
@@ -47,40 +50,45 @@ export default function MasterDataPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
 
   function setTab(nextTab: Tab) {
     setTabState(nextTab);
     setTabInUrl(nextTab);
   }
 
-  const loadAll = useCallback(async () => {
-    if (!token) return;
-    setLoading(true);
-    try {
-      const [salespeopleData, hospitalData, productsData] = await Promise.all([
-        listSalespeople(token),
-        listHospitals(token),
-        listProducts(token),
-      ]);
-      setSalespeople(salespeopleData.salespeople);
-      setHospitals(hospitalData.hospitals);
-      setProducts(productsData.products);
-      if (canEdit) {
-        const usersData = await listUsers(token);
-        setUsers(usersData.users);
+  useAbortableEffect(
+    async (signal) => {
+      if (!token) return;
+      setLoading(true);
+      try {
+        const [salespeopleData, hospitalData, productsData] = await Promise.all([
+          listSalespeople(token, signal),
+          listHospitals(token, signal),
+          listProducts(token, signal),
+        ]);
+        if (signal.aborted) return;
+        setSalespeople(salespeopleData.salespeople);
+        setHospitals(hospitalData.hospitals);
+        setProducts(productsData.products);
+        if (canEdit) {
+          const usersData = await listUsers(token, signal);
+          if (signal.aborted) return;
+          setUsers(usersData.users);
+        }
+        setLoadError(null);
+      } catch (err) {
+        if (!signal.aborted) {
+          setLoadError(getErrorMessage(err, "โหลดข้อมูล master data ไม่สำเร็จ"));
+        }
+      } finally {
+        if (!signal.aborted) {
+          setLoading(false);
+        }
       }
-      setLoadError(null);
-    } catch (err) {
-      setLoadError(getErrorMessage(err, "โหลดข้อมูล master data ไม่สำเร็จ"));
-    } finally {
-      setLoading(false);
-    }
-  }, [token, canEdit]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void loadAll();
-  }, [loadAll]);
+    },
+    [token, canEdit, reloadNonce]
+  );
 
   async function handleHospitalToggle(hospital: Hospital, isPreExistingCustomer: boolean) {
     if (!token) return;
@@ -101,7 +109,7 @@ export default function MasterDataPage() {
     try {
       const data = await updateSalesperson(token, salesperson.id, { userId });
       setSalespeople((prev) => prev.map((sp) => (sp.id === salesperson.id ? data.salesperson : sp)));
-      void loadAll();
+      setReloadNonce((n) => n + 1);
       // T-UX-012 — inline save สำเร็จต้องไม่เงียบ (ผูกและยกเลิกผูกบัญชีต่างข้อความ)
       toast.success(
         userId === null
@@ -168,12 +176,24 @@ export default function MasterDataPage() {
           </TabsList>
         </div>
 
-        {loadError && <p className="mb-4 text-sm text-status-danger">{loadError}</p>}
-        {actionError && <p className="mb-4 text-sm text-status-danger">{actionError}</p>}
+        {loadError && (
+          <EmptyState
+            variant="error"
+            title="โหลดข้อมูลหลักไม่สำเร็จ"
+            description={loadError}
+            onRetry={() => setReloadNonce((n) => n + 1)}
+            isRetrying={loading}
+          />
+        )}
+        {actionError && (
+          <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-status-danger">
+            {actionError}
+          </div>
+        )}
 
-        {loading && <p className="text-text-muted">กำลังโหลด...</p>}
+        {loading && <SkeletonTable rows={8} columns={5} />}
 
-        {!loading && (
+        {!loading && !loadError && (
           <>
             <TabsContent value="salespeople">
               <SalespersonTable

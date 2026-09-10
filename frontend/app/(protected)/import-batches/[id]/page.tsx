@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { use, useCallback, useEffect, useState } from "react";
+import { use, useState } from "react";
 import { ChevronLeft, ArrowRight, AlertTriangle } from "lucide-react";
 import { ImportBatchSummary, ImportIssueTable, getImportBatch } from "@/features/import";
 import { getErrorMessage } from "@/lib/api-client";
@@ -10,6 +10,9 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { PageContainer } from "@/components/shared/layout/PageContainer";
 import { PageHeader } from "@/components/shared/layout/PageHeader";
 import { Breadcrumb } from "@/components/shared/navigation/Breadcrumb";
+import { EmptyState } from "@/components/shared/feedback/EmptyState";
+import { SkeletonCard, SkeletonTable } from "@/components/shared/feedback/Skeleton";
+import { useAbortableEffect } from "@/lib/useAbortableEffect";
 
 interface ImportBatchDetailPageProps {
   params: Promise<{ id: string }>;
@@ -21,25 +24,29 @@ export default function ImportBatchDetailPage({ params }: ImportBatchDetailPageP
   const [batch, setBatch] = useState<ImportBatch | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
 
-  const load = useCallback(async () => {
-    if (!token) return;
-    setLoading(true);
-    try {
-      const data = await getImportBatch(token, id);
-      setBatch(data.importBatch);
-      setLoadError(null);
-    } catch (err) {
-      setLoadError(getErrorMessage(err, "โหลดรายละเอียดการนำเข้าไม่สำเร็จ"));
-    } finally {
-      setLoading(false);
-    }
-  }, [token, id]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void load();
-  }, [load]);
+  useAbortableEffect(
+    async (signal) => {
+      if (!token || !id) return;
+      setLoading(true);
+      try {
+        const data = await getImportBatch(token, id, signal);
+        if (signal.aborted) return;
+        setBatch(data.importBatch);
+        setLoadError(null);
+      } catch (err) {
+        if (!signal.aborted) {
+          setLoadError(getErrorMessage(err, "โหลดรายละเอียดการนำเข้าไม่สำเร็จ"));
+        }
+      } finally {
+        if (!signal.aborted) {
+          setLoading(false);
+        }
+      }
+    },
+    [token, id, reloadNonce]
+  );
 
   const hasNameReviewIssues = Boolean(
     batch?.issues?.some(
@@ -77,8 +84,21 @@ export default function ImportBatchDetailPage({ params }: ImportBatchDetailPageP
         </Link>
       </div>
 
-      {loading && <p className="text-text-muted">กำลังโหลด...</p>}
-      {loadError && <p className="text-sm text-status-danger">{loadError}</p>}
+      {loading && (
+        <div className="space-y-6">
+          <SkeletonCard />
+          <SkeletonTable rows={4} columns={4} />
+        </div>
+      )}
+      {loadError && (
+        <EmptyState
+          variant="error"
+          title="โหลดรายละเอียดการนำเข้าไม่สำเร็จ"
+          description={loadError}
+          onRetry={() => setReloadNonce((n) => n + 1)}
+          isRetrying={loading}
+        />
+      )}
 
       {batch && (
         <div className="space-y-6">

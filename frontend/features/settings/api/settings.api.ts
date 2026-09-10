@@ -8,10 +8,10 @@ import {
   TierWeightRow,
 } from "@/lib/types";
 
-export function getScoringWeights(token: string) {
+export function getScoringWeights(token: string, signal?: AbortSignal) {
   return request<{ weights: ScoringWeight[]; revisions: ScoringWeightRevision[] }>(
     "/settings/scoring-weights",
-    { method: "GET" },
+    { method: "GET", signal },
     token
   );
 }
@@ -29,8 +29,8 @@ export function updateScoringWeights(token: string, weights: ScoringWeightInput[
   );
 }
 
-export function getEvaluationSetting(token: string) {
-  return request<{ setting: EvaluationSetting }>("/settings/evaluation", { method: "GET" }, token);
+export function getEvaluationSetting(token: string, signal?: AbortSignal) {
+  return request<{ setting: EvaluationSetting }>("/settings/evaluation", { method: "GET", signal }, token);
 }
 
 export interface EvaluationSettingUpdateInput {
@@ -55,8 +55,8 @@ export function updateEvaluationSetting(token: string, input: EvaluationSettingU
   );
 }
 
-export function getTierWeights(token: string) {
-  return request<{ weights: TierWeightRow[] }>("/settings/tier-weights", { method: "GET" }, token);
+export function getTierWeights(token: string, signal?: AbortSignal) {
+  return request<{ weights: TierWeightRow[] }>("/settings/tier-weights", { method: "GET", signal }, token);
 }
 
 export function updateTierWeights(token: string, weights: { tier: string; weight: number }[]) {

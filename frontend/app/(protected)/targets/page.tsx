@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   TargetsGrid,
@@ -15,9 +15,12 @@ import { fetchKnownProductTypes } from "@/features/products/utils/deriveProductT
 import { EntitySummary, Salesperson, Target } from "@/lib/types";
 import { getErrorMessage } from "@/lib/api-client";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useAbortableEffect } from "@/lib/useAbortableEffect";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/shared/feedback/ConfirmDialog";
+import { EmptyState } from "@/components/shared/feedback/EmptyState";
+import { SkeletonTable } from "@/components/shared/feedback/Skeleton";
 
 const YEAR_OFFSETS = [-1, 0, 1];
 
@@ -41,37 +44,48 @@ export default function TargetsPage() {
   // Unsaved-cell count reported by TargetsGrid; used to guard the year switch.
   const [gridDirtyCount, setGridDirtyCount] = useState(0);
   const [pendingYear, setPendingYear] = useState<number | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
 
-  const loadTargets = useCallback(async () => {
-    if (!token) return;
-    setLoading(true);
-    try {
-      const [spData, targetsData] = await Promise.all([listSalespeople(token), listTargets(token, year)]);
-      setSalespeople(spData.salespeople);
-      setTargets(targetsData.targets);
-      setLoadError(null);
-    } catch (err) {
-      setLoadError(getErrorMessage(err, "โหลดข้อมูลเป้าไม่สำเร็จ"));
-    } finally {
-      setLoading(false);
-    }
-  }, [token, year]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void loadTargets();
-  }, [loadTargets]);
-
-  useEffect(() => {
-    if (!token) return;
-    (async () => {
+  useAbortableEffect(
+    async (signal) => {
+      if (!token) return;
+      setLoading(true);
       try {
-        setProductTypes(await fetchKnownProductTypes(token));
+        const [spData, targetsData] = await Promise.all([
+          listSalespeople(token, signal),
+          listTargets(token, year, "SALESPERSON", signal),
+        ]);
+        if (signal.aborted) return;
+        setSalespeople(spData.salespeople);
+        setTargets(targetsData.targets);
+        setLoadError(null);
+      } catch (err) {
+        if (!signal.aborted) {
+          setLoadError(getErrorMessage(err, "โหลดข้อมูลเป้าไม่สำเร็จ"));
+        }
+      } finally {
+        if (!signal.aborted) {
+          setLoading(false);
+        }
+      }
+    },
+    [token, year, reloadNonce]
+  );
+
+  useAbortableEffect(
+    async (signal) => {
+      if (!token) return;
+      try {
+        const types = await fetchKnownProductTypes(token);
+        if (!signal.aborted) {
+          setProductTypes(types);
+        }
       } catch {
         // product-type list is a convenience for the product-group modal — grid still works without it
       }
-    })();
-  }, [token]);
+    },
+    [token]
+  );
 
   const targetsByKey = useMemo(() => {
     const map = new Map<string, Target>();
@@ -171,12 +185,19 @@ export default function TargetsPage() {
         </Select>
       </div>
 
-      {loadError && <p className="mt-4 text-sm text-danger">{loadError}</p>}
       {actionError && <p className="mt-4 text-sm text-danger">{actionError}</p>}
 
       <div className="mt-4">
         {loading ? (
-          <p className="text-text-muted">กำลังโหลด...</p>
+          <SkeletonTable rows={8} columns={14} />
+        ) : loadError ? (
+          <EmptyState
+            variant="error"
+            title="เกิดข้อผิดพลาดในการโหลดข้อมูลเป้า"
+            description={loadError}
+            onRetry={() => setReloadNonce((n) => n + 1)}
+            isRetrying={loading}
+          />
         ) : (
           <TargetsGrid
             key={year}
@@ -210,7 +231,7 @@ export default function TargetsPage() {
           year={year}
           salespeople={salespeople}
           onClose={() => setCopyModalOpen(false)}
-          onCopied={() => void loadTargets()}
+          onCopied={() => setReloadNonce((n) => n + 1)}
         />
       )}
 

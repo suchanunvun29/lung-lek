@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { MoreVertical, KeyRound, UserX, UserCheck } from "lucide-react";
 import {
   CreateUserInput,
@@ -34,6 +34,8 @@ import {
   DropdownSeparator,
 } from "@/components/shared/navigation/DropdownMenu";
 import { InlineMessage } from "@/components/shared/feedback/InlineMessage";
+import { EmptyState } from "@/components/shared/feedback/EmptyState";
+import { useAbortableEffect } from "@/lib/useAbortableEffect";
 
 const ROLE_LABEL_TH: Record<string, string> = {
   MANAGER: "ผู้จัดการ",
@@ -52,6 +54,9 @@ export default function UsersPage() {
   const [users, setUsers] = useState<AppUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
+
   const [isCreateOpen, setCreateOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
   const [resetUserTarget, setResetUserTarget] = useState<AppUser | null>(null);
@@ -63,23 +68,28 @@ export default function UsersPage() {
   const [roleFilter, setRoleFilter] = useState<string>("ALL");
   const [onlyUnlinked, setOnlyUnlinked] = useState(false);
 
-  const loadUsers = useCallback(async () => {
-    if (!token) return;
-    try {
-      const data = await listUsers(token);
-      setUsers(data.users);
-      setLoadError(null);
-    } catch (err) {
-      setLoadError(getErrorMessage(err, "โหลดรายชื่อผู้ใช้ไม่สำเร็จ"));
-    } finally {
-      setLoading(false);
-    }
-  }, [token]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void loadUsers();
-  }, [loadUsers]);
+  useAbortableEffect(
+    async (signal) => {
+      // UX-022: Gate before fetch to eliminate 403 network noise for non-manager roles
+      if (!token || currentUser?.role !== "MANAGER") return;
+      setLoading(true);
+      try {
+        const data = await listUsers(token, signal);
+        if (signal.aborted) return;
+        setUsers(data.users);
+        setLoadError(null);
+      } catch (err) {
+        if (!signal.aborted) {
+          setLoadError(getErrorMessage(err, "โหลดรายชื่อผู้ใช้ไม่สำเร็จ"));
+        }
+      } finally {
+        if (!signal.aborted) {
+          setLoading(false);
+        }
+      }
+    },
+    [token, currentUser?.role, reloadNonce]
+  );
 
   if (currentUser?.role !== "MANAGER") {
     return <ForbiddenState reason="หน้านี้สำหรับผู้จัดการเท่านั้น" />;
@@ -87,39 +97,39 @@ export default function UsersPage() {
 
   async function handleCreate(input: CreateUserInput) {
     if (!token) return;
+    setActionError(null);
     try {
       const data = await createUser(token, input);
       setUsers((prev) => [...prev, data.user]);
       setTempPassword({ email: data.user.email, temporaryPassword: data.temporaryPassword });
       setCreateOpen(false);
-      setLoadError(null);
     } catch (err) {
-      setLoadError(getErrorMessage(err, "สร้างบัญชีผู้ใช้ไม่สำเร็จ"));
+      setActionError(getErrorMessage(err, "สร้างบัญชีผู้ใช้ไม่สำเร็จ"));
     }
   }
 
   async function handleUpdate(id: number, input: UpdateUserInput) {
     if (!token) return;
+    setActionError(null);
     try {
       const data = await updateUser(token, id, input);
       setUsers((prev) => prev.map((u) => (u.id === id ? data.user : u)));
       setEditingUser(null);
-      setLoadError(null);
     } catch (err) {
-      setLoadError(getErrorMessage(err, "บันทึกการแก้ไขไม่สำเร็จ"));
+      setActionError(getErrorMessage(err, "บันทึกการแก้ไขไม่สำเร็จ"));
     }
   }
 
   async function handleToggleActive(target: AppUser) {
     if (!token) return;
     setBusyUserId(target.id);
+    setActionError(null);
     try {
       const data = await updateUser(token, target.id, { isActive: !target.isActive });
       setUsers((prev) => prev.map((u) => (u.id === target.id ? data.user : u)));
       setToggleActiveTarget(null);
-      setLoadError(null);
     } catch (err) {
-      setLoadError(getErrorMessage(err, "ทำรายการไม่สำเร็จ กรุณาลองใหม่"));
+      setActionError(getErrorMessage(err, "ทำรายการไม่สำเร็จ กรุณาลองใหม่"));
     } finally {
       setBusyUserId(null);
     }
@@ -128,14 +138,14 @@ export default function UsersPage() {
   async function handleResetPassword(target: AppUser) {
     if (!token) return;
     setBusyUserId(target.id);
+    setActionError(null);
     try {
       const data = await resetUserPassword(token, target.id);
       setTempPassword({ email: target.email, temporaryPassword: data.temporaryPassword });
       setResetUserTarget(null);
-      setLoadError(null);
-      void loadUsers();
+      setReloadNonce((n) => n + 1);
     } catch (err) {
-      setLoadError(getErrorMessage(err, "รีเซ็ตรหัสผ่านไม่สำเร็จ กรุณาลองใหม่"));
+      setActionError(getErrorMessage(err, "รีเซ็ตรหัสผ่านไม่สำเร็จ กรุณาลองใหม่"));
     } finally {
       setBusyUserId(null);
     }
@@ -369,9 +379,21 @@ export default function UsersPage() {
         </div>
       )}
 
-      {loadError && (
+      {loadError && users.length === 0 && (
         <div className="mb-6">
-          <InlineMessage variant="destructive">{loadError}</InlineMessage>
+          <EmptyState
+            variant="error"
+            title="โหลดรายชื่อผู้ใช้ไม่สำเร็จ"
+            description={loadError}
+            onRetry={() => setReloadNonce((n) => n + 1)}
+            isRetrying={loading}
+          />
+        </div>
+      )}
+
+      {actionError && (
+        <div className="mb-6">
+          <InlineMessage variant="destructive">{actionError}</InlineMessage>
         </div>
       )}
 

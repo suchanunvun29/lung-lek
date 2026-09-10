@@ -9,6 +9,7 @@ export interface EmptyStateProps extends React.HTMLAttributes<HTMLDivElement> {
   action?: React.ReactNode;
   onResetFilters?: () => void;
   onRetry?: () => void;
+  isRetrying?: boolean;
 }
 
 export function EmptyState({
@@ -18,6 +19,7 @@ export function EmptyState({
   action,
   onResetFilters,
   onRetry,
+  isRetrying = false,
   className,
   ...props
 }: EmptyStateProps) {
@@ -56,8 +58,14 @@ export function EmptyState({
           </Button>
         )}
         {variant === "error" && onRetry && (
-          <Button type="button" variant="outline" size="sm" onClick={onRetry}>
-            ลองใหม่อีกครั้ง
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onRetry}
+            disabled={isRetrying}
+          >
+            {isRetrying ? "กำลังลองใหม่..." : "ลองใหม่อีกครั้ง"}
           </Button>
         )}
       </div>

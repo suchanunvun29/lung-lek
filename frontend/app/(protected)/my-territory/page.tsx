@@ -18,7 +18,7 @@
  * to the never-sold query, credit-only and product group exactly as before.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { getTeamKpi } from "@/features/kpi";
 import {
   getMyTerritoryView,
@@ -38,141 +38,173 @@ import {
 } from "@/lib/types";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useContextStore } from "@/store/useContextStore";
+import { useAbortableEffect } from "@/lib/useAbortableEffect";
 import { PageHeader } from "@/components/shared/layout/PageHeader";
 import { FilterBar, type FilterChip } from "@/components/shared/filters/FilterBar";
 import { ExportButton } from "@/components/shared/export/ExportButton";
 import { DataTable, type DataTableColumn } from "@/components/shared/data-table/DataTable";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { EmptyState } from "@/components/shared/feedback/EmptyState";
 import { Select } from "@/components/ui/select";
 
-type TerritoryTab = "sold" | "churned" | "never-sold";
+type TerritoryTab = "sold" | "churned" | "neverSold";
 
 const TAB_LABELS: Record<TerritoryTab, string> = {
-  sold: "ขายได้แล้ว",
-  churned: "เคยขายแต่หายไป",
-  "never-sold": "ยังไม่เคยขาย",
+  sold: "ขายได้แล้วในงวดนี้",
+  churned: "เคยขายได้แต่ไม่มีในงวดนี้",
+  neverSold: "ยังไม่เคยขายเลย",
 };
 
 const TAB_DESCRIPTIONS: Record<TerritoryTab, string> = {
-  sold: "โรงพยาบาลในเขตที่มียอดขายในงวดนี้",
-  churned: "เคยขายได้ แต่ไม่มีในงวดนี้",
-  "never-sold": "โรงพยาบาลรัฐทั่วไปในเขตที่ไม่เคยมีประวัติการซื้อ",
+  sold: "โรงพยาบาลที่มีคำสั่งซื้อจริงในงวดนี้ เรียงตามยอดขายจากมากไปน้อย",
+  churned: "โรงพยาบาลที่เคยมีประวัติการสั่งซื้อแต่ไม่มีรายการในงวดที่เลือก เสี่ยงต่อการหลุดมือ",
+  neverSold: "โรงพยาบาลรัฐในเขตความรับผิดชอบที่ยังไม่เคยมีคำสั่งซื้อเลย เรียงตามเกณฑ์ศักยภาพเพื่อหาโอกาสเปิดตลาดใหม่",
 };
 
-/** Business wording — the enum key stays in the option's value, never in its text. */
 const POTENTIAL_METRIC_OPTIONS = [
   { key: "BEDS", label: "จำนวนเตียง" },
-  { key: "CMI", label: "ดัชนีความรุนแรงของผู้ป่วย" },
-  { key: "SUM_ADJ_RW", label: "ผลรวมค่าน้ำหนักสัมพัทธ์ของโรงพยาบาล" },
-  { key: "OCCUPANCY_RATE", label: "อัตราครองเตียง" },
-  { key: "PATIENTS", label: "จำนวนผู้ป่วยใน" },
-  { key: "VISITS", label: "จำนวนผู้ป่วยนอก" },
+  { key: "CMI", label: "ดัชนีความซับซ้อนของโรค (CMI)" },
+  { key: "OCCUPANCY_RATE", label: "อัตราการครองเตียง" },
+  { key: "PATIENTS", label: "ผู้ป่วยในต่อปี" },
+  { key: "VISITS", label: "ผู้ป่วยนอกต่อปี" },
+  { key: "SUM_ADJ_RW", label: "ผลรวม AdjRW" },
 ];
-
-function potentialMetricLabel(key: string): string {
-  return POTENTIAL_METRIC_OPTIONS.find((option) => option.key === key)?.label ?? key;
-}
 
 const DEFAULT_TOP_N = 20;
 const DEFAULT_POTENTIAL_METRIC = "BEDS";
 
-function readInitialTab(): TerritoryTab {
+function potentialMetricLabel(key: string): string {
+  return POTENTIAL_METRIC_OPTIONS.find((opt) => opt.key === key)?.label ?? key;
+}
+
+function readTabFromUrl(): TerritoryTab {
   if (typeof window === "undefined") return "sold";
-  const value = new URLSearchParams(window.location.search).get("tab");
-  return value === "churned" || value === "never-sold" ? value : "sold";
+  const params = new URLSearchParams(window.location.search);
+  const tab = params.get("tab");
+  return tab === "churned" || tab === "neverSold" ? tab : "sold";
 }
 
 function setTabInUrl(tab: TerritoryTab) {
   if (typeof window === "undefined") return;
   const url = new URL(window.location.href);
-  url.searchParams.set("tab", tab);
-  window.history.replaceState(null, "", url.toString());
+  if (tab === "sold") {
+    url.searchParams.delete("tab");
+  } else {
+    url.searchParams.set("tab", tab);
+  }
+  window.history.replaceState({}, "", url.toString());
 }
 
 export default function MyTerritoryPage() {
   const token = useAuthStore((state) => state.token);
   const period = useContextStore((state) => state.period);
-  const [tab, setTabState] = useState<TerritoryTab>(readInitialTab);
+  const salespersonId = useContextStore((state) => state.salespersonId);
+  const setSalespersonId = useContextStore((state) => state.setSalespersonId);
+
+  const [tab, setTabState] = useState<TerritoryTab>(readTabFromUrl);
   const [people, setPeople] = useState<TeamKpiResultRow[]>([]);
-  const [salespersonId, setSalespersonId] = useState("");
+  const [accountNotLinked, setAccountNotLinked] = useState(false);
   const [productTypes, setProductTypes] = useState<{ id: number; name: string }[]>([]);
-  const [productTypeId, setProductTypeId] = useState("");
-  const [creditOnly, setCreditOnly] = useState(false);
   const [provinces, setProvinces] = useState<ProvinceMapping[]>([]);
+
+  // Filter states
+  const [productTypeId, setProductTypeId] = useState<string>("");
+  const [creditOnly, setCreditOnly] = useState<boolean>(false);
+  const [topN, setTopN] = useState<number>(20);
+  const [potentialMetric, setPotentialMetric] = useState<string>("BEDS");
+  const [provinceMappingId, setProvinceMappingId] = useState<string>("");
+
   const [view, setView] = useState<MyTerritoryViewResponse | null>(null);
   const [neverSoldView, setNeverSoldView] = useState<NeverSoldHospitalsResponse | null>(null);
-  const [accountNotLinked, setAccountNotLinked] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [neverSoldLoading, setNeverSoldLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [neverSoldLoading, setNeverSoldLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Never-sold dual-constraint controls
-  const [topN, setTopN] = useState(DEFAULT_TOP_N);
-  const [provinceMappingId, setProvinceMappingId] = useState("");
-  const [potentialMetric, setPotentialMetric] = useState(DEFAULT_POTENTIAL_METRIC);
+  const [reloadNonce, setReloadNonce] = useState(0);
 
   function setTab(value: TerritoryTab) {
     setTabState(value);
     setTabInUrl(value);
   }
 
-  useEffect(() => {
-    if (!token) return;
-    void Promise.all([getTeamKpi(token, period), listProductTypes(token), listProvinces(token)])
-      .then(([team, types, provRes]) => {
+  useAbortableEffect(
+    async (signal) => {
+      if (!token) return;
+      try {
+        const [team, types, provRes] = await Promise.all([
+          getTeamKpi(token, period, signal),
+          listProductTypes(token, signal),
+          listProvinces(token, signal),
+        ]);
+        if (signal.aborted) return;
         setPeople(team.results);
-        setSalespersonId((current) => current || String(team.results[0]?.salesperson.id ?? ""));
         setAccountNotLinked(team.reason === "ACCOUNT_NOT_LINKED");
         setProductTypes(types.productTypes);
         setProvinces(provRes.provinces);
-      })
-      .catch((loadError) => setError(getErrorMessage(loadError, "โหลดตัวเลือกไม่สำเร็จ")));
-  }, [period, token]);
+      } catch (loadError) {
+        if (!signal.aborted) {
+          setError(getErrorMessage(loadError, "โหลดตัวเลือกไม่สำเร็จ"));
+        }
+      }
+    },
+    [period, token]
+  );
 
-  const load = useCallback(async () => {
-    if (!token || !salespersonId || accountNotLinked) return;
-    setLoading(true);
-    try {
-      const data = await getMyTerritoryView(token, salespersonId, period, {
-        productTypeId: productTypeId || undefined,
-        creditOnly,
-      });
-      setView(data);
-      setError(null);
-    } catch (loadError) {
-      setError(getErrorMessage(loadError, "โหลดมุมมองพื้นที่รับผิดชอบไม่สำเร็จ"));
-    } finally {
-      setLoading(false);
-    }
-  }, [accountNotLinked, creditOnly, period, productTypeId, salespersonId, token]);
+  useAbortableEffect(
+    async (signal) => {
+      if (!token || !salespersonId || accountNotLinked) {
+        setView(null);
+        return;
+      }
+      setLoading(true);
+      try {
+        const data = await getMyTerritoryView(token, salespersonId, period, {
+          productTypeId: productTypeId || undefined,
+          creditOnly,
+        }, signal);
+        if (signal.aborted) return;
+        setView(data);
+        setError(null);
+      } catch (loadError) {
+        if (!signal.aborted) {
+          setError(getErrorMessage(loadError, "โหลดมุมมองพื้นที่รับผิดชอบไม่สำเร็จ"));
+        }
+      } finally {
+        if (!signal.aborted) {
+          setLoading(false);
+        }
+      }
+    },
+    [accountNotLinked, creditOnly, period, productTypeId, salespersonId, token, reloadNonce]
+  );
 
-  const loadNeverSold = useCallback(async () => {
-    if (!token || !salespersonId || accountNotLinked) return;
-    setNeverSoldLoading(true);
-    try {
-      const data = await getNeverSoldHospitals(token, salespersonId, period, {
-        topN,
-        provinceMappingId: provinceMappingId || undefined,
-        potentialMetric,
-        productTypeId: productTypeId || undefined,
-      });
-      setNeverSoldView(data);
-    } catch (nsError) {
-      setError(getErrorMessage(nsError, "โหลดรายการโรงพยาบาลที่ยังไม่เคยขายไม่สำเร็จ"));
-    } finally {
-      setNeverSoldLoading(false);
-    }
-  }, [accountNotLinked, period, potentialMetric, productTypeId, provinceMappingId, salespersonId, token, topN]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void load();
-  }, [load]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void loadNeverSold();
-  }, [loadNeverSold]);
+  useAbortableEffect(
+    async (signal) => {
+      if (!token || !salespersonId || accountNotLinked) {
+        setNeverSoldView(null);
+        return;
+      }
+      setNeverSoldLoading(true);
+      try {
+        const data = await getNeverSoldHospitals(token, salespersonId, period, {
+          topN,
+          provinceMappingId: provinceMappingId || undefined,
+          potentialMetric,
+          productTypeId: productTypeId || undefined,
+        }, signal);
+        if (signal.aborted) return;
+        setNeverSoldView(data);
+      } catch (nsError) {
+        if (!signal.aborted) {
+          setError(getErrorMessage(nsError, "โหลดรายการโรงพยาบาลที่ยังไม่เคยขายไม่สำเร็จ"));
+        }
+      } finally {
+        if (!signal.aborted) {
+          setNeverSoldLoading(false);
+        }
+      }
+    },
+    [accountNotLinked, period, potentialMetric, productTypeId, provinceMappingId, salespersonId, token, topN, reloadNonce]
+  );
 
   async function exportSoldChurned() {
     if (!token || !salespersonId) return;
@@ -286,7 +318,15 @@ export default function MyTerritoryPage() {
         </p>
       )}
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && (
+        <EmptyState
+          variant="error"
+          title="เกิดข้อผิดพลาดในการโหลดข้อมูล"
+          description={error}
+          onRetry={() => setReloadNonce((n) => n + 1)}
+          isRetrying={loading || neverSoldLoading}
+        />
+      )}
 
       {/* One shared filter block above the tabs */}
       <FilterBar
@@ -319,10 +359,11 @@ export default function MyTerritoryPage() {
         <label className="text-sm font-medium text-text-secondary flex items-center gap-2">
           พนักงานขาย
           <Select
-            value={salespersonId}
-            onChange={(event) => setSalespersonId(event.target.value)}
+            value={salespersonId !== null ? String(salespersonId) : ""}
+            onChange={(event) => setSalespersonId(event.target.value ? Number(event.target.value) : null)}
             className="w-auto"
           >
+            <option value="">— เลือกพนักงานขาย —</option>
             {people.map((item) => (
               <option key={item.salesperson.id} value={item.salesperson.id}>
                 {item.salesperson.displayName}
@@ -371,115 +412,126 @@ export default function MyTerritoryPage() {
         </label>
       </FilterBar>
 
-      {/* Mode banners — kept in full; removing either would make the numbers read wrong */}
-      {fallback && (
-        <p className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
-          พนักงานขายคนนี้ไม่มีเขตที่รับผิดชอบ จึงแสดงข้อมูลตามกลุ่มสินค้าทั่วประเทศ
-        </p>
-      )}
-      {ownCreditOnly && (
-        <p className="text-sm text-text-secondary">
-          เขตที่ดูแล:{" "}
-          {view?.territories.length
-            ? view.territories.map((territory) => territory.displayName).join(", ")
-            : "ยังไม่มีผู้ดูแล"}{" "}
-          · กำลังแสดงเฉพาะรายการที่มีเครดิตของพนักงานขายคนนี้
-        </p>
-      )}
-      {view && !fallback && !ownCreditOnly && (
-        <p className="text-sm text-text-secondary">
-          เขตที่ดูแล:{" "}
-          {view.territories.length
-            ? view.territories.map((territory) => territory.displayName).join(", ")
-            : "ยังไม่มีผู้ดูแล"}{" "}
-          · กำลังแสดงยอดขายระดับเขต
-        </p>
+      {!salespersonId && !accountNotLinked && !error && (
+        <EmptyState
+          title="เลือกพนักงานขายเพื่อดูข้อมูลพื้นที่"
+          description="เลือกพนักงานขายจากตัวกรองด้านบนเพื่อดูโรงพยาบาลและข้อมูลเขตการขาย"
+        />
       )}
 
-      <Tabs value={tab} onValueChange={(value) => setTab(value as TerritoryTab)}>
-        <div className="overflow-x-auto">
-          <TabsList className="max-w-full">
-            {(Object.keys(TAB_LABELS) as TerritoryTab[]).map((value) => {
-              const count =
-                value === "sold"
-                  ? view?.soldHospitals.length
-                  : value === "churned"
-                    ? view?.soldBeforeButNotInPeriod.length
-                    : neverSoldView?.neverSoldHospitals.length;
-              return (
-                <TabsTrigger key={value} value={value} className="whitespace-nowrap">
-                  {TAB_LABELS[value]}
-                  {typeof count === "number" ? ` (${count.toLocaleString("th-TH")})` : ""}
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
-        </div>
-
-        <TabsContent value="sold" className="mt-4 space-y-3">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <p className="text-sm text-text-secondary">{TAB_DESCRIPTIONS.sold}</p>
-            <ExportButton
-              label="ส่งออก Excel"
-              onExport={exportSoldChurned}
-              disabled={!salespersonId || accountNotLinked}
-            />
-          </div>
-          <DataTable
-            columns={soldColumns}
-            rows={view?.soldHospitals ?? []}
-            getRowId={(row) => row.hospital.id}
-            caption="โรงพยาบาลที่ขายได้แล้วในงวดนี้"
-            loading={loading && !accountNotLinked}
-            emptyTitle="ไม่มีรายการ"
-          />
-        </TabsContent>
-
-        <TabsContent value="churned" className="mt-4 space-y-3">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <p className="text-sm text-text-secondary">{TAB_DESCRIPTIONS.churned}</p>
-            <ExportButton
-              label="ส่งออก Excel"
-              onExport={exportSoldChurned}
-              disabled={!salespersonId || accountNotLinked}
-            />
-          </div>
-          <DataTable
-            columns={churnedColumns}
-            rows={view?.soldBeforeButNotInPeriod ?? []}
-            getRowId={(row) => row.hospital.id}
-            caption="โรงพยาบาลที่เคยขายได้แต่ไม่มีในงวดนี้"
-            loading={loading && !accountNotLinked}
-            emptyTitle="ไม่มีรายการ"
-          />
-        </TabsContent>
-
-        <TabsContent value="never-sold" className="mt-4 space-y-3">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <p className="text-sm text-text-secondary">
-              {TAB_DESCRIPTIONS["never-sold"]}
-              {neverSoldView ? ` · เกณฑ์ศักยภาพ: ${potentialMetricLabel(neverSoldView.potentialMetric)}` : ""}
+      {salespersonId && !accountNotLinked && !error && (
+        <>
+          {/* Mode banners — kept in full; removing either would make the numbers read wrong */}
+          {fallback && (
+            <p className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+              พนักงานขายคนนี้ไม่มีเขตที่รับผิดชอบ จึงแสดงข้อมูลตามกลุ่มสินค้าทั่วประเทศ
             </p>
-            <ExportButton
-              label="ส่งออก Excel"
-              onExport={exportNeverSold}
-              disabled={!salespersonId || accountNotLinked}
-            />
-          </div>
-          <DataTable
-            columns={neverSoldTableColumns(neverSoldView?.potentialMetric)}
-            rows={neverSoldView?.neverSoldHospitals ?? []}
-            getRowId={(row) => row.id}
-            caption="โรงพยาบาลรัฐที่ยังไม่เคยขายเลย"
-            loading={neverSoldLoading && !accountNotLinked}
-            emptyTitle={
-              neverSoldView
-                ? `ไม่พบโรงพยาบาลรัฐที่ยังไม่เคยขายตามเงื่อนไขที่เลือก (จากทั้งหมด ${neverSoldView.totalNeverSold.toLocaleString("th-TH")} แห่ง)`
-                : "ไม่มีรายการ"
-            }
-          />
-        </TabsContent>
-      </Tabs>
+          )}
+          {ownCreditOnly && (
+            <p className="text-sm text-text-secondary">
+              เขตที่ดูแล:{" "}
+              {view?.territories.length
+                ? view.territories.map((territory) => territory.displayName).join(", ")
+                : "ยังไม่มีผู้ดูแล"}{" "}
+              · กำลังแสดงเฉพาะรายการที่มีเครดิตของพนักงานขายคนนี้
+            </p>
+          )}
+          {view && !fallback && !ownCreditOnly && (
+            <p className="text-sm text-text-secondary">
+              เขตที่ดูแล:{" "}
+              {view.territories.length
+                ? view.territories.map((territory) => territory.displayName).join(", ")
+                : "ยังไม่มีผู้ดูแล"}{" "}
+              · กำลังแสดงยอดขายระดับเขต
+            </p>
+          )}
+
+          <Tabs value={tab} onValueChange={(value) => setTab(value as TerritoryTab)}>
+            <div className="overflow-x-auto">
+              <TabsList className="max-w-full">
+                {(Object.keys(TAB_LABELS) as TerritoryTab[]).map((value) => {
+                  const count =
+                    value === "sold"
+                      ? view?.soldHospitals.length
+                      : value === "churned"
+                        ? view?.soldBeforeButNotInPeriod.length
+                        : neverSoldView?.neverSoldHospitals.length;
+                  return (
+                    <TabsTrigger key={value} value={value} className="whitespace-nowrap">
+                      {TAB_LABELS[value]}
+                      {typeof count === "number" ? ` (${count.toLocaleString("th-TH")})` : ""}
+                    </TabsTrigger>
+                  );
+                })}
+              </TabsList>
+            </div>
+
+            <TabsContent value="sold" className="mt-4 space-y-3">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <p className="text-sm text-text-secondary">{TAB_DESCRIPTIONS.sold}</p>
+                <ExportButton
+                  label="ส่งออก Excel"
+                  onExport={exportSoldChurned}
+                  disabled={!salespersonId || accountNotLinked}
+                />
+              </div>
+              <DataTable
+                columns={soldColumns}
+                rows={view?.soldHospitals ?? []}
+                getRowId={(row) => row.hospital.id}
+                caption="โรงพยาบาลที่ขายได้แล้วในงวดนี้"
+                loading={loading && !accountNotLinked}
+                emptyTitle="ไม่มีรายการ"
+              />
+            </TabsContent>
+
+            <TabsContent value="churned" className="mt-4 space-y-3">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <p className="text-sm text-text-secondary">{TAB_DESCRIPTIONS.churned}</p>
+                <ExportButton
+                  label="ส่งออก Excel"
+                  onExport={exportSoldChurned}
+                  disabled={!salespersonId || accountNotLinked}
+                />
+              </div>
+              <DataTable
+                columns={churnedColumns}
+                rows={view?.soldBeforeButNotInPeriod ?? []}
+                getRowId={(row) => row.hospital.id}
+                caption="โรงพยาบาลที่เคยขายได้แต่ไม่มีในงวดนี้"
+                loading={loading && !accountNotLinked}
+                emptyTitle="ไม่มีรายการ"
+              />
+            </TabsContent>
+
+            <TabsContent value="neverSold" className="mt-4 space-y-3">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <p className="text-sm text-text-secondary">
+                  {TAB_DESCRIPTIONS.neverSold}
+                  {neverSoldView ? ` · เกณฑ์ศักยภาพ: ${potentialMetricLabel(neverSoldView.potentialMetric)}` : ""}
+                </p>
+                <ExportButton
+                  label="ส่งออก Excel"
+                  onExport={exportNeverSold}
+                  disabled={!salespersonId || accountNotLinked}
+                />
+              </div>
+              <DataTable
+                columns={neverSoldTableColumns(neverSoldView?.potentialMetric)}
+                rows={neverSoldView?.neverSoldHospitals ?? []}
+                getRowId={(row) => row.id}
+                caption="โรงพยาบาลรัฐที่ยังไม่เคยขายเลย"
+                loading={neverSoldLoading && !accountNotLinked}
+                emptyTitle={
+                  neverSoldView
+                    ? `ไม่พบโรงพยาบาลรัฐที่ยังไม่เคยขายตามเงื่อนไขที่เลือก (จากทั้งหมด ${neverSoldView.totalNeverSold.toLocaleString("th-TH")} แห่ง)`
+                    : "ไม่มีรายการ"
+                }
+              />
+            </TabsContent>
+          </Tabs>
+        </>
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
   getTargetSuggestions,
   reinstateDeal,
@@ -29,6 +29,8 @@ import { PageHeader } from "@/components/shared/layout/PageHeader";
 import { Breadcrumb } from "@/components/shared/navigation/Breadcrumb";
 import { InlineMessage } from "@/components/shared/feedback/InlineMessage";
 import { SkeletonCard } from "@/components/shared/feedback/Skeleton";
+import { EmptyState } from "@/components/shared/feedback/EmptyState";
+import { useAbortableEffect } from "@/lib/useAbortableEffect";
 import { toast } from "@/components/shared/feedback/toast/ToastProvider";
 
 const YEAR_OFFSETS = [-1, 0, 1];
@@ -55,6 +57,7 @@ export default function TargetAssistPage() {
   const [loading, setLoading] = useState(true);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
 
   const [growthRateInput, setGrowthRateInput] = useState("");
   const [growthRateError, setGrowthRateError] = useState<string | null>(null);
@@ -67,34 +70,61 @@ export default function TargetAssistPage() {
   const [existingByTerritoryId, setExistingByTerritoryId] = useState<Map<number, Target>>(new Map());
   const [savingTerritoryId, setSavingTerritoryId] = useState<number | null>(null);
 
-  const loadSavedTargets = useCallback(async () => {
-    if (!token) return;
-    try {
-      const data = await listTargets(token, year, "TERRITORY");
-      setExistingByTerritoryId(
-        new Map(
-          data.targets
-            .filter((target) => target.territoryId !== null)
-            .map((target) => [target.territoryId as number, target])
-        )
-      );
-    } catch {
-      // Saved targets only enrich the accept panel ("เป้าปัจจุบัน" column) — the assist table works without them.
-    }
-  }, [token, year]);
+  useAbortableEffect(
+    async (signal) => {
+      if (!token) return;
+      try {
+        const data = await getEvaluationSetting(token, signal);
+        if (signal.aborted) return;
+        if (!growthRateTouchedRef.current) setGrowthRateInput(data.setting.targetGrowthRate);
+      } catch {
+        // Keep the field empty — omitting the parameter is the same fallback.
+      }
+    },
+    [token]
+  );
 
-  const runFetch = useCallback(
-    async (requestedMode: SuggestionMode) => {
+  useAbortableEffect(
+    async (signal) => {
+      if (!token) return;
+      try {
+        const data = await listTargets(token, year, "TERRITORY", signal);
+        if (signal.aborted) return;
+        setExistingByTerritoryId(
+          new Map(
+            data.targets
+              .filter((target) => target.territoryId !== null)
+              .map((target) => [target.territoryId as number, target])
+          )
+        );
+      } catch {
+        // Saved targets only enrich the accept panel ("เป้าปัจจุบัน" column) — the assist table works without them.
+      }
+    },
+    [token, year, reloadNonce]
+  );
+
+  useAbortableEffect(
+    async (signal) => {
       if (!token || !isManager) return;
       setLoading(true);
       try {
-        const data = await getTargetSuggestions(token, year, month, requestedMode, growthRateOverrideRef.current);
+        const data = await getTargetSuggestions(
+          token,
+          year,
+          month,
+          mode,
+          growthRateOverrideRef.current,
+          signal
+        );
+        if (signal.aborted) return;
         setPreview(data);
         setReinstated(new Set());
         setErrorBanner(null);
       } catch (err) {
+        if (signal.aborted) return;
         const message = getErrorMessage(err, "โหลดตัวช่วยตั้งเป้าไม่สำเร็จ");
-        if (requestedMode === "REBALANCE") {
+        if (mode === "REBALANCE") {
           setErrorBanner(message);
           setMode("SUGGEST");
         } else {
@@ -102,46 +132,20 @@ export default function TargetAssistPage() {
           setPreview(null);
         }
       } finally {
-        setLoading(false);
+        if (!signal.aborted) {
+          setLoading(false);
+        }
       }
     },
-    [token, isManager, year, month]
+    [token, isManager, year, month, mode, reloadNonce]
   );
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setMode("SUGGEST");
-      void runFetch("SUGGEST");
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [runFetch]);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void loadSavedTargets();
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [loadSavedTargets]);
-
-  useEffect(() => {
-    if (!token) return;
-    const timer = window.setTimeout(async () => {
-      try {
-        const data = await getEvaluationSetting(token);
-        if (!growthRateTouchedRef.current) setGrowthRateInput(data.setting.targetGrowthRate);
-      } catch {
-        // Keep the field empty — omitting the parameter is the same fallback.
-      }
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [token]);
 
   function handleApplyGrowthRate() {
     const text = growthRateInput.trim();
     if (text === "") {
       setGrowthRateError(null);
       growthRateOverrideRef.current = undefined;
-      void runFetch(mode);
+      setReloadNonce((n) => n + 1);
       return;
     }
     const parsed = Number(text);
@@ -151,13 +155,12 @@ export default function TargetAssistPage() {
     }
     setGrowthRateError(null);
     growthRateOverrideRef.current = parsed;
-    void runFetch(mode);
+    setReloadNonce((n) => n + 1);
   }
 
   function handleModeChange(next: SuggestionMode) {
     if (next === mode) return;
     setMode(next);
-    void runFetch(next);
   }
 
   async function handleToggleDeal(invoiceNo: string) {
@@ -194,7 +197,14 @@ export default function TargetAssistPage() {
         revenueTarget,
         newCustomerTarget: existingByTerritoryId.get(territoryId)?.newCustomerTarget ?? 0,
       });
-      await loadSavedTargets();
+      const data = await listTargets(token, year, "TERRITORY");
+      setExistingByTerritoryId(
+        new Map(
+          data.targets
+            .filter((target) => target.territoryId !== null)
+            .map((target) => [target.territoryId as number, target])
+        )
+      );
       // T-UX-012 — สำเร็จต้องมีข้อความ ไม่ใช่แค่สีเขียวของช่อง (1.4.1 Use of Color)
       const territoryName = preview?.totals.find((t) => t.territoryId === territoryId)?.territoryName;
       toast.success(
@@ -301,7 +311,19 @@ export default function TargetAssistPage() {
         {growthRateError && <p className="mt-2 text-xs text-danger">{growthRateError}</p>}
       </div>
 
-      {errorBanner && (
+      {errorBanner && !preview && (
+        <div className="mb-6">
+          <EmptyState
+            variant="error"
+            title="โหลดตัวช่วยตั้งเป้าไม่สำเร็จ"
+            description={errorBanner}
+            onRetry={() => setReloadNonce((n) => n + 1)}
+            isRetrying={loading}
+          />
+        </div>
+      )}
+
+      {errorBanner && preview && (
         <div className="mb-6">
           <InlineMessage variant="destructive">{errorBanner}</InlineMessage>
         </div>

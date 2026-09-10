@@ -53,6 +53,6 @@ export function listImportBatches(token: string, signal?: AbortSignal) {
   return request<{ importBatches: ImportBatch[] }>("/import-batches", { method: "GET", signal }, token);
 }
 
-export function getImportBatch(token: string, id: string) {
-  return request<{ importBatch: ImportBatch }>(`/import-batches/${id}`, { method: "GET" }, token);
+export function getImportBatch(token: string, id: string, signal?: AbortSignal) {
+  return request<{ importBatch: ImportBatch }>(`/import-batches/${id}`, { method: "GET", signal }, token);
 }

@@ -24,7 +24,7 @@
  */
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import {
   LeaderboardPeopleModal,
   LeaderboardUnitNameCell,
@@ -49,6 +49,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAbortableEffect } from "@/lib/useAbortableEffect";
 
 const RANK_MEDAL: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" };
 
@@ -93,21 +94,10 @@ export default function LeaderboardPage() {
     ? allUnits.find((u) => String(u.territoryId) === peopleParam) ?? null
     : null;
 
-  // If a deep link is provided with ?people=id before data loads or if not found in list,
-  // create a placeholder LeaderboardUnit so the modal can fetch or show handled response
-  const drillDownUnit: LeaderboardUnit | null = peopleParam
-    ? matchedUnit ?? {
-        unitType: "TERRITORY",
-        territoryId: Number(peopleParam),
-        name: `เขต ${peopleParam}`,
-        visibility: "TERRITORY_FULL",
-        rank: null,
-        compositeScore: null,
-        computedMetricLabel: "",
-        ownerNames: [],
-        criterionReason: null,
-      }
-    : null;
+  // UX-023: Never fabricate a placeholder name (e.g. "เขต {peopleParam}").
+  // Only open modal if matchedUnit actually exists in the loaded data.
+  const isInvalidDrill = !loading && data !== null && Boolean(peopleParam) && matchedUnit === null;
+  const drillDownUnit: LeaderboardUnit | null = matchedUnit;
 
   const setDrillDownUnit = (unit: LeaderboardUnit | null) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -123,25 +113,28 @@ export default function LeaderboardPage() {
     });
   };
 
-  const load = useCallback(async () => {
-    if (!token) return;
-    setLoading(true);
-    try {
-      const response = await getTerritoryLeaderboard(token, criteria, period);
-      setData(response);
-      setLoadError(null);
-    } catch (error) {
-      setData(null);
-      setLoadError(getErrorMessage(error, "โหลด Leaderboard ไม่สำเร็จ"));
-    } finally {
-      setLoading(false);
-    }
-  }, [token, criteria, period]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void load();
-  }, [load, reloadNonce]);
+  useAbortableEffect(
+    async (signal) => {
+      if (!token) return;
+      setLoading(true);
+      try {
+        const response = await getTerritoryLeaderboard(token, criteria, period, signal);
+        if (signal.aborted) return;
+        setData(response);
+        setLoadError(null);
+      } catch (error) {
+        if (!signal.aborted) {
+          setData(null);
+          setLoadError(getErrorMessage(error, "โหลด Leaderboard ไม่สำเร็จ"));
+        }
+      } finally {
+        if (!signal.aborted) {
+          setLoading(false);
+        }
+      }
+    },
+    [token, criteria, period, reloadNonce]
+  );
 
   async function exportBoard() {
     if (!token) return;
@@ -263,6 +256,20 @@ export default function LeaderboardPage() {
           />
         }
       />
+
+      {isInvalidDrill && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warning/30 bg-warning-subtle p-4 text-sm text-warning-text">
+          <span>ไม่พบข้อมูลเขตตามลิงก์ที่ระบุ (รหัส: {peopleParam})</span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setDrillDownUnit(null)}
+          >
+            ปิดการแจ้งเตือน
+          </Button>
+        </div>
+      )}
 
       <Tabs value={criteria} onValueChange={(v) => setCriteria(v as LeaderboardCriteria)}>
         <TabsList className="flex-wrap">

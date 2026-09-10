@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Modal } from "@/components/ui/modal";
 import { getTerritoryKpiDrillDown } from "@/features/territory-kpi/api/territory-kpi.api";
 import { getErrorMessage } from "@/lib/api-client";
@@ -8,6 +8,9 @@ import { formatMoney } from "@/lib/importLabels";
 import { metricLabelTh } from "@/lib/kpiLabels";
 import { DrillDownMetric, PeriodKey, TerritoryKpiDrillDownResponse } from "@/lib/types";
 import { useAuthStore } from "@/store/useAuthStore";
+import { EmptyState } from "@/components/shared/feedback/EmptyState";
+import { SkeletonTable } from "@/components/shared/feedback/Skeleton";
+import { useAbortableEffect } from "@/lib/useAbortableEffect";
 
 export interface TerritoryKpiDrillDownModalProps {
   territoryId: number;
@@ -20,19 +23,44 @@ export interface TerritoryKpiDrillDownModalProps {
 export function TerritoryKpiDrillDownModal({ territoryId, territoryName, metric, period, onClose }: TerritoryKpiDrillDownModalProps) {
   const token = useAuthStore((state) => state.token);
   const [data, setData] = useState<TerritoryKpiDrillDownResponse | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
 
-  useEffect(() => {
-    if (!token) return;
-    void getTerritoryKpiDrillDown(token, territoryId, metric, period)
-      .then((response) => { setData(response); setError(null); })
-      .catch((loadError) => setError(getErrorMessage(loadError, "โหลดรายละเอียดที่มาไม่สำเร็จ")));
-  }, [metric, period, territoryId, token]);
+  useAbortableEffect(
+    async (signal) => {
+      if (!token) return;
+      setLoading(true);
+      try {
+        const response = await getTerritoryKpiDrillDown(token, territoryId, metric, period, signal);
+        if (signal.aborted) return;
+        setData(response);
+        setError(null);
+      } catch (loadError) {
+        if (!signal.aborted) {
+          setError(getErrorMessage(loadError, "โหลดรายละเอียดที่มาไม่สำเร็จ"));
+        }
+      } finally {
+        if (!signal.aborted) {
+          setLoading(false);
+        }
+      }
+    },
+    [metric, period, territoryId, token, reloadNonce]
+  );
 
   return (
     <Modal title={`ที่มาของ ${metricLabelTh(metric)} · ${territoryName}`} onClose={onClose} widthClassName="max-w-4xl">
-      {!data && !error && <p className="text-text-muted">กำลังโหลด...</p>}
-      {error && <p className="text-sm text-danger">{error}</p>}
+      {loading && <SkeletonTable rows={5} columns={2} />}
+      {error && !loading && (
+        <EmptyState
+          variant="error"
+          title="โหลดรายละเอียดที่มาไม่สำเร็จ"
+          description={error}
+          onRetry={() => setReloadNonce((n) => n + 1)}
+          isRetrying={loading}
+        />
+      )}
       {data && (
         <div className="space-y-5">
           <section>

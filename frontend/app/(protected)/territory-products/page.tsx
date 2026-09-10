@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { PeriodSelector } from "@/features/kpi";
 import {
   getTerritoryProductRanking,
@@ -13,11 +13,13 @@ import { PeriodKey, TerritoryProductRankingItem, TerritoryProductRankingResponse
 import { getErrorMessage } from "@/lib/api-client";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useContextStore } from "@/store/useContextStore";
+import { useAbortableEffect } from "@/lib/useAbortableEffect";
 import { PageContainer } from "@/components/shared/layout/PageContainer";
 import { PageHeader } from "@/components/shared/layout/PageHeader";
 import { ExportButton } from "@/components/shared/export/ExportButton";
 import { FilterBar } from "@/components/shared/filters/FilterBar";
 import { DataTable, type DataTableColumn } from "@/components/shared/data-table/DataTable";
+import { EmptyState } from "@/components/shared/feedback/EmptyState";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 
@@ -46,38 +48,52 @@ export default function TerritoryProductsPage() {
   const [data, setData] = useState<TerritoryProductRankingResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [reloadNonce, setReloadNonce] = useState(0);
 
-  useEffect(() => {
-    if (!token) return;
-    void getTerritoryKpiTeam(token, period)
-      .then((r) => {
+  // Load territories list without auto-selecting the first item (UX-012)
+  useAbortableEffect(
+    async (signal) => {
+      if (!token) return;
+      try {
+        const r = await getTerritoryKpiTeam(token, period, signal);
+        if (signal.aborted) return;
         const entries = r.territories.map((x) => ({ id: x.territoryId, name: x.name }));
         setTerritories(entries);
-        if (territoryId === null && entries.length > 0) {
-          setTerritoryId(entries[0].id);
+      } catch (e) {
+        if (!signal.aborted) {
+          setError(getErrorMessage(e, "โหลดรายชื่อเขตไม่สำเร็จ"));
         }
-      })
-      .catch((e) => setError(getErrorMessage(e, "โหลดรายชื่อเขตไม่สำเร็จ")));
-  }, [period, territoryId, token, setTerritoryId]);
+      }
+    },
+    [period, token]
+  );
 
-  const load = useCallback(async () => {
-    if (!token || territoryId === null) return;
-    setLoading(true);
-    try {
-      setData(await getTerritoryProductRanking(token, String(territoryId), period));
-      setError(null);
-    } catch (e) {
-      setData(null);
-      setError(getErrorMessage(e, "โหลดอันดับสินค้าไม่สำเร็จ"));
-    } finally {
-      setLoading(false);
-    }
-  }, [period, territoryId, token]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void load();
-  }, [load]);
+  // Load product ranking for selected territory
+  useAbortableEffect(
+    async (signal) => {
+      if (!token || territoryId === null) {
+        setData(null);
+        return;
+      }
+      setLoading(true);
+      try {
+        const result = await getTerritoryProductRanking(token, String(territoryId), period, signal);
+        if (signal.aborted) return;
+        setData(result);
+        setError(null);
+      } catch (e) {
+        if (!signal.aborted) {
+          setData(null);
+          setError(getErrorMessage(e, "โหลดอันดับสินค้าไม่สำเร็จ"));
+        }
+      } finally {
+        if (!signal.aborted) {
+          setLoading(false);
+        }
+      }
+    },
+    [period, territoryId, token, reloadNonce]
+  );
 
   async function exportFile() {
     if (!token || territoryId === null) return;
@@ -220,7 +236,7 @@ export default function TerritoryProductsPage() {
 
       <FilterBar
         chips={[
-          { key: "territory", label: `เขต: ${territoryName}` },
+          { key: "territory", label: territoryName ? `เขต: ${territoryName}` : "ยังไม่ได้เลือกเขต" },
           { key: "period", label: `งวด: ${periodLabelTh(period)}` },
         ]}
         onReset={resetFilters}
@@ -233,6 +249,7 @@ export default function TerritoryProductsPage() {
             className="w-auto"
             aria-label="เลือกเขต"
           >
+            <option value="">-- กรุณาเลือกเขต --</option>
             {territories.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}
@@ -243,19 +260,31 @@ export default function TerritoryProductsPage() {
         <PeriodSelector value={period} onChange={setPeriod} />
       </FilterBar>
 
-      {error && (
-        <div className="rounded-lg border border-danger/30 bg-danger-subtle p-3 text-sm text-danger-text">
-          {error}
-        </div>
+      {error && !loading && (
+        <EmptyState
+          variant="error"
+          title="โหลดข้อมูลอันดับสินค้าไม่สำเร็จ"
+          description={error}
+          onRetry={() => setReloadNonce((n) => n + 1)}
+          isRetrying={loading}
+          className="mb-4"
+        />
       )}
 
-      {data?.zeroSaleWarning && (
-        <div className="rounded-lg border border-warning/30 bg-warning-subtle p-3 text-sm text-warning-text">
-          {data.zeroSaleWarning}
-        </div>
-      )}
+      {territoryId === null ? (
+        <EmptyState
+          title="กรุณาเลือกเขต"
+          description="เลือกเขตจากตัวกรองด้านบนเพื่อดูอันดับสินค้าที่ขายได้ในเขตนั้น"
+        />
+      ) : (
+        <>
+          {data?.zeroSaleWarning && (
+            <div className="mb-4 rounded-lg border border-warning/30 bg-warning-subtle p-3 text-sm text-warning-text">
+              {data.zeroSaleWarning}
+            </div>
+          )}
 
-      <DataTable
+          <DataTable
         columns={columns}
         rows={rankedItems}
         getRowId={(item) => item.productId}
@@ -272,21 +301,23 @@ export default function TerritoryProductsPage() {
         emptyDescription="ลองเปลี่ยนเขตหรือเลือกงวดอื่นเพื่อดูข้อมูล"
       />
 
-      {data?.personalBucket && data.personalBucket.length > 0 && (
-        <section className="rounded-lg border border-border bg-surface p-4">
-          <h2 className="font-semibold text-text-primary">ยอดขายส่วนบุคคล</h2>
-          <p className="mt-1 text-xs text-text-muted">ยอดนี้ไม่ถูกรวมในเขตใด</p>
-          <ul className="mt-3 divide-y divide-border/60 text-sm">
-            {data.personalBucket.map((item) => (
-              <li key={item.productId} className="flex items-center justify-between py-1.5">
-                <span className="text-text-primary">{item.name}</span>
-                <span className="font-numeric font-medium text-text-secondary">
-                  {formatMoney(item.revenue)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
+          {data?.personalBucket && data.personalBucket.length > 0 && (
+            <section className="rounded-lg border border-border bg-surface p-4">
+              <h2 className="font-semibold text-text-primary">ยอดขายส่วนบุคคล</h2>
+              <p className="mt-1 text-xs text-text-muted">ยอดนี้ไม่ถูกรวมในเขตใด</p>
+              <ul className="mt-3 divide-y divide-border/60 text-sm">
+                {data.personalBucket.map((item) => (
+                  <li key={item.productId} className="flex items-center justify-between py-1.5">
+                    <span className="text-text-primary">{item.name}</span>
+                    <span className="font-numeric font-medium text-text-secondary">
+                      {formatMoney(item.revenue)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </>
       )}
     </PageContainer>
   );
