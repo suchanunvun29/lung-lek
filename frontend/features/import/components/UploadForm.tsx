@@ -43,6 +43,15 @@ export function UploadForm({ onUpload, disabled }: UploadFormProps) {
   return (
     <div className="rounded-lg border border-border bg-surface p-6">
       <div
+        role="button"
+        tabIndex={disabled ? -1 : 0}
+        aria-disabled={disabled}
+        onKeyDown={(e) => {
+          if (!disabled && (e.key === "Enter" || e.key === " ")) {
+            e.preventDefault();
+            inputRef.current?.click();
+          }
+        }}
         onDragOver={(e) => {
           e.preventDefault();
           setIsDragging(true);
@@ -53,8 +62,10 @@ export function UploadForm({ onUpload, disabled }: UploadFormProps) {
           setIsDragging(false);
           pickFile(e.dataTransfer.files?.[0]);
         }}
-        onClick={() => inputRef.current?.click()}
-        className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-10 text-center transition-colors ${
+        onClick={() => {
+          if (!disabled) inputRef.current?.click();
+        }}
+        className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-10 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
           isDragging ? "border-primary bg-surface-subtle" : "border-border"
         }`}
       >

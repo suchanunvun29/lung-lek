@@ -16,7 +16,7 @@
  * NavBar.tsx — no entry's rule is changed here.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
@@ -26,6 +26,7 @@ import {
   isItemActive,
 } from "./navigation.config";
 import { useQueueCounts, type QueueBadgeKey } from "./useQueueCounts";
+import { useDialogA11y } from "@/lib/useDialogA11y";
 import type { UserRole } from "@/lib/types";
 
 const SIDEBAR_COLLAPSED_KEY = "sidebar-collapsed";
@@ -61,6 +62,15 @@ export function Sidebar({ role, drawerOpen = false, onDrawerClose }: SidebarProp
     onDrawerClose?.();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
+
+  // Mobile drawer dialog behavior — trap, Escape, initial focus, restore to
+  // the hamburger (T-UX-005). The desktop <aside> below is NOT a dialog and
+  // never goes through this hook.
+  const drawerPanelRef = useRef<HTMLElement>(null);
+  useDialogA11y(drawerPanelRef, {
+    isOpen: drawerOpen,
+    onClose: () => onDrawerClose?.(),
+  });
 
   function toggleCollapse() {
     setCollapsed((prev) => {
@@ -113,6 +123,9 @@ export function Sidebar({ role, drawerOpen = false, onDrawerClose }: SidebarProp
                   {group.label}
                 </p>
               )}
+              {/* TODO(a11y): role="list" is deliberate — Tailwind preflight strips list-style,
+                  which removes list semantics from Safari/VoiceOver; the role restores them. */}
+              {/* eslint-disable-next-line jsx-a11y/no-redundant-roles */}
               <ul role="list" className="space-y-0.5 px-1.5">
                 {visibleItems.map((item) => {
                   const active = isItemActive(item, pathname);
@@ -211,11 +224,16 @@ export function Sidebar({ role, drawerOpen = false, onDrawerClose }: SidebarProp
             aria-hidden="true"
             onClick={onDrawerClose}
           />
-          {/* Drawer panel */}
+          {/* Drawer panel — dialog semantics only while it is an overlay (<1024px).
+              Only rendered when drawerOpen, so the role never reaches desktop. */}
           <aside
-            className="fixed inset-y-0 left-0 z-50 flex flex-col bg-[var(--surface)] shadow-[var(--elevation-2)] lg:hidden"
+            ref={drawerPanelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="เมนูหลัก"
+            tabIndex={-1}
+            className="fixed inset-y-0 left-0 z-50 flex flex-col bg-[var(--surface)] shadow-[var(--elevation-2)] outline-none lg:hidden"
             style={{ width: EXPANDED_WIDTH }}
-            aria-label="แถบเมนูด้านข้าง"
           >
             {/* Close button */}
             <button

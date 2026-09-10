@@ -3,6 +3,7 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
+import { useDialogA11y } from "@/lib/useDialogA11y";
 
 export interface ModalProps {
   title: string;
@@ -30,85 +31,17 @@ export function Modal({
     () => false
   );
   const modalRef = React.useRef<HTMLDivElement>(null);
-  const previousActiveElement = React.useRef<HTMLElement | null>(null);
   const titleId = React.useId();
 
-  React.useEffect(() => {
-    previousActiveElement.current = document.activeElement as HTMLElement | null;
-
-    // Lock body scroll
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    return () => {
-      document.body.style.overflow = originalOverflow;
-      if (previousActiveElement.current && typeof previousActiveElement.current.focus === "function") {
-        previousActiveElement.current.focus();
-      }
-    };
-  }, []);
-
-
-  React.useEffect(() => {
-    if (!mounted) return;
-
-    if (initialFocusRef?.current) {
-      initialFocusRef.current.focus();
-    } else if (modalRef.current) {
-      const focusable = modalRef.current.querySelectorAll<HTMLElement>(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-      );
-      if (focusable.length > 0) {
-        focusable[0]?.focus();
-      } else {
-        modalRef.current.focus();
-      }
-    }
-  }, [mounted, initialFocusRef]);
-
-  React.useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onClose();
-        return;
-      }
-
-      if (event.key === "Tab" && modalRef.current) {
-        const focusable = Array.from(
-          modalRef.current.querySelectorAll<HTMLElement>(
-            'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-          )
-        );
-
-        if (focusable.length === 0) {
-          event.preventDefault();
-          return;
-        }
-
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
-
-        if (event.shiftKey) {
-          if (document.activeElement === first || !modalRef.current.contains(document.activeElement)) {
-            event.preventDefault();
-            last?.focus();
-          }
-        } else {
-          if (document.activeElement === last || !modalRef.current.contains(document.activeElement)) {
-            event.preventDefault();
-            first?.focus();
-          }
-        }
-      }
-    }
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  // Trap + Escape + initial focus + restore (T-UX-005) — shared with
+  // FilterDrawer and the Sidebar mobile drawer.
+  useDialogA11y(modalRef, { isOpen: mounted, onClose, initialFocusRef });
 
   if (!mounted) return null;
 
+  /* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions --
+     TODO(a11y): the scrim click is pointer-only convenience for dismissing the dialog;
+     the keyboard path out is Escape (useDialogA11y) and the dialog's own buttons. */
   const content = (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 backdrop-blur-xs p-4 sm:p-6 overflow-y-auto"
@@ -148,6 +81,7 @@ export function Modal({
       </div>
     </div>
   );
+  /* eslint-enable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
 
   return createPortal(content, document.body);
 }

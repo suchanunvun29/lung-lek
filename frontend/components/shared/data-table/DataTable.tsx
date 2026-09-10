@@ -101,6 +101,12 @@ export interface DataTableProps<Row> {
   selectedRowIds?: Set<string | number>;
   onSelectionChange?: (selectedIds: Set<string | number>) => void;
   selectionToolbar?: React.ReactNode;
+  /**
+   * Human name of a row for the selection checkboxes' accessible name
+   * (T-UX-009) — "เลือก รพ. สงฆ์", not the raw row id. Required for
+   * selectable tables; falls back to the row key only when unset.
+   */
+  getRowLabel?: (row: Row) => string;
   className?: string;
 }
 
@@ -142,6 +148,7 @@ export function DataTable<Row>({
   selectedRowIds,
   onSelectionChange,
   selectionToolbar,
+  getRowLabel,
   className,
 }: DataTableProps<Row>) {
   const [sort, setSort] = React.useState<SortState | null>(null);
@@ -197,6 +204,16 @@ export function DataTable<Row>({
     if (!clientPaginated || !pageSize) return filteredRows;
     return filteredRows.slice((safeClientPage - 1) * pageSize, safeClientPage * pageSize);
   }, [filteredRows, clientPaginated, pageSize, safeClientPage]);
+
+  // T-UX-009 — select-all reflects partial selection as indeterminate.
+  const allVisibleSelected = visibleRows.length > 0 && visibleRows.every((r) => selectedIds.has(getRowId(r)));
+  const someVisibleSelected = !allVisibleSelected && visibleRows.some((r) => selectedIds.has(getRowId(r)));
+  const selectAllRef = React.useRef<HTMLInputElement>(null);
+  React.useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = someVisibleSelected;
+    }
+  }, [someVisibleSelected, allVisibleSelected]);
 
   function toggleSort(columnKey: string) {
     setClientPage(1);
@@ -314,9 +331,10 @@ export function DataTable<Row>({
                       >
                         <label className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center cursor-pointer">
                           <input
+                            ref={selectAllRef}
                             type="checkbox"
                             aria-label="เลือกทั้งหมดในหน้านี้"
-                            checked={visibleRows.length > 0 && visibleRows.every((r) => selectedIds.has(getRowId(r)))}
+                            checked={allVisibleSelected}
                             onChange={(e) => {
                               const next = new Set(selectedIds);
                               if (e.target.checked) {
@@ -326,7 +344,7 @@ export function DataTable<Row>({
                               }
                               updateSelection(next);
                             }}
-                            className="h-4 w-4 rounded border-border text-primary focus:ring-ring cursor-pointer"
+                            className="h-4 w-4 rounded border-border text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer"
                           />
                         </label>
                       </th>
@@ -386,6 +404,7 @@ export function DataTable<Row>({
               <tbody className="divide-y divide-border">
                 {visibleRows.map((row) => {
                   const rowKey = String(getRowId(row));
+                  const rowLabel = getRowLabel?.(row) ?? rowKey;
                   return (
                     <tr key={rowKey} className="group hover:bg-surface-subtle">
                       {selectable && (
@@ -399,7 +418,7 @@ export function DataTable<Row>({
                           <label className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center cursor-pointer">
                             <input
                               type="checkbox"
-                              aria-label={`เลือกรายการ ${rowKey}`}
+                              aria-label={`เลือก ${rowLabel}`}
                               checked={selectedIds.has(getRowId(row))}
                               onChange={(e) => {
                                 const next = new Set(selectedIds);
@@ -411,7 +430,7 @@ export function DataTable<Row>({
                                 }
                                 updateSelection(next);
                               }}
-                              className="h-4 w-4 rounded border-border text-primary focus:ring-ring cursor-pointer"
+                              className="h-4 w-4 rounded border-border text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer"
                             />
                           </label>
                         </td>
@@ -452,6 +471,7 @@ export function DataTable<Row>({
           <div className="divide-y divide-border rounded-lg border border-border bg-surface md:hidden">
             {visibleRows.map((row) => {
               const rowKey = String(getRowId(row));
+              const rowLabel = getRowLabel?.(row) ?? rowKey;
               const detailsId = `card-details-${rowKey}`;
               const expanded = expandedCardIds.has(rowKey);
               const action = rowAction?.(row);
@@ -461,7 +481,7 @@ export function DataTable<Row>({
                     <label className="mb-3 flex min-h-[44px] items-center gap-2 border-b border-border pb-2 text-xs font-medium text-text-secondary cursor-pointer">
                       <input
                         type="checkbox"
-                        aria-label={`เลือกรายการ ${rowKey}`}
+                        aria-label={`เลือก ${rowLabel}`}
                         checked={selectedIds.has(getRowId(row))}
                         onChange={(e) => {
                           const next = new Set(selectedIds);
@@ -473,7 +493,7 @@ export function DataTable<Row>({
                           }
                           updateSelection(next);
                         }}
-                        className="h-4 w-4 rounded border-border text-primary focus:ring-ring cursor-pointer"
+                        className="h-4 w-4 rounded border-border text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer"
                       />
                       <span>เลือกรายการ</span>
                     </label>

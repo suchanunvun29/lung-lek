@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Modal } from "@/components/ui/modal";
 import { copyTargets, CopyTargetsResult } from "@/features/targets/api/targets.api";
 import { getErrorMessage } from "@/lib/api-client";
@@ -26,6 +26,10 @@ export function CopyTargetsModal({ year, salespeople, onClose, onCopied }: CopyT
   const [fromMonth, setFromMonth] = useState(1);
   const [toYear, setToYear] = useState(year);
   const [toMonth, setToMonth] = useState(2);
+  const fromYearId = useId();
+  const fromMonthId = useId();
+  const toYearId = useId();
+  const toMonthId = useId();
   const [overwrite, setOverwrite] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,16 +61,18 @@ export function CopyTargetsModal({ year, salespeople, onClose, onCopied }: CopyT
       <div className="space-y-3 text-sm">
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="mb-1 block text-xs font-medium text-text-secondary">จากปี</label>
+            <label htmlFor={fromYearId} className="mb-1 block text-xs font-medium text-text-secondary">จากปี</label>
             <Input
+              id={fromYearId}
               type="number"
               value={fromYear}
               onChange={(e) => setFromYear(Number(e.target.value))}
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-text-secondary">จากเดือน</label>
+            <label htmlFor={fromMonthId} className="mb-1 block text-xs font-medium text-text-secondary">จากเดือน</label>
             <Select
+              id={fromMonthId}
               value={fromMonth}
               onChange={(e) => setFromMonth(Number(e.target.value))}
             >
@@ -78,16 +84,18 @@ export function CopyTargetsModal({ year, salespeople, onClose, onCopied }: CopyT
             </Select>
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-text-secondary">ไปปี</label>
+            <label htmlFor={toYearId} className="mb-1 block text-xs font-medium text-text-secondary">ไปปี</label>
             <Input
+              id={toYearId}
               type="number"
               value={toYear}
               onChange={(e) => setToYear(Number(e.target.value))}
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-text-secondary">ไปเดือน</label>
+            <label htmlFor={toMonthId} className="mb-1 block text-xs font-medium text-text-secondary">ไปเดือน</label>
             <Select
+              id={toMonthId}
               value={toMonth}
               onChange={(e) => setToMonth(Number(e.target.value))}
             >

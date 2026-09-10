@@ -315,6 +315,7 @@ export default function UnassignedTerritoriesPage() {
         selectable={canEdit}
         selectedRowIds={selectedIds}
         onSelectionChange={setSelectedIds}
+        getRowLabel={(item) => item.displayName}
         selectionToolbar={selectionToolbar}
         emptyTitle="ไม่มีโรงพยาบาลค้างผูกเขต"
         emptyDescription="โรงพยาบาลทั้งหมดได้รับการจัดเขตเรียบร้อยแล้ว"

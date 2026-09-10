@@ -165,10 +165,11 @@ export default function ImportBatchesPage() {
       <div className="mb-6">
         <FilterBar chips={chips} onReset={() => setStatusFilter("ALL")}>
           <div className="w-full sm:w-56">
-            <label className="block text-xs font-medium text-text-muted mb-1">
+            <label htmlFor="import-status-filter" className="block text-xs font-medium text-text-muted mb-1">
               สถานะการนำเข้า
             </label>
             <Select
+              id="import-status-filter"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
             >

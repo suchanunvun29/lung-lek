@@ -29,7 +29,10 @@ export function EmptyState({
       )}
       {...props}
     >
-      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-surface-subtle text-text-muted mb-3">
+      <div
+        aria-hidden="true"
+        className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-surface-subtle text-text-muted mb-3"
+      >
         {variant === "filtered" ? (
           <span className="text-xl">🔍</span>
         ) : variant === "error" ? (

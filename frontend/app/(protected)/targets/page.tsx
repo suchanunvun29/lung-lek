@@ -153,8 +153,9 @@ export default function TargetsPage() {
       )}
 
       <div className="mt-4 flex items-center gap-2 text-sm">
-        <label className="font-medium text-text-secondary">ปี</label>
+        <label htmlFor="targets-year-select" className="font-medium text-text-secondary">ปี</label>
         <Select
+          id="targets-year-select"
           value={String(year)}
           onChange={(e) => handleYearChange(Number(e.target.value))}
           className="w-auto"

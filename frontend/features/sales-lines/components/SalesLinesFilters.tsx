@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useId, useMemo } from "react";
 import { EntitySummary } from "@/lib/types";
 import { formatThaiMonth } from "@/lib/importLabels";
 import { Select } from "@/components/ui/select";
@@ -33,6 +33,12 @@ export function SalesLinesFilters({
   productTypes,
   onReset,
 }: SalesLinesFiltersProps) {
+  const yearId = useId();
+  const monthId = useId();
+  const salespersonIdId = useId();
+  const hospitalIdId = useId();
+  const productTypeIdId = useId();
+
   const update = useCallback((partial: Partial<SalesLinesFilterValues>) => {
     onChange({ ...values, ...partial });
   }, [onChange, values]);
@@ -87,8 +93,9 @@ export function SalesLinesFilters({
       secondaryFilters={
         <>
           <div className="w-full sm:w-36">
-            <label className="block text-xs font-medium text-text-muted mb-1">ปี</label>
+            <label htmlFor={yearId} className="block text-xs font-medium text-text-muted mb-1">ปี</label>
             <Select
+              id={yearId}
               value={values.year}
               onChange={(e) => update({ year: e.target.value })}
             >
@@ -105,8 +112,9 @@ export function SalesLinesFilters({
           </div>
 
           <div className="w-full sm:w-36">
-            <label className="block text-xs font-medium text-text-muted mb-1">เดือน</label>
+            <label htmlFor={monthId} className="block text-xs font-medium text-text-muted mb-1">เดือน</label>
             <Select
+              id={monthId}
               value={values.month}
               onChange={(e) => update({ month: e.target.value })}
             >
@@ -122,8 +130,9 @@ export function SalesLinesFilters({
       }
     >
       <div className="w-full sm:w-52">
-        <label className="block text-xs font-medium text-text-muted mb-1">พนักงานขาย</label>
+        <label htmlFor={salespersonIdId} className="block text-xs font-medium text-text-muted mb-1">พนักงานขาย</label>
         <Select
+          id={salespersonIdId}
           value={values.salespersonId}
           onChange={(e) => update({ salespersonId: e.target.value })}
         >
@@ -137,8 +146,9 @@ export function SalesLinesFilters({
       </div>
 
       <div className="w-full sm:w-52">
-        <label className="block text-xs font-medium text-text-muted mb-1">โรงพยาบาล</label>
+        <label htmlFor={hospitalIdId} className="block text-xs font-medium text-text-muted mb-1">โรงพยาบาล</label>
         <Select
+          id={hospitalIdId}
           value={values.hospitalId}
           onChange={(e) => update({ hospitalId: e.target.value })}
         >
@@ -152,8 +162,9 @@ export function SalesLinesFilters({
       </div>
 
       <div className="w-full sm:w-52">
-        <label className="block text-xs font-medium text-text-muted mb-1">กลุ่มสินค้า</label>
+        <label htmlFor={productTypeIdId} className="block text-xs font-medium text-text-muted mb-1">กลุ่มสินค้า</label>
         <Select
+          id={productTypeIdId}
           value={values.productTypeId}
           onChange={(e) => update({ productTypeId: e.target.value })}
         >
