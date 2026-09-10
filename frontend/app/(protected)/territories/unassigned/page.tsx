@@ -10,6 +10,7 @@ import { getErrorMessage } from "@/lib/api-client";
 import { formatMoney } from "@/lib/importLabels";
 import { Territory, UnassignedTerritoryHospital } from "@/lib/types";
 import { useAuthStore } from "@/store/useAuthStore";
+import { toast } from "@/components/shared/feedback/toast/ToastProvider";
 import { refreshQueueCounts } from "@/components/shared/navigation/useQueueCounts";
 import { PageContainer } from "@/components/shared/layout/PageContainer";
 import { PageHeader } from "@/components/shared/layout/PageHeader";
@@ -42,6 +43,11 @@ export default function UnassignedTerritoriesPage() {
   const [confirmingMulti, setConfirmingMulti] = useState(false);
   const [multiResult, setMultiResult] = useState<MultiAssignResult | null>(null);
 
+  // Quick-assign (T-UX-011 จุดที่ 4) — เลือกเขตเก็บใน state ก่อน แล้วกดปุ่มยืนยัน
+  // จึงยิง API (เดิมยิงทันทีที่ onChange ไม่มี in-flight guard)
+  const [quickAssignChoice, setQuickAssignChoice] = useState<Record<number, string>>({});
+  const [assigningId, setAssigningId] = useState<number | null>(null);
+
   const load = useCallback(async () => {
     if (!token) return;
     setLoading(true);
@@ -69,18 +75,31 @@ export default function UnassignedTerritoriesPage() {
 
   // Single-row quick assignment
   const assignSingle = useCallback(
-    async (hospitalId: number, territoryId: string) => {
-      if (!token || !territoryId) return;
+    async (hospital: UnassignedTerritoryHospital, territoryId: string) => {
+      if (!token || !territoryId || assigningId !== null) return;
+      const territoryName = territories.find((t) => String(t.id) === territoryId)?.name;
+      setAssigningId(hospital.id);
       try {
-        await moveHospitalToTerritory(token, hospitalId, Number(territoryId));
+        await moveHospitalToTerritory(token, hospital.id, Number(territoryId));
+        // T-UX-011 ระดับ 1 — เขียนเกิดแล้วแจ้งผลชัด (ยังไม่มี undo จึงไม่อวดปุ่มย้อน)
+        toast.success(
+          `ผูก ${hospital.displayName} เข้าเขต ${territoryName ?? ""} เรียบร้อยแล้ว`
+        );
+        setQuickAssignChoice((prev) => {
+          const next = { ...prev };
+          delete next[hospital.id];
+          return next;
+        });
         await load();
         // WACC-P1-015 — the unassigned count just dropped; refresh the sidebar badge.
         void refreshQueueCounts(token);
       } catch (err) {
         setError(getErrorMessage(err, "ผูกเขตให้โรงพยาบาลไม่สำเร็จ"));
+      } finally {
+        setAssigningId(null);
       }
     },
-    [token, load]
+    [token, load, assigningId, territories]
   );
 
   // Multi-row sequential assignment
@@ -122,11 +141,9 @@ export default function UnassignedTerritoriesPage() {
 
   function handleStartMultiAssign() {
     if (!bulkTerritoryId || selectedIds.size === 0) return;
-    if (selectedIds.size > 10) {
-      setConfirmingMulti(true);
-    } else {
-      void executeMultiAssign();
-    }
+    // T-UX-011 จุดที่ 6 — เกณฑ์เดียวตาม policy: กระทบหลายรายการ = ConfirmDialog
+    // ที่ระบุจำนวนจริงเสมอ (เดิมใช้ threshold 10 ตัดขาด — ≤10 ยิงเลยไม่มีเกราะ)
+    setConfirmingMulti(true);
   }
 
   const selectedTerritoryName = territories.find(
@@ -182,21 +199,39 @@ export default function UnassignedTerritoriesPage() {
         header: "ผูกเขตอย่างเร็ว",
         render: (item) =>
           canEdit ? (
-            <Select
-              defaultValue=""
-              onChange={(event) => void assignSingle(item.id, event.target.value)}
-              className="w-36 text-xs h-8"
-              aria-label={`ผูกเขตให้ ${item.displayName}`}
-            >
-              <option value="">เลือกเขต</option>
-              {territories
-                .filter((t) => t.isActive)
-                .map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-            </Select>
+            <div className="flex items-center gap-1.5">
+              <Select
+                value={quickAssignChoice[item.id] ?? ""}
+                onChange={(event) =>
+                  setQuickAssignChoice((prev) => ({
+                    ...prev,
+                    [item.id]: event.target.value,
+                  }))
+                }
+                className="w-32 text-xs h-8"
+                disabled={assigningId !== null}
+                aria-label={`เลือกเขตสำหรับ ${item.displayName}`}
+              >
+                <option value="">เลือกเขต</option>
+                {territories
+                  .filter((t) => t.isActive)
+                  .map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+              </Select>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                disabled={!quickAssignChoice[item.id] || assigningId !== null}
+                onClick={() => void assignSingle(item, quickAssignChoice[item.id])}
+                className="text-xs px-2.5 py-1.5 h-8"
+              >
+                {assigningId === item.id ? "กำลังผูก..." : "ผูกเขต"}
+              </Button>
+            </div>
           ) : (
             "—"
           ),
@@ -204,7 +239,7 @@ export default function UnassignedTerritoriesPage() {
         mobileRole: "meta",
       },
     ],
-    [canEdit, territories, assignSingle]
+    [canEdit, territories, assignSingle, quickAssignChoice, assigningId]
   );
 
   const selectionToolbar = canEdit && selectedIds.size > 0 ? (

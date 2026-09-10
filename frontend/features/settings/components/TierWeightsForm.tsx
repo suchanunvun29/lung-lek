@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
 import { Info, AlertCircle } from "lucide-react";
 import { announce } from "@/components/shared/feedback/LiveRegion";
+import { toast } from "@/components/shared/feedback/toast/ToastProvider";
 
 export interface TierWeightsFormProps {
   weights: TierWeightRow[];
@@ -51,10 +52,10 @@ export function TierWeightsForm({ weights, onSubmit }: TierWeightsFormProps) {
     announce("กำลังบันทึกน้ำหนักทุกระดับ...", "polite");
     try {
       await onSubmit(weights.map((row) => ({ tier: row.tier, weight: valuesByTier[row.tier] })));
-      announce("บันทึกน้ำหนักทุกระดับเรียบร้อยแล้ว", "polite");
+      // T-UX-012 — success = toast (คง banner ที่หน้า page ไว้เป็น visual โดยไม่ประกาศซ้ำ)
+      toast.success("บันทึกน้ำหนักทุกระดับเรียบร้อยแล้ว");
     } catch {
       setError("บันทึกไม่สำเร็จ กรุณาลองใหม่");
-      announce("บันทึกน้ำหนักทุกระดับไม่สำเร็จ กรุณาลองใหม่", "assertive");
     } finally {
       setSubmitting(false);
     }

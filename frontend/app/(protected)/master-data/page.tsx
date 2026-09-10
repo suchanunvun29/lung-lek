@@ -14,6 +14,7 @@ import { listUsers } from "@/features/users";
 import { getErrorMessage } from "@/lib/api-client";
 import { AppUser, Hospital, ProductMasterItem, Salesperson } from "@/lib/types";
 import { useAuthStore } from "@/store/useAuthStore";
+import { toast } from "@/components/shared/feedback/toast/ToastProvider";
 import { PageContainer } from "@/components/shared/layout/PageContainer";
 import { PageHeader } from "@/components/shared/layout/PageHeader";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -87,6 +88,8 @@ export default function MasterDataPage() {
     try {
       const data = await updateHospital(token, hospital.id, isPreExistingCustomer);
       setHospitals((prev) => prev.map((h) => (h.id === hospital.id ? data.hospital : h)));
+      // T-UX-012 — inline save สำเร็จต้องไม่เงียบ
+      toast.success(`${hospital.displayName}: ${isPreExistingCustomer ? "ตั้งเป็นลูกค้าเดิมแล้ว" : "ยกเลิกสถานะลูกค้าเดิมแล้ว"}`);
     } catch (err) {
       setActionError(getErrorMessage(err, "แก้ไขข้อมูลโรงพยาบาลไม่สำเร็จ"));
     }
@@ -99,6 +102,12 @@ export default function MasterDataPage() {
       const data = await updateSalesperson(token, salesperson.id, { userId });
       setSalespeople((prev) => prev.map((sp) => (sp.id === salesperson.id ? data.salesperson : sp)));
       void loadAll();
+      // T-UX-012 — inline save สำเร็จต้องไม่เงียบ (ผูกและยกเลิกผูกบัญชีต่างข้อความ)
+      toast.success(
+        userId === null
+          ? `ยกเลิกการผูกบัญชีของ ${salesperson.displayName} เรียบร้อยแล้ว`
+          : `ผูกบัญชีของ ${salesperson.displayName} เรียบร้อยแล้ว`
+      );
     } catch (err) {
       setActionError(getErrorMessage(err, "ผูกบัญชีผู้ใช้ไม่สำเร็จ"));
     }
@@ -110,6 +119,12 @@ export default function MasterDataPage() {
     try {
       const data = await updateSalesperson(token, salesperson.id, { employmentEndedAt });
       setSalespeople((prev) => prev.map((sp) => (sp.id === salesperson.id ? data.salesperson : sp)));
+      // T-UX-012 — inline save สำเร็จต้องไม่เงียบ
+      toast.success(
+        employmentEndedAt
+          ? `บันทึกวันที่พ้นสภาพของ ${salesperson.displayName} เรียบร้อยแล้ว`
+          : `ลบวันที่พ้นสภาพของ ${salesperson.displayName} เรียบร้อยแล้ว`
+      );
     } catch (err) {
       setActionError(getErrorMessage(err, "บันทึกวันที่พ้นสภาพไม่สำเร็จ"));
     }
@@ -124,6 +139,8 @@ export default function MasterDataPage() {
     try {
       const data = await updateProduct(token, product.id, input);
       setProducts((items) => items.map((item) => (item.id === product.id ? data.product : item)));
+      // T-UX-012 — inline save สำเร็จต้องไม่เงียบ
+      toast.success(`บันทึกข้อมูลสินค้า "${data.product.displayName ?? data.product.code}" เรียบร้อยแล้ว`);
     } catch (saveError) {
       setActionError(getErrorMessage(saveError, "บันทึกสินค้าไม่สำเร็จ"));
     }

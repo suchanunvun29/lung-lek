@@ -19,8 +19,10 @@ import { usePathname } from "next/navigation";
 import { PeriodSelector } from "@/features/kpi/components/PeriodSelector";
 import { listSalespeople } from "@/features/master-data";
 import { listTerritories } from "@/features/territories/api/territories.api";
+import { getErrorMessage } from "@/lib/api-client";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useContextStore } from "@/store/useContextStore";
+import { toast } from "@/components/shared/feedback/toast/ToastProvider";
 import { findNavItemByPath } from "../navigation/navigation.config";
 import type { Salesperson, Territory } from "@/lib/types";
 
@@ -57,8 +59,9 @@ export function ContextBar() {
           if (own) setSalespersonId(own.id);
         }
       })
-      .catch(() => {
-        // Silently ignore — the contextbar is non-critical; pages have their own error handling.
+      .catch((err) => {
+        // T-UX-012 — เดิม swallow เงียบ; ตอนนี้ surface ผ่าน toast error
+        toast.error(getErrorMessage(err, "โหลดรายชื่อพนักงานขายสำหรับตัวเลือกมุมมองไม่สำเร็จ"));
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showSalesperson, token]);
@@ -75,8 +78,9 @@ export function ContextBar() {
           setTerritoryId(active[0].id);
         }
       })
-      .catch(() => {
-        // Silently ignore
+      .catch((err) => {
+        // T-UX-012 — เดิม swallow เงียบ; ตอนนี้ surface ผ่าน toast error
+        toast.error(getErrorMessage(err, "โหลดรายชื่อเขตสำหรับตัวเลือกมุมมองไม่สำเร็จ"));
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showTerritory, token]);

@@ -16,6 +16,7 @@ import { listSalespeople } from "@/features/master-data/api/master-data.api";
 import { getErrorMessage } from "@/lib/api-client";
 import { Salesperson, Territory, TerritoryAssignment, TerritoryGroup } from "@/lib/types";
 import { useAuthStore } from "@/store/useAuthStore";
+import { toast } from "@/components/shared/feedback/toast/ToastProvider";
 import { PageContainer } from "@/components/shared/layout/PageContainer";
 import { PageHeader } from "@/components/shared/layout/PageHeader";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -73,6 +74,9 @@ export default function TerritoriesPage() {
   const [assignmentToClose, setAssignmentToClose] = useState<TerritoryAssignment | null>(null);
   const [closingPending, setClosingPending] = useState(false);
 
+  // In-flight guard กัน double-click toggle (T-UX-011 จุดที่ 3)
+  const [togglingId, setTogglingId] = useState<number | null>(null);
+
   function setTab(nextTab: TerritoryTab) {
     setTabState(nextTab);
     setTabInUrl(nextTab);
@@ -113,6 +117,8 @@ export default function TerritoriesPage() {
       await createTerritory(token, { name: name.trim(), code: code.trim() || null });
       setName("");
       setCode("");
+      // T-UX-012 — สร้างเขตสำเร็จไม่ควรเงียบ (เดิมมีแค่ list reload)
+      toast.success(`สร้างเขต "${name.trim()}" เรียบร้อยแล้ว`);
       await load();
     } catch (err) {
       setError(getErrorMessage(err, "สร้างเขตไม่สำเร็จ"));
@@ -123,15 +129,25 @@ export default function TerritoriesPage() {
 
   const toggleTerritory = useCallback(
     async (item: Territory) => {
-      if (!token) return;
+      if (!token || togglingId !== null) return;
+      setTogglingId(item.id);
       try {
         await updateTerritory(token, item.id, { isActive: !item.isActive });
+        // T-UX-011 ระดับ 1 (reversible) — ไม่ใส่ dialog หนัก; toggle ทันที + toast
+        // อธิบายผลที่เกิดขึ้นทันที เพราะการสลับสถานะกลับคืนได้
+        toast.success(
+          item.isActive
+            ? `ปิดใช้งานเขต ${item.name} แล้ว — เขตจะหายจากตัวเลือกมุมมองและไม่รับการมอบหมายใหม่ (เปิดกลับได้ที่ปุ่มเดิม)`
+            : `เปิดใช้งานเขต ${item.name} แล้ว — เขตกลับมาปรากฏในตัวเลือกมุมมองตามเดิม`
+        );
         await load();
       } catch (err) {
         setError(getErrorMessage(err, "แก้ไขเขตไม่สำเร็จ"));
+      } finally {
+        setTogglingId(null);
       }
     },
-    [token, load]
+    [token, load, togglingId]
   );
 
   async function submitAssignment(event: FormEvent<HTMLFormElement>) {

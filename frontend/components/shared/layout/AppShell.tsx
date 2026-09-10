@@ -15,6 +15,7 @@ import { useState } from "react";
 import { Sidebar } from "@/components/shared/navigation/Sidebar";
 import { AppHeader } from "@/components/shared/layout/AppHeader";
 import { LiveRegion } from "@/components/shared/feedback/LiveRegion";
+import { ToastProvider } from "@/components/shared/feedback/toast/ToastProvider";
 import { useAuthStore } from "@/store/useAuthStore";
 import type { BreadcrumbSegment } from "@/components/shared/navigation/Breadcrumb";
 
@@ -49,6 +50,9 @@ export function AppShell({ children, breadcrumbSegments }: AppShellProps) {
       {/* Global accessible live regions for async notifications */}
       <LiveRegion />
 
+      {/* Global transient feedback (toast.success / toast.error) — T-UX-012 */}
+      <ToastProvider>
+
       <div className="flex min-h-screen">
         {/* Sidebar (desktop persistent + mobile drawer) */}
         <Sidebar
@@ -74,6 +78,7 @@ export function AppShell({ children, breadcrumbSegments }: AppShellProps) {
           </main>
         </div>
       </div>
+      </ToastProvider>
     </>
   );
 }

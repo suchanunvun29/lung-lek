@@ -11,6 +11,7 @@ import { Alert } from "@/components/ui/alert";
 import { FormField } from "@/components/shared/form/FormField";
 import { AlertCircle, CheckCircle2, Info } from "lucide-react";
 import { announce } from "@/components/shared/feedback/LiveRegion";
+import { toast } from "@/components/shared/feedback/toast/ToastProvider";
 
 export interface ScoringWeightsFormProps {
   weights: ScoringWeight[];
@@ -76,7 +77,8 @@ export function ScoringWeightsForm({ weights, onSubmit }: ScoringWeightsFormProp
         note.trim() || null
       );
       setNote("");
-      announce("บันทึกน้ำหนักคะแนนเรียบร้อยแล้ว", "polite");
+      // T-UX-012 — เดิม success เป็น announce-only (มองไม่เห็นกับตา); success = toast
+      toast.success("บันทึกน้ำหนักคะแนนเรียบร้อยแล้ว");
     } catch {
       setError("บันทึกไม่สำเร็จ กรุณาลองใหม่");
     } finally {

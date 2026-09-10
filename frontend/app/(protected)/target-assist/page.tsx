@@ -29,6 +29,7 @@ import { PageHeader } from "@/components/shared/layout/PageHeader";
 import { Breadcrumb } from "@/components/shared/navigation/Breadcrumb";
 import { InlineMessage } from "@/components/shared/feedback/InlineMessage";
 import { SkeletonCard } from "@/components/shared/feedback/Skeleton";
+import { toast } from "@/components/shared/feedback/toast/ToastProvider";
 
 const YEAR_OFFSETS = [-1, 0, 1];
 const MONTHS = Array.from({ length: 12 }, (_, index) => index + 1);
@@ -194,6 +195,11 @@ export default function TargetAssistPage() {
         newCustomerTarget: existingByTerritoryId.get(territoryId)?.newCustomerTarget ?? 0,
       });
       await loadSavedTargets();
+      // T-UX-012 — สำเร็จต้องมีข้อความ ไม่ใช่แค่สีเขียวของช่อง (1.4.1 Use of Color)
+      const territoryName = preview?.totals.find((t) => t.territoryId === territoryId)?.territoryName;
+      toast.success(
+        `รับข้อเสนอเขต ${territoryName ?? territoryId} แล้ว — บันทึกเป้า ${formatTargetMoney(revenueTarget)} เป็นที่เรียบร้อย`
+      );
       return true;
     } catch (err) {
       setActionError(getErrorMessage(err, "บันทึกเป้าระดับเขตไม่สำเร็จ"));

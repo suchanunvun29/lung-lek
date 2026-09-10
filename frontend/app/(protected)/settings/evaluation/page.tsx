@@ -17,6 +17,7 @@ import { Alert } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { Skeleton } from "@/components/shared/feedback/Skeleton";
 import { announce } from "@/components/shared/feedback/LiveRegion";
+import { toast } from "@/components/shared/feedback/toast/ToastProvider";
 
 export default function EvaluationSettingsPage() {
   const token = useAuthStore((state) => state.token);
@@ -55,10 +56,12 @@ export default function EvaluationSettingsPage() {
       const data = await updateEvaluationSetting(token, input);
       setSetting(data.setting);
       setSaveSuccess(true);
-      announce("บันทึกค่าคงที่ของการประเมินเรียบร้อยแล้ว", "polite");
+      // T-UX-012 — success = toast (ประกาศทาง SR ครั้งเดียวผ่าน toast เอง)
+      // banner ด้านล่างเป็น visual ค้างไว้ จึงตัด role/aria-live ออกเพื่อไม่ประกาศซ้ำ
+      toast.success("บันทึกค่าคงที่ของการประเมินเรียบร้อยแล้ว");
       setTimeout(() => setSaveSuccess(false), 4000);
     } catch (err) {
-      announce("บันทึกค่าคงที่ของการประเมินไม่สำเร็จ", "assertive");
+      // error แสดงผ่าน Alert (role="alert" ประกาศเอง) ใน EvaluationSettingForm
       throw err;
     }
   }
@@ -83,8 +86,6 @@ export default function EvaluationSettingsPage() {
 
       {saveSuccess && (
         <div
-          role="status"
-          aria-live="polite"
           className="mb-6 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--success-subtle)] p-3 text-sm font-medium text-[var(--success)]"
         >
           บันทึกค่าคงที่ของการประเมินเรียบร้อยแล้ว
