@@ -221,14 +221,14 @@ export default function UsersPage() {
           <span
             className={`rounded-full px-2 py-0.5 text-xs font-medium border ${
               u.isActive
-                ? "bg-success-subtle border-success/30 text-success"
-                : "bg-surface-subtle border-border text-text-muted"
+                ? "bg-success-subtle border-success/30 text-success-text"
+                : "bg-surface-subtle border-border text-text-secondary"
             }`}
           >
             {u.isActive ? "ใช้งาน" : "ปิดใช้งาน"}
           </span>
           {u.mustChangePassword && (
-            <span className="rounded-full bg-warning-subtle border border-warning/30 px-2 py-0.5 text-xs font-medium text-warning">
+            <span className="rounded-full bg-warning-subtle border border-warning/30 px-2 py-0.5 text-xs font-medium text-warning-text">
               รอเปลี่ยนรหัสผ่าน
             </span>
           )}
@@ -251,7 +251,7 @@ export default function UsersPage() {
             <button
               type="button"
               onClick={() => setEditingUser(u)}
-              className="text-warning text-xs font-medium bg-warning-subtle hover:bg-warning/20 px-2 py-0.5 rounded border border-warning/30 underline cursor-pointer transition-colors"
+              className="text-warning-text text-xs font-medium bg-warning-subtle hover:bg-warning/20 px-2 py-0.5 rounded border border-warning/30 underline cursor-pointer transition-colors"
             >
               ยังไม่ผูกข้อมูล (คลิกเพื่อผูก)
             </button>

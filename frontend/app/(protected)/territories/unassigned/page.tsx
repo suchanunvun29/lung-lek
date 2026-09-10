@@ -263,13 +263,13 @@ export default function UnassignedTerritoriesPage() {
       />
 
       {!canEdit && (
-        <div className="rounded-lg border border-warning/30 bg-warning-subtle p-3 text-sm text-warning">
+        <div className="rounded-lg border border-warning/30 bg-warning-subtle p-3 text-sm text-warning-text">
           คุณดูข้อมูลได้เท่านั้น การแก้ไขสงวนไว้สำหรับผู้จัดการ
         </div>
       )}
 
       {error && (
-        <div className="rounded-lg border border-danger/30 bg-danger-subtle p-3 text-sm text-danger">
+        <div className="rounded-lg border border-danger/30 bg-danger-subtle p-3 text-sm text-danger-text">
           {error}
         </div>
       )}
@@ -279,8 +279,8 @@ export default function UnassignedTerritoriesPage() {
         <div
           className={`rounded-lg border p-4 space-y-2 text-sm ${
             multiResult.failed.length === 0
-              ? "border-success/30 bg-success-subtle text-success"
-              : "border-warning/30 bg-warning-subtle text-warning"
+              ? "border-success/30 bg-success-subtle text-success-text"
+              : "border-warning/30 bg-warning-subtle text-warning-text"
           }`}
         >
           <p className="font-semibold">
@@ -289,7 +289,7 @@ export default function UnassignedTerritoriesPage() {
               : `ดำเนินการเสร็จสิ้น: สำเร็จ ${multiResult.success} แห่ง, ไม่สำเร็จ ${multiResult.failed.length} แห่ง`}
           </p>
           {multiResult.failed.length > 0 && (
-            <ul className="list-disc pl-5 text-xs text-danger space-y-1">
+            <ul className="list-disc pl-5 text-xs text-danger-text space-y-1">
               {multiResult.failed.map((f) => (
                 <li key={f.id}>
                   {f.name}: {f.error}

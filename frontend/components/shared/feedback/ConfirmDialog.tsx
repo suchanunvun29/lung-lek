@@ -55,7 +55,7 @@ export function ConfirmDialog({
         <p className="text-sm text-text-secondary">{description}</p>
 
         {consequence && (
-          <div className="rounded-md border border-danger/20 bg-danger-subtle p-3 text-xs text-danger">
+          <div className="rounded-md border border-danger/20 bg-danger-subtle p-3 text-xs text-danger-text">
             <span className="font-semibold">ข้อควรระวัง: </span>
             {consequence}
           </div>

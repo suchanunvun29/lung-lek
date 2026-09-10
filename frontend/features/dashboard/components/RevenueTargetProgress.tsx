@@ -53,7 +53,7 @@ export function RevenueTargetProgress({ metric }: RevenueTargetProgressProps) {
         {remaining > 0 ? (
           <span className="font-medium text-text-primary">เหลืออีก {formatMoney(String(remaining))} บาท ถึงเป้า</span>
         ) : (
-          <span className="font-medium text-success">ถึงเป้าแล้ว (เกินเป้า {formatMoney(String(-remaining))} บาท)</span>
+          <span className="font-medium text-success-text">ถึงเป้าแล้ว (เกินเป้า {formatMoney(String(-remaining))} บาท)</span>
         )}
       </div>
     </KpiTile>

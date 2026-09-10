@@ -122,7 +122,7 @@ export function CoachingInsightPanel({
       {!loading && insight && (
         <div className="mt-4 space-y-3">
           {insight.status === "FAILED" && (
-            <p className="rounded-md bg-warning-subtle border border-warning/30 px-3 py-2 text-xs text-warning">
+            <p className="rounded-md bg-warning-subtle border border-warning/30 px-3 py-2 text-xs text-warning-text">
               เรียก AI ไม่สำเร็จ{insight.errorMessage ? `: ${insight.errorMessage}` : ""} — แสดงสรุปที่คำนวณจากกฎแทน
             </p>
           )}

@@ -15,7 +15,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ระบบประเมินพนักงานขาย",
+  title: {
+    default: "ระบบประเมินพนักงานขาย",
+    template: "%s · ระบบประเมินพนักงานขาย",
+  },
   description: "ระบบประเมินและสนับสนุนพนักงานขาย",
 };
 

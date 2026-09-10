@@ -305,7 +305,7 @@ export default function LeaderboardPage() {
             {data.unranked.map((unit) => (
               <li
                 key={`${unit.unitType}-${unit.territoryId}`}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warning/30 bg-warning-subtle px-4 py-3 text-sm text-warning"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warning/30 bg-warning-subtle px-4 py-3 text-sm text-warning-text"
               >
                 <LeaderboardUnitNameCell unit={unit} />
                 {unit.visibility === "TERRITORY_FULL" ? (

@@ -8,10 +8,10 @@ export interface AlertProps extends React.HTMLAttributes<HTMLDivElement> {
 export function Alert({ className, variant = "default", ...props }: AlertProps) {
   const variantStyles: Record<NonNullable<AlertProps["variant"]>, string> = {
     default: "bg-surface-subtle text-text-primary border-border",
-    destructive: "bg-danger-subtle text-danger border-danger/20",
-    warning: "bg-warning-subtle text-warning border-warning/20",
-    success: "bg-success-subtle text-success border-success/20",
-    info: "bg-info-subtle text-info border-info/20",
+    destructive: "bg-danger-subtle text-danger-text border-danger/20",
+    warning: "bg-warning-subtle text-warning-text border-warning/20",
+    success: "bg-success-subtle text-success-text border-success/20",
+    info: "bg-info-subtle text-info-text border-info/20",
   };
 
   return (

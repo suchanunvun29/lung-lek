@@ -17,6 +17,7 @@ import { getErrorMessage } from "@/lib/api-client";
 import { useAuthStore } from "@/store/useAuthStore";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import { ConfirmDialog } from "@/components/shared/feedback/ConfirmDialog";
 
 const YEAR_OFFSETS = [-1, 0, 1];
 
@@ -37,6 +38,9 @@ export default function TargetsPage() {
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [copyModalOpen, setCopyModalOpen] = useState(false);
   const [productGroupTarget, setProductGroupTarget] = useState<Target | null>(null);
+  // Unsaved-cell count reported by TargetsGrid; used to guard the year switch.
+  const [gridDirtyCount, setGridDirtyCount] = useState(0);
+  const [pendingYear, setPendingYear] = useState<number | null>(null);
 
   const loadTargets = useCallback(async () => {
     if (!token) return;
@@ -112,6 +116,23 @@ export default function TargetsPage() {
     setProductGroupTarget((prev) => (prev && prev.id === updated.id ? { ...updated, salesperson: prev.salesperson } : prev));
   }
 
+  function handleYearChange(nextYear: number) {
+    if (nextYear === year) return;
+    if (gridDirtyCount > 0) {
+      setPendingYear(nextYear);
+      return;
+    }
+    setGridDirtyCount(0);
+    setYear(nextYear);
+  }
+
+  function confirmPendingYear() {
+    if (pendingYear === null) return;
+    setGridDirtyCount(0);
+    setYear(pendingYear);
+    setPendingYear(null);
+  }
+
   return (
     <div className="mx-auto max-w-6xl p-4 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -135,7 +156,7 @@ export default function TargetsPage() {
         <label className="font-medium text-text-secondary">ปี</label>
         <Select
           value={String(year)}
-          onChange={(e) => setYear(Number(e.target.value))}
+          onChange={(e) => handleYearChange(Number(e.target.value))}
           className="w-auto"
         >
           {YEAR_OFFSETS.map((offset) => {
@@ -166,9 +187,22 @@ export default function TargetsPage() {
             onSave={handleSaveTarget}
             onOpenProductGroups={setProductGroupTarget}
             onViewHistory={(target) => router.push(`/targets/${target.id}/revisions`)}
+            onDirtyCountChange={setGridDirtyCount}
           />
         )}
       </div>
+
+      {pendingYear !== null && (
+        <ConfirmDialog
+          title="เปลี่ยนปีระหว่างมีการแก้ไขที่ยังไม่บันทึก?"
+          description={`มีการแก้ไขที่ยังไม่บันทึก ${gridDirtyCount.toLocaleString("th-TH")} ช่อง — เปลี่ยนปีแล้วข้อมูลที่กรอกจะหาย`}
+          confirmLabel="เปลี่ยนปี"
+          cancelLabel="ยกเลิก"
+          tone="danger"
+          onConfirm={confirmPendingYear}
+          onCancel={() => setPendingYear(null)}
+        />
+      )}
 
       {copyModalOpen && (
         <CopyTargetsModal

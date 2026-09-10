@@ -86,7 +86,7 @@ export function LeaderboardPeopleModal({ token, criteria, period, unit, onClose 
       )}
 
       {!loading && !error && data?.mode === "SELF_SUMMARY" && (
-        <div className="rounded-lg border border-warning/30 bg-warning-subtle p-4 text-sm text-warning">
+        <div className="rounded-lg border border-warning/30 bg-warning-subtle p-4 text-sm text-warning-text">
           <p className="font-semibold">สรุปเฉพาะของคุณในเขตนี้</p>
           <p className="mt-1 text-xs opacity-90">
             สิทธิ์การดูของคุณจำกัดเฉพาะอันดับและสถิติของตัวเองเทียบค่าเฉลี่ยทีม — ไม่มีรายชื่อของผู้อื่นในการตอบนี้

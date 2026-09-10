@@ -80,7 +80,7 @@ export function SalespersonTable({
               {sp.isActive ? "ใช้งาน" : "ไม่ใช้งาน"}
             </span>
             {ended && (
-              <span className="rounded-full bg-warning-subtle text-warning border border-warning/30 px-2 py-0.5 text-xs font-medium">
+              <span className="rounded-full bg-warning-subtle text-warning-text border border-warning/30 px-2 py-0.5 text-xs font-medium">
                 พ้นสภาพ
               </span>
             )}

@@ -1,0 +1,12 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: {
+    absolute: "ประวัติการแก้ไขเป้า · ระบบประเมินพนักงานขาย",
+    template: "%s · ระบบประเมินพนักงานขาย",
+  },
+};
+
+export default function Layout({ children }: { children: React.ReactNode }) {
+  return children;
+}

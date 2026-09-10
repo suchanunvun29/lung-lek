@@ -182,13 +182,13 @@ export default function HospitalMovesPage() {
       />
 
       {!canEdit && (
-        <div className="rounded-lg border border-warning/30 bg-warning-subtle p-3 text-sm text-warning">
+        <div className="rounded-lg border border-warning/30 bg-warning-subtle p-3 text-sm text-warning-text">
           คุณดูข้อมูลได้เท่านั้น การแก้ไขสงวนไว้สำหรับผู้จัดการ
         </div>
       )}
 
       {error && (
-        <div className="rounded-lg border border-danger/30 bg-danger-subtle p-3 text-sm text-danger">
+        <div className="rounded-lg border border-danger/30 bg-danger-subtle p-3 text-sm text-danger-text">
           {error}
         </div>
       )}
@@ -299,7 +299,7 @@ export default function HospitalMovesPage() {
                 )}
 
                 {singleSuccess && (
-                  <p className="rounded-md border border-success/30 bg-success-subtle p-3 text-sm text-success font-medium">
+                  <p className="rounded-md border border-success/30 bg-success-subtle p-3 text-sm text-success-text font-medium">
                     {singleSuccess}
                   </p>
                 )}
@@ -395,7 +395,7 @@ export default function HospitalMovesPage() {
                 )}
 
                 {bulkSuccess && (
-                  <p className="rounded-md border border-success/30 bg-success-subtle p-3 text-sm text-success font-medium">
+                  <p className="rounded-md border border-success/30 bg-success-subtle p-3 text-sm text-success-text font-medium">
                     {bulkSuccess}
                   </p>
                 )}

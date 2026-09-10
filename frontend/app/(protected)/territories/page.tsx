@@ -344,13 +344,13 @@ export default function TerritoriesPage() {
       />
 
       {!canEdit && (
-        <div className="rounded-lg border border-warning/30 bg-warning-subtle p-3 text-sm text-warning">
+        <div className="rounded-lg border border-warning/30 bg-warning-subtle p-3 text-sm text-warning-text">
           คุณดูข้อมูลได้เท่านั้น การแก้ไขสงวนไว้สำหรับผู้จัดการ
         </div>
       )}
 
       {error && (
-        <div className="rounded-lg border border-danger/30 bg-danger-subtle p-3 text-sm text-danger">
+        <div className="rounded-lg border border-danger/30 bg-danger-subtle p-3 text-sm text-danger-text">
           {error}
         </div>
       )}

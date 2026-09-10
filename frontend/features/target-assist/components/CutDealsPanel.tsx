@@ -53,11 +53,11 @@ export function CutDealsPanel({ cutDeals, reinstatedInvoiceNos, pendingInvoiceNo
                   <td className="px-4 py-3 text-text-secondary font-numeric">{formatRatioPercent(deal.ratio)}</td>
                   <td className="px-4 py-3">
                     {reinstated ? (
-                      <span className="rounded-full bg-success-subtle border border-success/30 px-2 py-0.5 text-xs font-medium text-success">
+                      <span className="rounded-full bg-success-subtle border border-success/30 px-2 py-0.5 text-xs font-medium text-success-text">
                         เอากลับเข้าคำนวณแล้ว
                       </span>
                     ) : (
-                      <span className="rounded-full bg-danger-subtle border border-danger/30 px-2 py-0.5 text-xs font-medium text-danger">
+                      <span className="rounded-full bg-danger-subtle border border-danger/30 px-2 py-0.5 text-xs font-medium text-danger-text">
                         ถูกตัดออกจากฐาน
                       </span>
                     )}

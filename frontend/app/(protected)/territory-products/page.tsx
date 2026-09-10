@@ -244,13 +244,13 @@ export default function TerritoryProductsPage() {
       </FilterBar>
 
       {error && (
-        <div className="rounded-lg border border-danger/30 bg-danger-subtle p-3 text-sm text-danger">
+        <div className="rounded-lg border border-danger/30 bg-danger-subtle p-3 text-sm text-danger-text">
           {error}
         </div>
       )}
 
       {data?.zeroSaleWarning && (
-        <div className="rounded-lg border border-warning/30 bg-warning-subtle p-3 text-sm text-warning">
+        <div className="rounded-lg border border-warning/30 bg-warning-subtle p-3 text-sm text-warning-text">
           {data.zeroSaleWarning}
         </div>
       )}

@@ -42,7 +42,7 @@ export function DerivedTargetCard({ target }: DerivedTargetCardProps) {
       <p className="text-sm text-text-secondary">เป้าลูกค้าใหม่ {target.newCustomerTarget.toLocaleString("th-TH")} ราย</p>
       {owned.length > 0 && <div className="mt-3"><ContributionList items={owned} /></div>}
       {unowned.length > 0 && (
-        <div className="mt-3 rounded-lg border border-warning/30 bg-warning-subtle p-3 text-sm text-warning">
+        <div className="mt-3 rounded-lg border border-warning/30 bg-warning-subtle p-3 text-sm text-warning-text">
           <p className="font-medium">เป้าของเขตที่ยังไม่มีผู้ดูแล</p>
           <div className="mt-1"><ContributionList items={unowned} /></div>
         </div>

@@ -103,7 +103,7 @@ export function PeriodDryRunModal({
           )}
         </div>
 
-        {error && <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-danger">{error}</p>}
+        {error && <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-danger-text">{error}</p>}
 
         <div className="flex flex-wrap justify-end gap-3 border-t border-border pt-4">
           <Button
