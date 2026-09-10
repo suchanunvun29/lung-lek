@@ -4,6 +4,7 @@ export default defineConfig({
   title: 'คู่มือการใช้งาน',
   description: 'คู่มือการใช้งานระบบประเมินและสนับสนุนพนักงานขาย (Sales Evaluation & Enablement)',
   lang: 'th-TH',
+  base: '/docs/',
   cleanUrls: true,
   lastUpdated: true,
 

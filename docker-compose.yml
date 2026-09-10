@@ -21,14 +21,30 @@ services:
       dockerfile: Dockerfile
       args:
         - NEXT_PUBLIC_API_URL=http://localhost:4000
-        - NEXT_PUBLIC_DOCS_URL=http://localhost:5173
     container_name: sales-eval-frontend
     restart: unless-stopped
-    ports:
-      - "3000:3000"
     environment:
       - NODE_ENV=production
       - PORT=3000
     depends_on:
       backend:
         condition: service_healthy
+
+  docs:
+    build:
+      context: ./docs
+      dockerfile: Dockerfile
+    container_name: sales-eval-docs
+    restart: unless-stopped
+
+  gateway:
+    image: caddy:2-alpine
+    container_name: sales-eval-gateway
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      - frontend
+      - docs
