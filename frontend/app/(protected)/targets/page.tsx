@@ -6,6 +6,7 @@ import {
   TargetsGrid,
   targetKey,
   CopyTargetsModal,
+  BulkTargetModal,
   ProductGroupTargetsModal,
   listTargets,
   upsertTarget,
@@ -46,6 +47,7 @@ export default function TargetsPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [copyModalOpen, setCopyModalOpen] = useState(false);
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
   const [productGroupTarget, setProductGroupTarget] = useState<Target | null>(null);
   // Unsaved-cell count reported by TargetsGrid; used to guard the year switch.
   const [gridDirtyCount, setGridDirtyCount] = useState(0);
@@ -158,13 +160,23 @@ export default function TargetsPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold text-text-primary">ตั้งเป้าพนักงานขาย</h1>
         {canEdit && (
-          <Button
-            type="button"
-            onClick={() => setCopyModalOpen(true)}
-            size="sm"
-          >
-            คัดลอกเป้าเดือนก่อน
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setBulkModalOpen(true)}
+              size="sm"
+            >
+              ตั้งเป้าแบบกลุ่ม (Bulk Setup)
+            </Button>
+            <Button
+              type="button"
+              onClick={() => setCopyModalOpen(true)}
+              size="sm"
+            >
+              คัดลอกเป้าเดือนก่อน
+            </Button>
+          </div>
         )}
       </div>
 
@@ -255,6 +267,18 @@ export default function TargetsPage() {
           salespeople={salespeople}
           onClose={() => setCopyModalOpen(false)}
           onCopied={() => setReloadNonce((n) => n + 1)}
+        />
+      )}
+
+      {bulkModalOpen && (
+        <BulkTargetModal
+          year={year}
+          scope="SALESPERSON"
+          entities={salespeople.map((sp) => ({ id: sp.id, displayName: sp.displayName }))}
+          existingTargets={targets}
+          productTypes={productTypes}
+          onClose={() => setBulkModalOpen(false)}
+          onSaved={() => setReloadNonce((n) => n + 1)}
         />
       )}
 

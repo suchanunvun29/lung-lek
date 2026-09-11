@@ -724,4 +724,283 @@ public class TargetService : ITargetService
             }
         };
     }
+
+    public async Task<BulkDistributeTargetsResult> BulkDistributeTargetsAsync(
+        BulkDistributeTargetsRequest request,
+        int changedById,
+        CancellationToken cancellationToken = default)
+    {
+        if (request == null)
+        {
+            throw new ValidationException("Request body is required");
+        }
+
+        if (!Enum.TryParse<TargetScope>(request.Scope, ignoreCase: true, out var scope) ||
+            (scope != TargetScope.SALESPERSON && scope != TargetScope.TERRITORY))
+        {
+            throw new ValidationException("scope must be SALESPERSON or TERRITORY");
+        }
+
+        if (request.TargetScopeId <= 0)
+        {
+            throw new ValidationException("targetScopeId must be a positive integer");
+        }
+
+        if (request.Year < 2000 || request.Year > 2100)
+        {
+            throw new ValidationException("year must be between 2000 and 2100");
+        }
+
+        var mode = request.Mode?.ToUpperInvariant();
+        if (mode != BulkDistributeMode.AnnualTotal && mode != BulkDistributeMode.MonthlyBase)
+        {
+            throw new ValidationException("mode must be ANNUAL_TOTAL or MONTHLY_BASE");
+        }
+
+        if (request.RevenueTarget < 0)
+        {
+            throw new ValidationException("revenueTarget cannot be negative");
+        }
+
+        if (request.NewCustomerTarget.HasValue && request.NewCustomerTarget.Value < 0)
+        {
+            throw new ValidationException("newCustomerTarget cannot be negative");
+        }
+
+        var overwriteMode = request.OverwriteMode?.ToUpperInvariant() ?? BulkOverwriteMode.OverwriteAll;
+        if (overwriteMode != BulkOverwriteMode.OverwriteAll && overwriteMode != BulkOverwriteMode.KeepCustom)
+        {
+            throw new ValidationException("overwriteMode must be OVERWRITE_ALL or KEEP_CUSTOM");
+        }
+
+        if (request.ProductGroupTargets != null)
+        {
+            foreach (var pg in request.ProductGroupTargets)
+            {
+                if (pg.ProductTypeId <= 0)
+                {
+                    throw new ValidationException("productTypeId must be a positive integer");
+                }
+                if (pg.RevenueTarget < 0)
+                {
+                    throw new ValidationException("product group revenueTarget cannot be negative");
+                }
+            }
+        }
+
+        // Verify entity exists
+        if (scope == TargetScope.SALESPERSON)
+        {
+            var spExists = await _dbContext.Salespeople.AnyAsync(s => s.Id == request.TargetScopeId, cancellationToken);
+            if (!spExists)
+            {
+                throw new NotFoundException($"Salesperson with id {request.TargetScopeId} not found");
+            }
+        }
+        else if (scope == TargetScope.TERRITORY)
+        {
+            var terrExists = await _dbContext.Territories.AnyAsync(t => t.Id == request.TargetScopeId, cancellationToken);
+            if (!terrExists)
+            {
+                throw new NotFoundException($"Territory with id {request.TargetScopeId} not found");
+            }
+        }
+
+        // Calculate 12-month distributions
+        var monthlyRevenue = new decimal[12];
+        var monthlyNewCustomers = new int[12];
+        var monthlyProductGroups = new List<ProductGroupInputDto>[12];
+
+        var rawProductGroups = request.ProductGroupTargets ?? new List<ProductGroupInputDto>();
+
+        if (mode == BulkDistributeMode.AnnualTotal)
+        {
+            // Revenue: round to 2 decimals, penny adjustment at month 12
+            var baseRev = Math.Round(request.RevenueTarget / 12m, 2, MidpointRounding.AwayFromZero);
+            for (var m = 0; m < 11; m++)
+            {
+                monthlyRevenue[m] = baseRev;
+            }
+            monthlyRevenue[11] = request.RevenueTarget - (baseRev * 11m);
+
+            // New Customers: integer division, remainder at month 12
+            var annualCust = request.NewCustomerTarget ?? 0;
+            var baseCust = annualCust / 12;
+            for (var m = 0; m < 11; m++)
+            {
+                monthlyNewCustomers[m] = baseCust;
+            }
+            monthlyNewCustomers[11] = annualCust - (baseCust * 11);
+
+            // Product groups: round to 2 decimals, penny adjustment at month 12
+            for (var m = 0; m < 12; m++)
+            {
+                monthlyProductGroups[m] = new List<ProductGroupInputDto>();
+            }
+
+            foreach (var pg in rawProductGroups)
+            {
+                var basePgRev = Math.Round(pg.RevenueTarget / 12m, 2, MidpointRounding.AwayFromZero);
+                for (var m = 0; m < 11; m++)
+                {
+                    monthlyProductGroups[m].Add(new ProductGroupInputDto
+                    {
+                        ProductTypeId = pg.ProductTypeId,
+                        RevenueTarget = basePgRev
+                    });
+                }
+                monthlyProductGroups[11].Add(new ProductGroupInputDto
+                {
+                    ProductTypeId = pg.ProductTypeId,
+                    RevenueTarget = pg.RevenueTarget - (basePgRev * 11m)
+                });
+            }
+        }
+        else // MONTHLY_BASE
+        {
+            for (var m = 0; m < 12; m++)
+            {
+                monthlyRevenue[m] = request.RevenueTarget;
+                monthlyNewCustomers[m] = request.NewCustomerTarget ?? 0;
+                monthlyProductGroups[m] = rawProductGroups.Select(pg => new ProductGroupInputDto
+                {
+                    ProductTypeId = pg.ProductTypeId,
+                    RevenueTarget = pg.RevenueTarget
+                }).ToList();
+            }
+        }
+
+        var result = new BulkDistributeTargetsResult
+        {
+            Year = request.Year,
+            Scope = scope.ToString(),
+            TargetScopeId = request.TargetScopeId
+        };
+
+        // Execute in database transaction
+        await using var tx = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+
+        var existingTargets = await _dbContext.Targets
+            .Include(t => t.ProductGroupTargets)
+            .Where(t => t.Year == request.Year && t.Scope == scope &&
+                (scope == TargetScope.SALESPERSON ? t.SalespersonId == request.TargetScopeId : t.TerritoryId == request.TargetScopeId))
+            .ToListAsync(cancellationToken);
+
+        for (var month = 1; month <= 12; month++)
+        {
+            var mIdx = month - 1;
+            var rev = monthlyRevenue[mIdx];
+            var cust = monthlyNewCustomers[mIdx];
+            var pgs = monthlyProductGroups[mIdx];
+
+            var existing = existingTargets.FirstOrDefault(t => t.Month == month);
+
+            if (existing != null)
+            {
+                if (overwriteMode == BulkOverwriteMode.KeepCustom)
+                {
+                    result.SkippedCount++;
+                    continue;
+                }
+
+                // OVERWRITE_ALL
+                var before = SnapshotJson.Serialize(ToTargetSnapshot(existing));
+
+                existing.RevenueTarget = rev;
+                existing.NewCustomerTarget = cust;
+                existing.UpdatedAt = DateTime.UtcNow;
+                existing.Note = "ตั้งเป้าหมายแบบกลุ่ม (Bulk Target)";
+
+                _dbContext.TargetProductGroups.RemoveRange(existing.ProductGroupTargets);
+                foreach (var pg in pgs)
+                {
+                    _dbContext.TargetProductGroups.Add(new TargetProductGroup
+                    {
+                        TargetId = existing.Id,
+                        ProductTypeId = pg.ProductTypeId,
+                        RevenueTarget = pg.RevenueTarget
+                    });
+                }
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+
+                // Reload for accurate after snapshot
+                var updated = await _dbContext.Targets
+                    .AsNoTracking()
+                    .Include(t => t.ProductGroupTargets)
+                    .FirstAsync(t => t.Id == existing.Id, cancellationToken);
+
+                _dbContext.TargetRevisions.Add(new TargetRevision
+                {
+                    TargetId = existing.Id,
+                    ChangeType = TargetChangeType.UPDATE,
+                    Before = before,
+                    After = SnapshotJson.Serialize(ToTargetSnapshot(updated)),
+                    ChangedById = changedById,
+                    Note = "ปรับปรุงเป้าหมายแบบกลุ่ม (Bulk Target)"
+                });
+
+                result.UpdatedCount++;
+            }
+            else
+            {
+                var newTarget = new Target
+                {
+                    Scope = scope,
+                    SalespersonId = scope == TargetScope.SALESPERSON ? request.TargetScopeId : null,
+                    TerritoryId = scope == TargetScope.TERRITORY ? request.TargetScopeId : null,
+                    Year = request.Year,
+                    Month = month,
+                    RevenueTarget = rev,
+                    NewCustomerTarget = cust,
+                    Note = "ตั้งเป้าหมายแบบกลุ่ม (Bulk Target)",
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+
+                AssertTargetScopeXor(scope, newTarget.SalespersonId, newTarget.TerritoryId, null);
+
+                foreach (var pg in pgs)
+                {
+                    newTarget.ProductGroupTargets.Add(new TargetProductGroup
+                    {
+                        ProductTypeId = pg.ProductTypeId,
+                        RevenueTarget = pg.RevenueTarget
+                    });
+                }
+
+                _dbContext.Targets.Add(newTarget);
+                await _dbContext.SaveChangesAsync(cancellationToken);
+
+                _dbContext.TargetRevisions.Add(new TargetRevision
+                {
+                    TargetId = newTarget.Id,
+                    ChangeType = TargetChangeType.CREATE,
+                    Before = null,
+                    After = SnapshotJson.Serialize(ToTargetSnapshot(newTarget)),
+                    ChangedById = changedById,
+                    Note = "ตั้งเป้าหมายแบบกลุ่ม (Bulk Target)"
+                });
+
+                result.CreatedCount++;
+            }
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        await tx.CommitAsync(cancellationToken);
+
+        // Fetch refreshed targets to return in result
+        var allTargets = await _dbContext.Targets
+            .AsNoTracking()
+            .Include(t => t.Salesperson)
+            .Include(t => t.ProductGroupTargets).ThenInclude(pg => pg.ProductType)
+            .Where(t => t.Year == request.Year && t.Scope == scope &&
+                (scope == TargetScope.SALESPERSON ? t.SalespersonId == request.TargetScopeId : t.TerritoryId == request.TargetScopeId))
+            .OrderBy(t => t.Month)
+            .ToListAsync(cancellationToken);
+
+        result.Targets = allTargets.Select(t => MapTarget(t, includeSalesperson: true, includeProductType: true)).ToList();
+
+        return result;
+    }
 }

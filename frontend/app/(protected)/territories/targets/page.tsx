@@ -17,11 +17,12 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { listTerritories } from "@/features/territories/api/territories.api";
-import { TargetsGrid, targetKey, listTargets, upsertTerritoryTarget } from "@/features/targets";
+import { TargetsGrid, targetKey, listTargets, upsertTerritoryTarget, BulkTargetModal } from "@/features/targets";
 import { Target, Territory } from "@/lib/types";
 import { getErrorMessage } from "@/lib/api-client";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useAbortableEffect } from "@/lib/useAbortableEffect";
+import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/shared/feedback/ConfirmDialog";
 import { EmptyState } from "@/components/shared/feedback/EmptyState";
@@ -42,6 +43,7 @@ export default function TerritoryTargetsPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
   // Unsaved-cell count reported by TargetsGrid; used to guard the year switch.
   const [gridDirtyCount, setGridDirtyCount] = useState(0);
   const [pendingYear, setPendingYear] = useState<number | null>(null);
@@ -128,11 +130,25 @@ export default function TerritoryTargetsPage() {
 
   return (
     <div className="mx-auto max-w-6xl p-4 sm:p-6">
-      <h1 className="text-2xl font-semibold text-text-primary">เป้ารายเขต</h1>
-      <p className="mt-1 text-sm text-text-secondary">
-        เป้าระดับเขตแยกจากเป้ารายคน — พนักงานขายที่ไม่ได้ตั้งเป้าเองจะได้เป้าจากเขตที่รับผิดชอบ
-        {!canEdit && " (ดูได้เท่านั้น การแก้ไขสงวนไว้สำหรับผู้จัดการ)"}
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold text-text-primary">เป้ารายเขต</h1>
+          <p className="mt-1 text-sm text-text-secondary">
+            เป้าระดับเขตแยกจากเป้ารายคน — พนักงานขายที่ไม่ได้ตั้งเป้าเองจะได้เป้าจากเขตที่รับผิดชอบ
+            {!canEdit && " (ดูได้เท่านั้น การแก้ไขสงวนไว้สำหรับผู้จัดการ)"}
+          </p>
+        </div>
+        {canEdit && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setBulkModalOpen(true)}
+            size="sm"
+          >
+            ตั้งเป้าแบบกลุ่ม (Bulk Setup)
+          </Button>
+        )}
+      </div>
 
       <div className="mt-4 flex items-center gap-2 text-sm">
         <label htmlFor="territory-targets-year-select" className="font-medium text-text-secondary">ปี</label>
@@ -192,6 +208,17 @@ export default function TerritoryTargetsPage() {
           tone="danger"
           onConfirm={confirmPendingYear}
           onCancel={() => setPendingYear(null)}
+        />
+      )}
+
+      {bulkModalOpen && (
+        <BulkTargetModal
+          year={year}
+          scope="TERRITORY"
+          entities={territories.map((t) => ({ id: t.id, displayName: t.name }))}
+          existingTargets={targets}
+          onClose={() => setBulkModalOpen(false)}
+          onSaved={() => setReloadNonce((n) => n + 1)}
         />
       )}
     </div>
