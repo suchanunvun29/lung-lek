@@ -245,3 +245,34 @@ public class SalesmanNameRuleMemberConfiguration : IEntityTypeConfiguration<Sale
             .OnDelete(DeleteBehavior.Restrict);
     }
 }
+
+public class SalesmanAliasConfiguration : IEntityTypeConfiguration<SalesmanAlias>
+{
+    public void Configure(EntityTypeBuilder<SalesmanAlias> builder)
+    {
+        builder.ToTable("SalesmanAlias");
+
+        builder.HasKey(a => a.Id);
+
+        builder.Property(a => a.NormalizedKey).IsRequired();
+        builder.HasIndex(a => a.NormalizedKey).IsUnique();
+
+        builder.Property(a => a.SampleRaw).IsRequired();
+        builder.Property(a => a.SalespersonId).IsRequired();
+        builder.Property(a => a.Source).IsRequired();
+        builder.Property(a => a.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+        builder.HasIndex(a => a.SalespersonId);
+
+        builder.HasOne(a => a.Salesperson)
+            .WithMany(s => s.Aliases)
+            .HasForeignKey(a => a.SalespersonId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne(a => a.DecidedBy)
+            .WithMany(u => u.SalesmanAliases)
+            .HasForeignKey(a => a.DecidedById)
+            .OnDelete(DeleteBehavior.SetNull);
+    }
+}
+

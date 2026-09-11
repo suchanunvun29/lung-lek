@@ -21,6 +21,9 @@ public static class ReportEndpoints
         // GET /reports/individual/:salespersonId/export — Excel download
         app.MapGet("/reports/individual/{salespersonId}/export", HandleExportIndividualReport);
 
+        // GET /reports/individual/export-all — Multi-sheet Excel download (BE-106 / DES-033)
+        app.MapGet("/reports/individual/export-all", HandleExportAllIndividualReports);
+
         // GET /reports/team-overview — JSON team overview (WACC-P0-002)
         app.MapGet("/reports/team-overview", HandleGetTeamOverviewReport);
 
@@ -134,6 +137,29 @@ public static class ReportEndpoints
         var period = periodResult.Period;
         var fileName = Uri.EscapeDataString(
             $"team-overview-{period.PeriodType}-{period.Year}-{period.PeriodNumber}.xlsx");
+        return Results.File(workbookBytes, ExcelMimeType, fileName);
+    }
+
+    private static async Task<IResult> HandleExportAllIndividualReports(
+        string? periodType,
+        string? year,
+        string? periodNumber,
+        IExcelReportService reportService,
+        ITerritoryScopeResolver scopeResolver,
+        ICurrentUserService currentUserService,
+        CancellationToken ct)
+    {
+        var periodResult = ParsePeriod(periodType, year, periodNumber);
+        if (periodResult.Error != null) return periodResult.Error;
+
+        var user = new CurrentUserRef { Id = currentUserService.User!.Id, Role = currentUserService.User.Role };
+        var scope = await scopeResolver.ResolveViewerTerritoryScopeAsync(user, ct);
+        var visibleIds = await scopeResolver.VisibleSalespersonIdsAsync(scope, ct);
+
+        var workbookBytes = await reportService.BuildAllIndividualReportsAsync(periodResult.Period, visibleIds, ct);
+        var period = periodResult.Period;
+        var fileName = Uri.EscapeDataString(
+            $"all-individual-reports-{period.PeriodType}-{period.Year}-{period.PeriodNumber}.xlsx");
         return Results.File(workbookBytes, ExcelMimeType, fileName);
     }
 

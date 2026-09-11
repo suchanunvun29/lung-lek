@@ -29,6 +29,10 @@ export function exportTeamOverviewReport(token: string, period: PeriodKey) {
   return downloadFile(`/reports/team-overview/export?${periodQueryParams(period)}`, token);
 }
 
+export function exportAllIndividualReports(token: string, period: PeriodKey) {
+  return downloadFile(`/reports/individual/export-all?${periodQueryParams(period)}`, token);
+}
+
 export function exportTerritoryOverviewReport(token: string, period: PeriodKey) {
   return downloadFile(`/reports/territory-overview/export?${periodQueryParams(period)}`, token);
 }

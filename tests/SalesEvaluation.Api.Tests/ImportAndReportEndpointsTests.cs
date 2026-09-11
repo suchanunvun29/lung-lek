@@ -163,4 +163,40 @@ public class ImportAndReportEndpointsTests : IClassFixture<CustomWebApplicationF
         using var workbook = new ClosedXML.Excel.XLWorkbook(ms);
         Assert.NotEmpty(workbook.Worksheets);
     }
+
+    [Fact]
+    public async Task ExportAllIndividualReports_ReturnsMultiSheetXlsxFile()
+    {
+        var token = _factory.CreateToken(_factory.ManagerUserId, UserRole.MANAGER);
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/reports/individual/export-all?periodType=MONTH&year=2026&periodNumber=1");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await _client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", response.Content.Headers.ContentType?.MediaType);
+        Assert.Contains("all-individual-reports", response.Content.Headers.ContentDisposition?.FileName ?? "");
+
+        var bytes = await response.Content.ReadAsByteArrayAsync();
+        Assert.NotEmpty(bytes);
+        using var ms = new MemoryStream(bytes);
+        using var workbook = new ClosedXML.Excel.XLWorkbook(ms);
+        Assert.NotEmpty(workbook.Worksheets);
+    }
+
+    [Fact]
+    public async Task DryRun_InvalidExtension_Returns400()
+    {
+        var token = _factory.CreateToken(_factory.ManagerUserId, UserRole.MANAGER);
+        using var content = new MultipartFormDataContent();
+        var fileContent = new ByteArrayContent(new byte[] { 1, 2, 3 });
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
+        content.Add(fileContent, "file", "test.txt");
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/import/dry-run");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Content = content;
+
+        var response = await _client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
 }

@@ -28,5 +28,6 @@ public class User : IDomainEntity
     public ICollection<SalesmanNameReview> SalesmanNameReviews { get; set; } = new List<SalesmanNameReview>();
     public ICollection<HospitalRegistryLink> RegistryLinkReviews { get; set; } = new List<HospitalRegistryLink>();
     public ICollection<ProductAlias> ProductAliases { get; set; } = new List<ProductAlias>();
+    public ICollection<SalesmanAlias> SalesmanAliases { get; set; } = new List<SalesmanAlias>();
     public ICollection<TerritoryAssignment> TerritoryAssignmentsMade { get; set; } = new List<TerritoryAssignment>();
 }

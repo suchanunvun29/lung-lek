@@ -129,7 +129,66 @@ public class ExcelReportService : IExcelReportService
 
         using var workbook = new XLWorkbook();
         var sheet = workbook.AddWorksheet("รายงานรายบุคคล");
+        PopulateIndividualReportSheet(sheet, data, period);
 
+        return WorkbookToBytes(workbook);
+    }
+
+    public async Task<byte[]> BuildAllIndividualReportsAsync(
+        AppPeriodKey period, List<int>? visibleSalespersonIds, CancellationToken cancellationToken = default)
+    {
+        var query = _dbContext.Salespeople.AsNoTracking().Where(s => s.IsActive);
+        if (visibleSalespersonIds != null)
+            query = query.Where(s => visibleSalespersonIds.Contains(s.Id));
+
+        var salespeople = await query.OrderBy(s => s.DisplayName).ToListAsync(cancellationToken);
+
+        using var workbook = new XLWorkbook();
+        var usedSheetNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var sp in salespeople)
+        {
+            var rawName = string.IsNullOrWhiteSpace(sp.DisplayName) ? sp.NameInFile : sp.DisplayName;
+            var safeName = SanitizeSheetName(rawName, usedSheetNames);
+            usedSheetNames.Add(safeName);
+
+            var sheet = workbook.AddWorksheet(safeName);
+            var data = await AssembleIndividualReportAsync(sp.Id, period, cancellationToken);
+            PopulateIndividualReportSheet(sheet, data, period);
+        }
+
+        if (workbook.Worksheets.Count == 0)
+        {
+            workbook.AddWorksheet("ไม่มีข้อมูล");
+        }
+
+        return WorkbookToBytes(workbook);
+    }
+
+    private static string SanitizeSheetName(string name, HashSet<string> existingNames)
+    {
+        var invalidChars = new[] { ':', '\\', '/', '?', '*', '[', ']' };
+        var clean = new string(name.Select(c => invalidChars.Contains(c) ? '_' : c).ToArray()).Trim();
+        if (string.IsNullOrEmpty(clean)) clean = "Salesperson";
+        if (clean.Length > 28) clean = clean[..28];
+
+        var candidate = clean;
+        var suffix = 1;
+        while (existingNames.Contains(candidate))
+        {
+            candidate = $"{clean}_{suffix}";
+            if (candidate.Length > 31)
+            {
+                candidate = $"{clean[..Math.Min(clean.Length, 28 - suffix.ToString().Length)]}_{suffix}";
+            }
+            suffix++;
+        }
+        return candidate;
+    }
+
+    private static void PopulateIndividualReportSheet(
+        IXLWorksheet sheet, IndividualReportResponse data, AppPeriodKey period)
+    {
         sheet.Column(1).Width = 32;
         sheet.Column(2).Width = 20;
         sheet.Column(3).Width = 20;
@@ -225,9 +284,8 @@ public class ExcelReportService : IExcelReportService
         {
             sheet.Cell(row, 1).Value = "ยังไม่ได้สร้างสรุปจุดแข็ง/จุดที่ควรพัฒนาสำหรับงวดนี้";
         }
-
-        return WorkbookToBytes(workbook);
     }
+
 
     // -----------------------------------------------------------------------
     //  WACC-P0-002: Team Overview Assembler & Excel Builder

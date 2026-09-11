@@ -20,7 +20,7 @@
  */
 
 import { useMemo, useState } from "react";
-import { exportTeamOverviewReport, getTeamOverviewReport } from "@/features/reports/api/reports.api";
+import { exportAllIndividualReports, exportTeamOverviewReport, getTeamOverviewReport } from "@/features/reports/api/reports.api";
 import { getErrorMessage } from "@/lib/api-client";
 import { useAbortableEffect } from "@/lib/useAbortableEffect";
 import { formatScore, periodLabelTh, SCORED_METRIC_LABEL_TH, SCORED_METRIC_ORDER } from "@/lib/kpiLabels";
@@ -67,6 +67,11 @@ export default function TeamOverviewReportPage() {
     if (!token) return;
     // Same parameters as the screen's own query.
     await exportTeamOverviewReport(token, period);
+  }
+
+  async function handleExportAll() {
+    if (!token) return;
+    await exportAllIndividualReports(token, period);
   }
 
   // Default order: composite descending, unranked (null composite) last —
@@ -143,7 +148,20 @@ export default function TeamOverviewReportPage() {
         description="คะแนนรวมของพนักงานขายทุกคนในขอบเขตของคุณ เรียงจากคะแนนสูงสุดก่อน — กดหัวคอลัมน์เพื่อเรียงใหม่ได้"
         meta={`ทั้งหมด ${results.length.toLocaleString("th-TH")} รายการ`}
         secondaryActions={[
-          <ExportButton key="export" onExport={handleExport} disabled={loading} disabledReason="รอโหลดข้อมูลก่อน" />,
+          <ExportButton
+            key="export-all"
+            label="Export รายงานทุกคน (Excel)"
+            onExport={handleExportAll}
+            disabled={loading || results.length === 0}
+            disabledReason="รอโหลดข้อมูลก่อน"
+          />,
+          <ExportButton
+            key="export"
+            label="Export ภาพรวมทีม (Excel)"
+            onExport={handleExport}
+            disabled={loading || results.length === 0}
+            disabledReason="รอโหลดข้อมูลก่อน"
+          />,
         ]}
       />
 

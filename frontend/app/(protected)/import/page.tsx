@@ -23,11 +23,23 @@ import {
   ImportBatchSummary,
   ImportIssueTable,
   UploadForm,
+  SalesmanVerificationModal,
   deleteImportPeriods,
+  dryRunSalesmanVerification,
   uploadImportFile,
 } from "@/features/import";
+import { listSalespeople } from "@/features/master-data/api/master-data.api";
 import { getErrorMessage } from "@/lib/api-client";
-import { AppendDryRunPreview, ImportBatch, ImportMode, PeriodDryRunPreview, PeriodTouched } from "@/lib/types";
+import {
+  AppendDryRunPreview,
+  ImportBatch,
+  ImportMode,
+  PeriodDryRunPreview,
+  PeriodTouched,
+  SalesmanDecisionInput,
+  SalesmanDryRunResult,
+  Salesperson,
+} from "@/lib/types";
 import { ForbiddenState } from "@/components/shared/auth/ForbiddenState";
 import { PageHeader } from "@/components/shared/layout/PageHeader";
 import { ConfirmDialog } from "@/components/shared/feedback/ConfirmDialog";
@@ -94,6 +106,9 @@ export default function ImportPage() {
   const [deletePeriods, setDeletePeriods] = useState<PeriodTouched[]>([]);
   const [dryRun, setDryRun] = useState<DryRunState | null>(null);
   const [appendPreview, setAppendPreview] = useState<AppendPreviewState | null>(null);
+  const [salesmanDryRun, setSalesmanDryRun] = useState<{ result: SalesmanDryRunResult; file: File } | null>(null);
+  const [existingSalespeople, setExistingSalespeople] = useState<Salesperson[]>([]);
+  const [salesmanDecisions, setSalesmanDecisions] = useState<SalesmanDecisionInput[]>([]);
   const [deleteZoneOpen, setDeleteZoneOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -109,10 +124,32 @@ export default function ImportPage() {
     if (!token) return;
     setResult(null);
     setConfirmError(null);
+    setSalesmanDecisions([]);
+
+    if (mode === "REPLACE_PERIOD" && replacePeriods.length === 0) {
+      throw new Error("เลือกงวดที่ต้องการแทนที่ก่อนอัปโหลดไฟล์");
+    }
+
+    try {
+      const salesmanVerification = await dryRunSalesmanVerification(token, file);
+      if (salesmanVerification.unverifiedSalesmen.length > 0) {
+        const spData = await listSalespeople(token);
+        setExistingSalespeople(spData.salespeople);
+        setSalesmanDryRun({ result: salesmanVerification, file });
+        return;
+      }
+    } catch (err) {
+      throw new Error(getErrorMessage(err, "ตรวจสอบไฟล์ก่อนนำเข้าไม่สำเร็จ"));
+    }
+
+    await proceedWithImportDryRun(file, []);
+  }
+
+  async function proceedWithImportDryRun(file: File, decisions: SalesmanDecisionInput[]) {
+    if (!token) return;
     if (mode === "APPEND") {
       try {
-        // T-UX-027 — upload is only a dry-run; the commit happens on the confirm button.
-        const data = await uploadImportFile(token, file, { mode: "APPEND", confirm: false });
+        const data = await uploadImportFile(token, file, { mode: "APPEND", confirm: false }, decisions);
         if (!("dryRun" in data) || !data.dryRun || !("appendPreview" in data)) {
           throw new Error("ผลลัพธ์การตรวจสอบไม่ถูกต้อง");
         }
@@ -122,13 +159,25 @@ export default function ImportPage() {
       }
       return;
     }
-    if (replacePeriods.length === 0) throw new Error("เลือกงวดที่ต้องการแทนที่ก่อนอัปโหลดไฟล์");
+
     try {
-      const data = await uploadImportFile(token, file, { mode: "REPLACE_PERIOD", targetPeriods: replacePeriods, confirm: false });
+      const data = await uploadImportFile(token, file, { mode: "REPLACE_PERIOD", targetPeriods: replacePeriods, confirm: false }, decisions);
       if (!("dryRun" in data) || !data.dryRun || !("preview" in data)) throw new Error("ผลลัพธ์การตรวจสอบไม่ถูกต้อง");
       setDryRun({ action: "REPLACE_PERIOD", preview: data.preview, file });
     } catch (err) {
       throw new Error(getErrorMessage(err, "ตรวจสอบการแทนที่ข้อมูลงวดไม่สำเร็จ"));
+    }
+  }
+
+  async function handleSalesmanVerificationConfirm(decisions: SalesmanDecisionInput[]) {
+    if (!token || !salesmanDryRun) return;
+    setSalesmanDecisions(decisions);
+    const file = salesmanDryRun.file;
+    setSalesmanDryRun(null);
+    try {
+      await proceedWithImportDryRun(file, decisions);
+    } catch (err) {
+      setConfirmError(getErrorMessage(err, "ตรวจสอบผลจำลองไม่สำเร็จ"));
     }
   }
 
@@ -137,7 +186,7 @@ export default function ImportPage() {
     setIsConfirming(true);
     setConfirmError(null);
     try {
-      const data = await uploadImportFile(token, appendPreview.file, { mode: "APPEND", confirm: true });
+      const data = await uploadImportFile(token, appendPreview.file, { mode: "APPEND", confirm: true }, salesmanDecisions);
       if ("dryRun" in data && data.dryRun) throw new Error("ผลลัพธ์การยืนยันไม่ถูกต้อง");
       if (!("importBatch" in data)) throw new Error("ผลลัพธ์การยืนยันไม่ถูกต้อง");
       setResult(data.importBatch);
@@ -184,7 +233,7 @@ export default function ImportPage() {
     try {
       if (dryRun.action === "REPLACE_PERIOD") {
         if (!dryRun.file) throw new Error("ไม่พบไฟล์สำหรับยืนยันการแทนที่ข้อมูล");
-        const data = await uploadImportFile(token, dryRun.file, { mode: "REPLACE_PERIOD", targetPeriods: dryRun.preview.targetPeriods, confirm: true });
+        const data = await uploadImportFile(token, dryRun.file, { mode: "REPLACE_PERIOD", targetPeriods: dryRun.preview.targetPeriods, confirm: true }, salesmanDecisions);
         if (!("importBatch" in data) || ("dryRun" in data && data.dryRun)) throw new Error("ผลลัพธ์การยืนยันไม่ถูกต้อง");
         setResult(data.importBatch);
         setResultKind("upload");
@@ -326,6 +375,18 @@ export default function ImportPage() {
           pending={isCheckingDelete}
           onConfirm={() => checkPeriodDelete()}
           onCancel={() => setDeleteConfirmOpen(false)}
+        />
+      )}
+
+      {salesmanDryRun && (
+        <SalesmanVerificationModal
+          isOpen={true}
+          unverifiedSalesmen={salesmanDryRun.result.unverifiedSalesmen}
+          totalRows={salesmanDryRun.result.totalRows}
+          fileName={salesmanDryRun.file.name}
+          existingSalespeople={existingSalespeople}
+          onClose={() => setSalesmanDryRun(null)}
+          onConfirm={(decisions) => void handleSalesmanVerificationConfirm(decisions)}
         />
       )}
 

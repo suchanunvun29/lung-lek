@@ -16,6 +16,7 @@ public interface IAppDbContext
     DbSet<SalesmanNameReview> SalesmanNameReviews { get; }
     DbSet<SalesmanNameRule> SalesmanNameRules { get; }
     DbSet<SalesmanNameRuleMember> SalesmanNameRuleMembers { get; }
+    DbSet<SalesmanAlias> SalesmanAliases { get; }
     DbSet<SalesLine> SalesLines { get; }
     DbSet<SalesLineCredit> SalesLineCredits { get; }
     DbSet<ImportBatch> ImportBatches { get; }

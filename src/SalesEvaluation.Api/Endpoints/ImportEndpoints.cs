@@ -12,8 +12,12 @@ public static class ImportEndpoints
 {
     public static IEndpointRouteBuilder MapImportEndpoints(this IEndpointRouteBuilder app)
     {
-        // POST /import — MANAGER only, multipart form (field: file)
+        // POST /import and /import/execute — MANAGER only, multipart form (field: file)
         app.MapPost("/import", HandleUploadImport);
+        app.MapPost("/import/execute", HandleUploadImport);
+
+        // POST /import/dry-run — MANAGER only
+        app.MapPost("/import/dry-run", HandleDryRunSalesmanVerification);
 
         // POST /import/period-delete — MANAGER only
         app.MapPost("/import/period-delete", HandlePeriodDelete);
@@ -34,6 +38,49 @@ public static class ImportEndpoints
         app.MapGet("/sales-lines", HandleListSalesLines);
 
         return app;
+    }
+
+    private static async Task<IResult> HandleDryRunSalesmanVerification(
+        HttpContext httpContext,
+        IImportService importService,
+        ICurrentUserService currentUserService,
+        CancellationToken ct)
+    {
+        if (currentUserService.User?.Role != UserRole.MANAGER)
+            return Results.Json(new { error = "Forbidden: insufficient role" }, statusCode: StatusCodes.Status403Forbidden);
+
+        var form = await httpContext.Request.ReadFormAsync(ct);
+        var file = form.Files.GetFile("file");
+        if (file == null)
+            return Results.Json(new { error = "File is required (field name: file)" }, statusCode: StatusCodes.Status400BadRequest);
+
+        if (!file.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
+            return Results.Json(new { error = "Only .xlsx files are supported" }, statusCode: StatusCodes.Status400BadRequest);
+
+        const long maxUploadSizeBytes = 20 * 1024 * 1024;
+        if (file.Length > maxUploadSizeBytes)
+            return Results.Json(new { error = "Upload error: File too large" }, statusCode: StatusCodes.Status400BadRequest);
+
+        byte[] fileBuffer;
+        using (var ms = new MemoryStream())
+        {
+            await file.CopyToAsync(ms, ct);
+            fileBuffer = ms.ToArray();
+        }
+
+        try
+        {
+            var result = await importService.DryRunSalesmanVerificationAsync(fileBuffer, ct);
+            return Results.Ok(result);
+        }
+        catch (Exception ex) when (ex.Message == "HEADER_NOT_FOUND")
+        {
+            return Results.Json(new { error = "ไม่พบแถว header ที่ถูกต้องในไฟล์ Excel" }, statusCode: StatusCodes.Status400BadRequest);
+        }
+        catch (Exception ex)
+        {
+            return Results.Json(new { error = ex.Message }, statusCode: StatusCodes.Status400BadRequest);
+        }
     }
 
     private static async Task<IResult> HandleListImportBatches(
@@ -107,6 +154,22 @@ public static class ImportEndpoints
             }
         }
 
+        // Parse salesmanDecisions from body
+        List<SalesmanDecisionInput>? salesmanDecisions = null;
+        var salesmanDecisionsJson = form["salesmanDecisions"].FirstOrDefault();
+        if (!string.IsNullOrEmpty(salesmanDecisionsJson))
+        {
+            try
+            {
+                var jsonOpts = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                salesmanDecisions = System.Text.Json.JsonSerializer.Deserialize<List<SalesmanDecisionInput>>(salesmanDecisionsJson, jsonOpts);
+            }
+            catch
+            {
+                return TerritoryEndpoints.Invalid("salesmanDecisions must be a valid JSON array");
+            }
+        }
+
         byte[] fileBuffer;
         using (var ms = new MemoryStream())
         {
@@ -118,7 +181,7 @@ public static class ImportEndpoints
         {
             var result = await importService.ImportSalesFileAsync(
                 fileBuffer, file.FileName, (int)file.Length,
-                currentUserService.User!.Id, mode, targetPeriods, confirm, ct);
+                currentUserService.User!.Id, mode, targetPeriods, confirm, salesmanDecisions, ct);
 
             return Results.Json(result, statusCode: result.DryRun ? StatusCodes.Status200OK : StatusCodes.Status201Created);
         }

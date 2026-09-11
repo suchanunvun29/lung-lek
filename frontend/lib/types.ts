@@ -1,7 +1,4 @@
-// Types derived verbatim from the `User`/`Salesperson` fields of design.md's Prisma schema
-// and from the shapes actually returned by backend/src/controllers/{auth,user}.controller.ts.
-
-export type UserRole = "MANAGER" | "SALESPERSON";
+export type UserRole = "MANAGER" | "SALESPERSON" | "SUPERVISOR";
 
 export interface SalespersonSummary {
   id: number;
@@ -177,6 +174,29 @@ export interface AppendDryRunResponse {
 export interface PeriodImportConfirmedResponse {
   dryRun: false;
   importBatch: ImportBatch;
+}
+
+export type SalesmanDecisionAction = "AUTO_CREATE" | "MAP_EXISTING" | "SKIP";
+
+export interface UnverifiedSalesman {
+  rawName: string;
+  normalizedKey: string;
+  rowCount: number;
+  suggestedSalespersonId: number | null;
+  suggestedSalespersonName: string | null;
+}
+
+export interface SalesmanDryRunResult {
+  totalRows: number;
+  periodsFound: PeriodTouched[];
+  unverifiedSalesmen: UnverifiedSalesman[];
+}
+
+export interface SalesmanDecisionInput {
+  normalizedKey: string;
+  rawName: string;
+  action: SalesmanDecisionAction;
+  targetSalespersonId?: number | null;
 }
 
 export interface EntitySummary {

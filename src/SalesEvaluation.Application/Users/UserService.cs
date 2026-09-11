@@ -64,7 +64,7 @@ public class UserService : IUserService
 
         if (unlinkedOnly == true)
         {
-            query = query.Where(u => u.Role == UserRole.SALESPERSON && u.Salesperson == null);
+            query = query.Where(u => u.Role != UserRole.MANAGER && u.Salesperson == null);
         }
 
         if (!string.IsNullOrWhiteSpace(q))
@@ -284,7 +284,7 @@ public class UserService : IUserService
                 DisplayName = user.Salesperson.DisplayName,
                 NameInFile = user.Salesperson.NameInFile
             },
-            IsSalespersonLinked = user.Role != UserRole.SALESPERSON || user.Salesperson != null
+            IsSalespersonLinked = user.Role == UserRole.MANAGER || user.Salesperson != null
         };
     }
 }
