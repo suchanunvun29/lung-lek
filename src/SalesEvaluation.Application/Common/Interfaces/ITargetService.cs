@@ -35,4 +35,7 @@ public interface ITargetService
 
     /// <summary>GET /targets/derived/:salespersonId/:year/:month. Returns null when the salesperson does not exist.</summary>
     Task<DerivedTargetResponse?> GetDerivedTargetAsync(int salespersonId, int year, int month, CancellationToken cancellationToken = default);
+
+    /// <summary>POST /targets/bulk-distribute — distribute annual or monthly base targets across 12 months.</summary>
+    Task<BulkDistributeTargetsResult> BulkDistributeTargetsAsync(BulkDistributeTargetsRequest request, int changedById, CancellationToken cancellationToken = default);
 }

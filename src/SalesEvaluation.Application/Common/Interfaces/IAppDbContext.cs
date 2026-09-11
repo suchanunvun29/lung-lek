@@ -42,5 +42,7 @@ public interface IAppDbContext
     DbSet<EvaluationSetting> EvaluationSettings { get; }
     DbSet<CoachingInsight> CoachingInsights { get; }
 
+    Microsoft.EntityFrameworkCore.Infrastructure.DatabaseFacade Database { get; }
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

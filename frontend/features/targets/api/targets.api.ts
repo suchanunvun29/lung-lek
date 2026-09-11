@@ -110,3 +110,39 @@ export function copyTargets(token: string, input: CopyTargetsInput) {
     token
   );
 }
+
+export type BulkDistributeMode = "ANNUAL_TOTAL" | "MONTHLY_BASE";
+export type BulkOverwriteMode = "OVERWRITE_ALL" | "KEEP_CUSTOM";
+
+export interface BulkDistributeTargetsInput {
+  scope: TargetScope;
+  targetScopeId: number;
+  year: number;
+  mode: BulkDistributeMode;
+  revenueTarget: number;
+  newCustomerTarget?: number | null;
+  productGroupTargets?: ProductGroupTargetInput[];
+  overwriteMode: BulkOverwriteMode;
+}
+
+export interface BulkDistributeTargetsResult {
+  year: number;
+  scope: string;
+  targetScopeId: number;
+  createdCount: number;
+  updatedCount: number;
+  skippedCount: number;
+  targets: Target[];
+}
+
+export function bulkDistributeTargets(
+  token: string,
+  input: BulkDistributeTargetsInput
+) {
+  return request<BulkDistributeTargetsResult>(
+    "/targets/bulk-distribute",
+    { method: "POST", body: JSON.stringify(input) },
+    token
+  );
+}
+

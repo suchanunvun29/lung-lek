@@ -1,5 +1,6 @@
 export * from "./api/targets.api";
 export * from "./components/CopyTargetsModal";
+export * from "./components/BulkTargetModal";
 export * from "./components/ProductGroupTargetsModal";
 export * from "./components/TargetCell";
 export * from "./components/TargetsGrid";
