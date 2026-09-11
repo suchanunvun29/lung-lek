@@ -5,7 +5,9 @@
  * Extra actions go to secondaryActions; anything beyond two moves into an overflow menu
  * (kept simple for now — secondary actions render as-is at this primitive level).
  *
- * Desktop: title left, primary action right, on one row.
+ * Desktop: title left, primary action right, on one row. When the toolbar
+ * (ContextBar + actions) is too wide to sit beside the title, it wraps to a
+ * full-width row beneath instead of compressing the title block.
  * Tablet: same, wrapping to two rows when the title is long.
  * Mobile: title on its own row; primary action full-width 44px beneath it;
  *         secondary actions collapse into an overflow menu.
@@ -52,9 +54,12 @@ export function PageHeader({
 
   return (
     <div className="mb-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        {/* Title, description, and meta */}
-        <div className="flex-1 min-w-0">
+      <div className="flex flex-col gap-4 lg:flex-row lg:flex-wrap lg:items-start lg:justify-between">
+        {/* Title, description, and meta. lg:min-w gives the title block a real
+            floor, so on lg:flex-wrap a toolbar wider than the leftover space
+            drops to its own full-width row instead of squeezing the title (and
+            its unbreakable Thai description) down to a one-word-per-line column. */}
+        <div className="min-w-0 flex-1 lg:min-w-[24rem]">
           <h1
             className="text-[var(--type-page-title)] font-semibold text-[var(--text-primary)] leading-tight"
           >
