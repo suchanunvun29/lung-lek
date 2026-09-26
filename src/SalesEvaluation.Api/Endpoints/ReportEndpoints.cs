@@ -6,7 +6,9 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using SalesEvaluation.Application.Common;
 using SalesEvaluation.Application.Common.Interfaces;
+using SalesEvaluation.Application.Kpi;
 using SalesEvaluation.Contracts.Common;
+using SalesEvaluation.Contracts.Kpi;
 using SalesEvaluation.Domain.Enums;
 
 public static class ReportEndpoints
@@ -29,6 +31,9 @@ public static class ReportEndpoints
 
         // GET /reports/team-overview/export — Excel download
         app.MapGet("/reports/team-overview/export", HandleExportTeamOverviewReport);
+
+        // GET /reports/territory-overview — JSON territory overview (WACC-P0-004)
+        app.MapGet("/reports/territory-overview", HandleGetTerritoryOverviewReport);
 
         // GET /reports/territory-overview/export — Excel download (WACC-P0-004)
         app.MapGet("/reports/territory-overview/export", HandleExportTerritoryOverviewReport);
@@ -138,6 +143,41 @@ public static class ReportEndpoints
         var fileName = Uri.EscapeDataString(
             $"team-overview-{period.PeriodType}-{period.Year}-{period.PeriodNumber}.xlsx");
         return Results.File(workbookBytes, ExcelMimeType, fileName);
+    }
+
+    private static async Task<IResult> HandleGetTerritoryOverviewReport(
+        string? periodType,
+        string? year,
+        string? periodNumber,
+        ITerritoryKpiService territoryKpiService,
+        ITerritoryScopeResolver scopeResolver,
+        ICurrentUserService currentUserService,
+        CancellationToken ct)
+    {
+        var periodResult = ParsePeriod(periodType, year, periodNumber);
+        if (periodResult.Error != null) return periodResult.Error;
+
+        var user = new CurrentUserRef { Id = currentUserService.User!.Id, Role = currentUserService.User.Role };
+        var visible = await scopeResolver.ResolveViewerTerritoryIdsAsync(user, ct);
+
+        // Same compute-then-strip assembly as the Excel export and /territory-kpi/team:
+        // every active territory's row, groups aggregated from those rows, buckets in the
+        // MANAGER-only payload.
+        var fullRows = await territoryKpiService.BuildFullTerritoryRowsAsync(periodResult.Period, ct);
+        var groupRows = await territoryKpiService.BuildTerritoryGroupRowsAsync(fullRows, periodResult.Period, ct);
+
+        var response = new TerritoryOverviewResponseDto
+        {
+            Period = KpiScoringService.ToPeriodDto(periodResult.Period),
+            Territories = fullRows.Select(row => territoryKpiService.SerializeRow(row, visible)).ToList(),
+            TerritoryGroups = groupRows.Select(row => territoryKpiService.SerializeGroupRow(row, visible)).ToList(),
+        };
+        if (currentUserService.User!.Role == UserRole.MANAGER)
+        {
+            response.Buckets = await territoryKpiService.GetBucketsAsync(periodResult.Period, ct);
+        }
+
+        return Results.Ok(response);
     }
 
     private static async Task<IResult> HandleExportAllIndividualReports(
