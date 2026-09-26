@@ -5,6 +5,8 @@ import {
   PeriodDryRunResponse,
   PeriodImportConfirmedResponse,
   PeriodTouched,
+  SalesmanDecisionInput,
+  SalesmanDryRunResult,
 } from "@/lib/types";
 
 export interface ReplacePeriodImportInput {
@@ -38,16 +40,26 @@ export interface PeriodDeleteInput {
 
 export type PeriodDeleteResponse = PeriodDryRunResponse | PeriodImportConfirmedResponse;
 
+export function dryRunSalesmanVerification(token: string, file: File, signal?: AbortSignal) {
+  const formData = new FormData();
+  formData.append("file", file);
+  return request<SalesmanDryRunResult>("/import/dry-run", { method: "POST", body: formData, signal }, token);
+}
+
 export function uploadImportFile(
   token: string,
   file: File,
-  input: UploadImportInput = { mode: "APPEND", confirm: true }
+  input: UploadImportInput = { mode: "APPEND", confirm: true },
+  salesmanDecisions?: SalesmanDecisionInput[]
 ) {
   const formData = new FormData();
   formData.append("file", file);
   formData.append("mode", input.mode);
   if (input.mode === "REPLACE_PERIOD") {
     formData.append("targetPeriods", JSON.stringify(input.targetPeriods));
+  }
+  if (salesmanDecisions && salesmanDecisions.length > 0) {
+    formData.append("salesmanDecisions", JSON.stringify(salesmanDecisions));
   }
   // The backend validates `confirm` from the query string (see import.routes.ts), not the body.
   return request<UploadImportResponse>(`/import?confirm=${input.confirm}`, { method: "POST", body: formData }, token);

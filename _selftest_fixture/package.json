@@ -1,6 +1,0 @@
-{
-  "name": "selftest-fixture",
-  "scripts": {
-    "typecheck": "node -e \"process.exit(1)\""
-  }
-}

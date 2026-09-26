@@ -17,6 +17,7 @@ public static class TargetEndpoints
         // Route order matters: literal segments must be matched before parameterized ones.
         app.MapGet("/targets/derived/{salespersonId}/{year}/{month}", HandleGetDerivedTarget);
         app.MapPost("/targets/copy", HandleCopyTargets);
+        app.MapPost("/targets/bulk-distribute", HandleBulkDistributeTargets);
         app.MapGet("/targets/{targetId}/revisions", HandleGetTargetRevisions);
         app.MapPut("/targets/{targetId}/product-groups", HandleUpdateProductGroupTargets);
         app.MapPut("/targets/territory/{territoryId}/{year}/{month}", HandleUpsertTerritoryTarget);
@@ -473,6 +474,133 @@ public static class TargetEndpoints
                 ct);
 
             return Results.Json(new { sourceCount = result.SourceCount, created = result.Created, updated = result.Updated, skipped = result.Skipped });
+        }
+    }
+
+    private static async Task<IResult> HandleBulkDistributeTargets(
+        HttpContext httpContext,
+        ITargetService targetService,
+        ICurrentUserService currentUserService,
+        CancellationToken ct)
+    {
+        if (RequireManager(currentUserService) is { } roleError)
+        {
+            return roleError;
+        }
+
+        var parsedBody = await TerritoryEndpoints.ParseBodyAsync(httpContext);
+        if (!parsedBody.Ok)
+        {
+            return parsedBody.Error!;
+        }
+
+        using (parsedBody.Doc)
+        {
+            var root = parsedBody.Doc!.RootElement;
+            if (root.ValueKind != JsonValueKind.Object)
+            {
+                return TerritoryEndpoints.Invalid("Payload must be a JSON object");
+            }
+
+            if (!root.TryGetProperty("scope", out var scopeProp) || scopeProp.ValueKind != JsonValueKind.String)
+            {
+                return TerritoryEndpoints.Invalid("scope is required");
+            }
+            var scopeStr = scopeProp.GetString()?.ToUpperInvariant() ?? "";
+            if (scopeStr != "SALESPERSON" && scopeStr != "TERRITORY")
+            {
+                return TerritoryEndpoints.Invalid("scope must be SALESPERSON or TERRITORY");
+            }
+
+            if (!root.TryGetProperty("targetScopeId", out var targetScopeIdProp) || !targetScopeIdProp.TryGetInt32(out var targetScopeId) || targetScopeId <= 0)
+            {
+                return TerritoryEndpoints.Invalid("targetScopeId must be a positive integer");
+            }
+
+            if (!root.TryGetProperty("year", out var yearProp) || !yearProp.TryGetInt32(out var year) || year < 2000 || year > 2100)
+            {
+                return TerritoryEndpoints.Invalid("year must be an integer between 2000 and 2100");
+            }
+
+            if (!root.TryGetProperty("mode", out var modeProp) || modeProp.ValueKind != JsonValueKind.String)
+            {
+                return TerritoryEndpoints.Invalid("mode is required");
+            }
+            var modeStr = modeProp.GetString()?.ToUpperInvariant() ?? "";
+            if (modeStr != BulkDistributeMode.AnnualTotal && modeStr != BulkDistributeMode.MonthlyBase)
+            {
+                return TerritoryEndpoints.Invalid("mode must be ANNUAL_TOTAL or MONTHLY_BASE");
+            }
+
+            if (!root.TryGetProperty("revenueTarget", out var revProp) || !revProp.TryGetDecimal(out var revenueTarget) || revenueTarget < 0)
+            {
+                return TerritoryEndpoints.Invalid("revenueTarget must be a non-negative number");
+            }
+
+            int? newCustomerTarget = null;
+            if (root.TryGetProperty("newCustomerTarget", out var custProp) && custProp.ValueKind != JsonValueKind.Null)
+            {
+                if (!custProp.TryGetInt32(out var custVal) || custVal < 0)
+                {
+                    return TerritoryEndpoints.Invalid("newCustomerTarget must be a non-negative integer");
+                }
+                newCustomerTarget = custVal;
+            }
+
+            var overwriteMode = BulkOverwriteMode.OverwriteAll;
+            if (root.TryGetProperty("overwriteMode", out var owProp) && owProp.ValueKind == JsonValueKind.String)
+            {
+                var owStr = owProp.GetString()?.ToUpperInvariant() ?? "";
+                if (owStr == BulkOverwriteMode.OverwriteAll || owStr == BulkOverwriteMode.KeepCustom)
+                {
+                    overwriteMode = owStr;
+                }
+                else
+                {
+                    return TerritoryEndpoints.Invalid("overwriteMode must be OVERWRITE_ALL or KEEP_CUSTOM");
+                }
+            }
+
+            List<ProductGroupInputDto>? productGroupTargets = null;
+            if (root.TryGetProperty("productGroupTargets", out var pgProp) && pgProp.ValueKind == JsonValueKind.Array)
+            {
+                productGroupTargets = new List<ProductGroupInputDto>();
+                foreach (var item in pgProp.EnumerateArray())
+                {
+                    if (!item.TryGetProperty("productTypeId", out var ptIdProp) || !ptIdProp.TryGetInt32(out var ptId) || ptId <= 0)
+                    {
+                        return TerritoryEndpoints.Invalid("productTypeId must be a positive integer");
+                    }
+                    if (!item.TryGetProperty("revenueTarget", out var ptRevProp) || !ptRevProp.TryGetDecimal(out var ptRev) || ptRev < 0)
+                    {
+                        return TerritoryEndpoints.Invalid("product group revenueTarget must be a non-negative number");
+                    }
+                    productGroupTargets.Add(new ProductGroupInputDto
+                    {
+                        ProductTypeId = ptId,
+                        RevenueTarget = ptRev
+                    });
+                }
+            }
+
+            var request = new BulkDistributeTargetsRequest
+            {
+                Scope = scopeStr,
+                TargetScopeId = targetScopeId,
+                Year = year,
+                Mode = modeStr,
+                RevenueTarget = revenueTarget,
+                NewCustomerTarget = newCustomerTarget,
+                OverwriteMode = overwriteMode,
+                ProductGroupTargets = productGroupTargets
+            };
+
+            var result = await targetService.BulkDistributeTargetsAsync(
+                request,
+                currentUserService.User!.Id,
+                ct);
+
+            return Results.Ok(result);
         }
     }
 

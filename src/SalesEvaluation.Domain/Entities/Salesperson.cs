@@ -23,4 +23,5 @@ public class Salesperson : IDomainEntity
     public ICollection<TerritoryAssignment> TerritoryAssignments { get; set; } = new List<TerritoryAssignment>();
     public ICollection<SalesmanNameReview> NameReviewsCreated { get; set; } = new List<SalesmanNameReview>();
     public ICollection<SalesmanNameReview> NameReviewsMergedInto { get; set; } = new List<SalesmanNameReview>();
+    public ICollection<SalesmanAlias> Aliases { get; set; } = new List<SalesmanAlias>();
 }

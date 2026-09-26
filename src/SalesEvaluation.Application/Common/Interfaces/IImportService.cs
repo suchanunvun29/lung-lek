@@ -31,7 +31,25 @@ public record AppendPreview(
     List<Period> PeriodsFound,
     string? FatalError);
 
-public record ImportResult(bool DryRun, ImportBatchDto? ImportBatch, DryRunPreview? Preview, AppendPreview? AppendPreview = null);
+public record UnverifiedSalesmanDto(
+    string RawName,
+    string NormalizedKey,
+    int RowCount,
+    int? SuggestedSalespersonId,
+    string? SuggestedSalespersonName);
+
+public record SalesmanDryRunResult(
+    int TotalRows,
+    List<Period> PeriodsFound,
+    List<UnverifiedSalesmanDto> UnverifiedSalesmen);
+
+public record SalesmanDecisionInput(
+    string NormalizedKey,
+    string RawName,
+    string Action, // "AUTO_CREATE", "MAP_EXISTING", "SKIP"
+    int? TargetSalespersonId);
+
+public record ImportResult(bool DryRun, ImportBatchDto? ImportBatch, DryRunPreview? Preview, AppendPreview? AppendPreview = null, SalesmanDryRunResult? SalesmanDryRun = null);
 
 public interface IImportService
 {
@@ -47,6 +65,14 @@ public interface IImportService
         ImportMode mode,
         List<Period>? targetPeriods,
         bool confirm,
+        List<SalesmanDecisionInput>? salesmanDecisions = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// POST /api/sales/import/dry-run — check salesperson names and return unverified salesmen.
+    /// </summary>
+    Task<SalesmanDryRunResult> DryRunSalesmanVerificationAsync(
+        byte[] fileBuffer,
         CancellationToken cancellationToken = default);
 
     /// <summary>

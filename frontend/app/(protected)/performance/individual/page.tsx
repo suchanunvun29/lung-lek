@@ -22,7 +22,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
-import { exportIndividualReport, getIndividualReport } from "@/features/reports/api/reports.api";
+import { exportAllIndividualReports, exportIndividualReport, getIndividualReport } from "@/features/reports/api/reports.api";
 import { listSalespeople } from "@/features/master-data/api/master-data.api";
 import { getErrorMessage } from "@/lib/api-client";
 import { useAbortableEffect } from "@/lib/useAbortableEffect";
@@ -156,6 +156,11 @@ export default function IndividualPerformancePage() {
     await exportIndividualReport(token, String(salespersonId), period);
   }
 
+  async function handleExportAll() {
+    if (!token) return;
+    await exportAllIndividualReports(token, period);
+  }
+
   const revenueMetric = report?.composite.metrics.find((m) => m.metric === "REVENUE_VS_TARGET") ?? null;
   const composite = report?.composite ?? null;
   const compositeDelta = composite ? formatScoreDelta(composite.composite, report!.previousComposite.composite) : null;
@@ -168,8 +173,20 @@ export default function IndividualPerformancePage() {
         description="เป้า vs ผลจริง, KPI ทุกตัว, คะแนนรวม, จุดแข็ง/จุดที่ควรพัฒนา, เทียบกับงวดก่อน — สำหรับใช้ในการประชุมประเมิน"
         meta={report ? `งวด: ${periodLabelTh(report.period)}` : `งวด: ${periodLabelTh(period)}`}
         secondaryActions={[
+          ...(currentUser?.role === "MANAGER" || currentUser?.role === "SUPERVISOR"
+            ? [
+                <ExportButton
+                  key="export-all"
+                  label="Export รายงานทุกคน (Excel)"
+                  onExport={handleExportAll}
+                  disabled={loading}
+                  disabledReason="รอโหลดข้อมูลก่อน"
+                />,
+              ]
+            : []),
           <ExportButton
             key="export"
+            label="Export รายบุคคล (Excel)"
             onExport={handleExport}
             disabled={!report || loading}
             disabledReason="รอโหลดข้อมูลก่อน"

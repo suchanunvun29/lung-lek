@@ -16,6 +16,9 @@ public interface IExcelReportService
     /// <summary>GET /reports/individual/:salespersonId/export — individual coaching workbook.</summary>
     Task<byte[]> BuildIndividualReportAsync(int salespersonId, AppPeriodKey period, CancellationToken cancellationToken = default);
 
+    /// <summary>GET /reports/individual/export-all — multi-sheet workbook containing all visible salespeople.</summary>
+    Task<byte[]> BuildAllIndividualReportsAsync(AppPeriodKey period, List<int>? visibleSalespersonIds, CancellationToken cancellationToken = default);
+
     /// <summary>Shared assembler for GET /reports/team-overview (JSON) and Excel export.</summary>
     Task<TeamOverviewResponse> AssembleTeamOverviewReportAsync(AppPeriodKey period, List<int>? visibleSalespersonIds, CancellationToken cancellationToken = default);
 

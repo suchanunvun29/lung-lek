@@ -16,6 +16,7 @@ public interface IAppDbContext
     DbSet<SalesmanNameReview> SalesmanNameReviews { get; }
     DbSet<SalesmanNameRule> SalesmanNameRules { get; }
     DbSet<SalesmanNameRuleMember> SalesmanNameRuleMembers { get; }
+    DbSet<SalesmanAlias> SalesmanAliases { get; }
     DbSet<SalesLine> SalesLines { get; }
     DbSet<SalesLineCredit> SalesLineCredits { get; }
     DbSet<ImportBatch> ImportBatches { get; }
@@ -40,6 +41,8 @@ public interface IAppDbContext
     DbSet<ScoringWeightRevision> ScoringWeightRevisions { get; }
     DbSet<EvaluationSetting> EvaluationSettings { get; }
     DbSet<CoachingInsight> CoachingInsights { get; }
+
+    Microsoft.EntityFrameworkCore.Infrastructure.DatabaseFacade Database { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

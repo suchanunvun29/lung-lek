@@ -26,6 +26,7 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<SalesmanNameReview> SalesmanNameReviews => Set<SalesmanNameReview>();
     public DbSet<SalesmanNameRule> SalesmanNameRules => Set<SalesmanNameRule>();
     public DbSet<SalesmanNameRuleMember> SalesmanNameRuleMembers => Set<SalesmanNameRuleMember>();
+    public DbSet<SalesmanAlias> SalesmanAliases => Set<SalesmanAlias>();
     public DbSet<SalesLine> SalesLines => Set<SalesLine>();
     public DbSet<SalesLineCredit> SalesLineCredits => Set<SalesLineCredit>();
     public DbSet<ImportBatch> ImportBatches => Set<ImportBatch>();

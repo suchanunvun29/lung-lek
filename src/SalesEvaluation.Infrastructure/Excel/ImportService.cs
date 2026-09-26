@@ -71,17 +71,20 @@ public class ImportService : IImportService
         ImportMode mode,
         List<Period>? targetPeriods,
         bool confirm,
+        List<SalesmanDecisionInput>? salesmanDecisions = null,
         CancellationToken cancellationToken = default)
     {
+        var skippedSalesmanKeys = await ApplySalesmanDecisionsAsync(salesmanDecisions, uploadedById, cancellationToken);
+
         if (mode == ImportMode.APPEND)
         {
             // T-UX-027 — APPEND now honors confirm like REPLACE/PERIOD_DELETE: confirm=false
             // parses + validates inside a transaction that is rolled back (batch row included),
             // so the manager sees a summary before anything reaches the database.
             if (!confirm)
-                return await RunAppendDryRunAsync(fileBuffer, fileName, fileSizeBytes, uploadedById, cancellationToken);
+                return await RunAppendDryRunAsync(fileBuffer, fileName, fileSizeBytes, uploadedById, skippedSalesmanKeys, cancellationToken);
 
-            var batch = await ImportSalesFileLegacyAsync(fileBuffer, fileName, fileSizeBytes, uploadedById, cancellationToken);
+            var batch = await ImportSalesFileLegacyAsync(fileBuffer, fileName, fileSizeBytes, uploadedById, skippedSalesmanKeys, cancellationToken);
             return new ImportResult(DryRun: false, ImportBatch: batch, Preview: null);
         }
 
@@ -103,7 +106,7 @@ public class ImportService : IImportService
         using var tx = await _db.Database.BeginTransactionAsync(cancellationToken);
         try
         {
-            var result = await RunReplaceImportAsync(parsed, fileName, fileSizeBytes, uploadedById, uniqueTarget, confirm, cancellationToken);
+            var result = await RunReplaceImportAsync(parsed, fileName, fileSizeBytes, uploadedById, uniqueTarget, confirm, skippedSalesmanKeys, cancellationToken);
             if (result.DryRun)
             {
                 dryRunResult = result.Preview;
@@ -135,6 +138,194 @@ public class ImportService : IImportService
 
         return new ImportResult(DryRun: false, ImportBatch: importBatch, Preview: null);
     }
+
+    public async Task<SalesmanDryRunResult> DryRunSalesmanVerificationAsync(
+        byte[] fileBuffer,
+        CancellationToken cancellationToken = default)
+    {
+        var parsed = ParseSalesWorkbook(fileBuffer);
+        var salespeople = await _db.Salespeople.AsNoTracking().ToListAsync(cancellationToken);
+        var spByPersonCore = salespeople.ToDictionary(s => NameNormalizer.PersonCore(s.NameInFile), s => s.Id);
+
+        var aliases = await _db.SalesmanAliases.AsNoTracking().ToListAsync(cancellationToken);
+        var byAliasKey = aliases.ToDictionary(a => a.NormalizedKey, a => a.SalespersonId);
+
+        var sharedRules = await _db.SalesmanNameRules.AsNoTracking().Select(r => r.NormalizedRaw).ToListAsync(cancellationToken);
+        var sharedRuleSet = new HashSet<string>(sharedRules);
+
+        var unverifiedMap = new Dictionary<string, (string RawName, int Count)>();
+        var periodsFound = new HashSet<string>();
+
+        foreach (var row in parsed.ParsedRows)
+        {
+            periodsFound.Add($"{row.Year}-{row.Month}");
+            var subNames = NameNormalizer.SplitSharedSalesmanNames(row.SalesmanRaw);
+
+            if (subNames.Length <= 1)
+            {
+                var key = NameNormalizer.PersonCore(row.SalesmanRaw);
+                if (!spByPersonCore.ContainsKey(key) && !byAliasKey.ContainsKey(key))
+                {
+                    if (unverifiedMap.TryGetValue(key, out var val))
+                        unverifiedMap[key] = (val.RawName, val.Count + 1);
+                    else
+                        unverifiedMap[key] = (row.SalesmanRaw, 1);
+                }
+            }
+            else
+            {
+                var normalizedRaw = NameNormalizer.NormalizeSharedSalesmanRaw(subNames);
+                if (!sharedRuleSet.Contains(normalizedRaw))
+                {
+                    foreach (var name in subNames)
+                    {
+                        var key = NameNormalizer.PersonCore(name);
+                        if (!spByPersonCore.ContainsKey(key) && !byAliasKey.ContainsKey(key))
+                        {
+                            if (unverifiedMap.TryGetValue(key, out var val))
+                                unverifiedMap[key] = (val.RawName, val.Count + 1);
+                            else
+                                unverifiedMap[key] = (name, 1);
+                        }
+                    }
+                }
+            }
+        }
+
+        var unverifiedList = new List<UnverifiedSalesmanDto>();
+        foreach (var (key, (rawName, count)) in unverifiedMap)
+        {
+            var bestMatch = salespeople
+                .Select(s => new {
+                    Salesperson = s,
+                    Score = ComputeMatchScore(rawName, s.DisplayName, s.NameInFile)
+                })
+                .Where(x => x.Score > 0)
+                .OrderByDescending(x => x.Score)
+                .FirstOrDefault();
+
+            unverifiedList.Add(new UnverifiedSalesmanDto(
+                RawName: rawName,
+                NormalizedKey: key,
+                RowCount: count,
+                SuggestedSalespersonId: bestMatch?.Salesperson.Id,
+                SuggestedSalespersonName: bestMatch?.Salesperson.DisplayName
+            ));
+        }
+
+        var sortedPeriods = periodsFound.Select(k => {
+            var parts = k.Split('-');
+            return new Period(int.Parse(parts[0]), int.Parse(parts[1]));
+        }).OrderBy(p => p.Year).ThenBy(p => p.Month).ToList();
+
+        return new SalesmanDryRunResult(
+            TotalRows: parsed.TotalRows,
+            PeriodsFound: sortedPeriods,
+            UnverifiedSalesmen: unverifiedList.OrderByDescending(u => u.RowCount).ToList()
+        );
+    }
+
+    private static int ComputeMatchScore(string raw, string displayName, string nameInFile)
+    {
+        var rawLower = raw.Trim().ToLowerInvariant();
+        var dLower = displayName.Trim().ToLowerInvariant();
+        var nLower = nameInFile.Trim().ToLowerInvariant();
+        if (rawLower == dLower || rawLower == nLower) return 100;
+        if (dLower.Contains(rawLower) || rawLower.Contains(dLower)) return 80;
+        if (nLower.Contains(rawLower) || rawLower.Contains(nLower)) return 70;
+        var rawCore = NameNormalizer.PersonCore(raw);
+        var dCore = NameNormalizer.PersonCore(displayName);
+        if (rawCore.Length > 3 && dCore.Contains(rawCore)) return 60;
+        return 0;
+    }
+
+    private async Task<HashSet<string>> ApplySalesmanDecisionsAsync(
+        List<SalesmanDecisionInput>? decisions,
+        int uploadedById,
+        CancellationToken cancellationToken)
+    {
+        var skippedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (decisions == null || decisions.Count == 0)
+            return skippedKeys;
+
+        foreach (var d in decisions)
+        {
+            if (string.IsNullOrWhiteSpace(d.NormalizedKey)) continue;
+
+            if (string.Equals(d.Action, "SKIP", StringComparison.OrdinalIgnoreCase))
+            {
+                skippedKeys.Add(d.NormalizedKey);
+                continue;
+            }
+
+            if (string.Equals(d.Action, "AUTO_CREATE", StringComparison.OrdinalIgnoreCase))
+            {
+                var raw = string.IsNullOrWhiteSpace(d.RawName) ? d.NormalizedKey : d.RawName;
+                var sp = await _db.Salespeople.FirstOrDefaultAsync(s => s.NameInFile == raw || s.DisplayName == raw, cancellationToken);
+                if (sp == null)
+                {
+                    sp = new Salesperson { NameInFile = raw, DisplayName = raw };
+                    _db.Salespeople.Add(sp);
+                    await _db.SaveChangesAsync(cancellationToken);
+                }
+
+                var alias = await _db.SalesmanAliases.FirstOrDefaultAsync(a => a.NormalizedKey == d.NormalizedKey, cancellationToken);
+                if (alias == null)
+                {
+                    _db.SalesmanAliases.Add(new SalesmanAlias
+                    {
+                        NormalizedKey = d.NormalizedKey,
+                        SampleRaw = raw,
+                        SalespersonId = sp.Id,
+                        Source = NameDecisionSource.MANAGER,
+                        DecidedById = uploadedById,
+                        DecidedAt = DateTime.UtcNow
+                    });
+                }
+                else
+                {
+                    alias.SalespersonId = sp.Id;
+                    alias.Source = NameDecisionSource.MANAGER;
+                    alias.DecidedById = uploadedById;
+                    alias.DecidedAt = DateTime.UtcNow;
+                }
+                await _db.SaveChangesAsync(cancellationToken);
+            }
+            else if (string.Equals(d.Action, "MAP_EXISTING", StringComparison.OrdinalIgnoreCase) && d.TargetSalespersonId.HasValue)
+            {
+                var targetId = d.TargetSalespersonId.Value;
+                var spExists = await _db.Salespeople.AnyAsync(s => s.Id == targetId, cancellationToken);
+                if (spExists)
+                {
+                    var raw = string.IsNullOrWhiteSpace(d.RawName) ? d.NormalizedKey : d.RawName;
+                    var alias = await _db.SalesmanAliases.FirstOrDefaultAsync(a => a.NormalizedKey == d.NormalizedKey, cancellationToken);
+                    if (alias == null)
+                    {
+                        _db.SalesmanAliases.Add(new SalesmanAlias
+                        {
+                            NormalizedKey = d.NormalizedKey,
+                            SampleRaw = raw,
+                            SalespersonId = targetId,
+                            Source = NameDecisionSource.MANAGER,
+                            DecidedById = uploadedById,
+                            DecidedAt = DateTime.UtcNow
+                        });
+                    }
+                    else
+                    {
+                        alias.SalespersonId = targetId;
+                        alias.Source = NameDecisionSource.MANAGER;
+                        alias.DecidedById = uploadedById;
+                        alias.DecidedAt = DateTime.UtcNow;
+                    }
+                    await _db.SaveChangesAsync(cancellationToken);
+                }
+            }
+        }
+
+        return skippedKeys;
+    }
+
 
     public async Task<ImportResult> DeleteSalesPeriodsAsync(
         int uploadedById,
@@ -535,6 +726,7 @@ public class ImportService : IImportService
 
     private async Task<ImportBatchDto> ImportSalesFileLegacyAsync(
         byte[] fileBuffer, string fileName, int fileSizeBytes, int uploadedById,
+        HashSet<string> skippedSalesmanKeys,
         CancellationToken cancellationToken)
     {
         var inProgress = await _db.ImportBatches
@@ -589,7 +781,7 @@ public class ImportService : IImportService
                 throw new ImportInProgressException();
             }
 
-            var outcome = await StageAppendRowsAsync(parsed, batch.Id, issues, cancellationToken);
+            var outcome = await StageAppendRowsAsync(parsed, batch.Id, issues, skippedSalesmanKeys, cancellationToken);
 
             errorRows += outcome.CreditErrorRows;
             await tx.CommitAsync(cancellationToken);
@@ -639,6 +831,7 @@ public class ImportService : IImportService
     /// </summary>
     private async Task<ImportResult> RunAppendDryRunAsync(
         byte[] fileBuffer, string fileName, int fileSizeBytes, int uploadedById,
+        HashSet<string> skippedSalesmanKeys,
         CancellationToken cancellationToken)
     {
         ParsedWorkbook parsed;
@@ -690,7 +883,7 @@ public class ImportService : IImportService
             _db.ImportBatches.Add(tempBatch);
             await _db.SaveChangesAsync(cancellationToken);
 
-            var outcome = await StageAppendRowsAsync(parsed, tempBatch.Id, issues, cancellationToken);
+            var outcome = await StageAppendRowsAsync(parsed, tempBatch.Id, issues, skippedSalesmanKeys, cancellationToken);
 
             var preview = BuildAppendPreview(
                 parsed, issues, outcome.CreditErrorRows, outcome.Inserted, outcome.Updated, outcome.PeriodsTouched);
@@ -731,13 +924,25 @@ public class ImportService : IImportService
             FatalError: null);
     }
 
+    private static bool IsRowSalesmanSkipped(string rawSalesman, HashSet<string>? skippedSalesmanKeys)
+    {
+        if (skippedSalesmanKeys == null || skippedSalesmanKeys.Count == 0) return false;
+        var subNames = NameNormalizer.SplitSharedSalesmanNames(rawSalesman);
+        if (subNames.Length <= 1)
+        {
+            var key = NameNormalizer.PersonCore(rawSalesman);
+            return skippedSalesmanKeys.Contains(key);
+        }
+        return subNames.Any(n => skippedSalesmanKeys.Contains(NameNormalizer.PersonCore(n)));
+    }
+
     /// <summary>
     /// Core APPEND row pipeline shared by the real import and the dry-run: builds master-data
     /// indexes, resolves credits/hospitals/products per row and stages SalesLine upserts plus
     /// SaveChanges. The caller owns the transaction and the advisory lock.
     /// </summary>
     private async Task<AppendRowOutcome> StageAppendRowsAsync(
-        ParsedWorkbook parsed, int batchId, List<IssueInput> issues, CancellationToken cancellationToken)
+        ParsedWorkbook parsed, int batchId, List<IssueInput> issues, HashSet<string>? skippedSalesmanKeys, CancellationToken cancellationToken)
     {
         var (hospitalsIdx, salespersonIdx, productTypeCache, productIdx, productTypeNames) =
             await BuildIndexesAsync(cancellationToken);
@@ -754,6 +959,9 @@ public class ImportService : IImportService
 
         foreach (var row in parsed.ParsedRows)
         {
+            if (IsRowSalesmanSkipped(row.SalesmanRaw, skippedSalesmanKeys))
+                continue;
+
             var credits = await ResolveSalesmanCreditsAsync(salespersonIdx, row.SalesmanRaw, issues, parsed.FirstSheetName, row.RowNumber, cancellationToken);
             if (credits == null) { creditErrorRows++; continue; }
 
@@ -828,6 +1036,7 @@ public class ImportService : IImportService
         int uploadedById,
         List<Period> targetPeriods,
         bool confirm,
+        HashSet<string>? skippedSalesmanKeys,
         CancellationToken cancellationToken)
     {
         if (PeriodOutOfScope(parsed.ParsedRows, targetPeriods))
@@ -875,6 +1084,9 @@ public class ImportService : IImportService
 
         foreach (var row in parsed.ParsedRows)
         {
+            if (IsRowSalesmanSkipped(row.SalesmanRaw, skippedSalesmanKeys))
+                continue;
+
             var credits = await ResolveSalesmanCreditsAsync(salespersonIdx, row.SalesmanRaw, issues, parsed.FirstSheetName, row.RowNumber, cancellationToken);
             if (credits == null) { errorRows++; continue; }
 
@@ -1033,7 +1245,9 @@ public class ImportService : IImportService
     // -----------------------------------------------------------------------
 
     // In-memory indexes built once per import transaction
-    private record SalespersonIndex(Dictionary<string, int> ByPersonCore);
+    private record SalespersonIndex(
+        Dictionary<string, int> ByPersonCore,
+        Dictionary<string, int> ByAliasKey);
     private record HospitalIndex(
         Dictionary<string, int> ByLatinAlias,
         Dictionary<string, int> ByLatinFallback,
@@ -1051,7 +1265,13 @@ public class ImportService : IImportService
             .Select(s => new { s.Id, s.NameInFile })
             .ToListAsync(cancellationToken);
         var spByPersonCore = salespeople.ToDictionary(s => NameNormalizer.PersonCore(s.NameInFile), s => s.Id);
-        var salespersonIdx = new SalespersonIndex(spByPersonCore);
+
+        var salesmanAliases = await _db.SalesmanAliases
+            .AsNoTracking()
+            .Select(a => new { a.NormalizedKey, a.SalespersonId })
+            .ToListAsync(cancellationToken);
+        var byAliasKey = salesmanAliases.ToDictionary(a => a.NormalizedKey, a => a.SalespersonId);
+        var salespersonIdx = new SalespersonIndex(spByPersonCore, byAliasKey);
 
         var hospitals = await _db.Hospitals
             .AsNoTracking()
@@ -1169,6 +1389,9 @@ public class ImportService : IImportService
         string sheetName, int rowNumber, CancellationToken cancellationToken)
     {
         var key = NameNormalizer.PersonCore(rawName);
+        if (index.ByAliasKey.TryGetValue(key, out var aliasId))
+            return aliasId;
+
         if (index.ByPersonCore.TryGetValue(key, out var existingId))
             return existingId;
 
@@ -1204,6 +1427,9 @@ public class ImportService : IImportService
     private static int? LookupByPersonCore(SalespersonIndex index, string rawName)
     {
         var key = NameNormalizer.PersonCore(rawName);
+        if (index.ByAliasKey.TryGetValue(key, out var aliasId))
+            return aliasId;
+
         return index.ByPersonCore.TryGetValue(key, out var id) ? id : null;
     }
 

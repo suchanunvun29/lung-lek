@@ -5,3 +5,4 @@ export * from "./components/ImportIssueTable";
 export * from "./components/PeriodDryRunModal";
 export * from "./components/PeriodPicker";
 export * from "./components/UploadForm";
+export * from "./components/SalesmanVerificationModal";

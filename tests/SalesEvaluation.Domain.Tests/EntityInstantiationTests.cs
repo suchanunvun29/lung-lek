@@ -119,4 +119,41 @@ public class EntityInstantiationTests
         Assert.Single(target.Revisions);
         Assert.Equal(500000m, target.RevenueTarget);
     }
+
+    [Fact]
+    public void SalesmanAlias_Creation_ShouldHoldProperties()
+    {
+        var alias = new SalesmanAlias
+        {
+            Id = 1,
+            NormalizedKey = "somchai",
+            SampleRaw = "สมชาย",
+            SalespersonId = 5,
+            Source = NameDecisionSource.MANAGER,
+            DecidedById = 1,
+            DecidedAt = DateTime.UtcNow,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        Assert.Equal("somchai", alias.NormalizedKey);
+        Assert.Equal("สมชาย", alias.SampleRaw);
+        Assert.Equal(5, alias.SalespersonId);
+        Assert.Equal(NameDecisionSource.MANAGER, alias.Source);
+        Assert.Equal(1, alias.DecidedById);
+    }
+
+    [Fact]
+    public void UserRole_Supervisor_ShouldBeAvailable()
+    {
+        var user = new User
+        {
+            Id = 2,
+            Email = "supervisor@example.com",
+            PasswordHash = "hash",
+            DisplayName = "Supervisor User",
+            Role = UserRole.SUPERVISOR
+        };
+
+        Assert.Equal(UserRole.SUPERVISOR, user.Role);
+    }
 }

@@ -62,6 +62,7 @@ export function EditUserForm({ user, onSubmit, onCancel }: EditUserFormProps) {
           onChange={(event) => setRole(event.target.value as UserRole)}
         >
           <option value="SALESPERSON">พนักงานขาย</option>
+          <option value="SUPERVISOR">หัวหน้างาน</option>
           <option value="MANAGER">ผู้จัดการ</option>
         </Select>
       </div>

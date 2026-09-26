@@ -40,6 +40,7 @@ import { useAbortableEffect } from "@/lib/useAbortableEffect";
 
 const ROLE_LABEL_TH: Record<string, string> = {
   MANAGER: "ผู้จัดการ",
+  SUPERVISOR: "หัวหน้างาน",
   SALESPERSON: "พนักงานขาย",
 };
 
@@ -288,7 +289,7 @@ export default function UsersPage() {
         if (u.salesperson) {
           return <span className="text-text-primary">{u.salesperson.displayName}</span>;
         }
-        if (u.role === "SALESPERSON") {
+        if (u.role === "SALESPERSON" || u.role === "SUPERVISOR") {
           return (
             <button
               type="button"
@@ -452,6 +453,7 @@ export default function UsersPage() {
             >
               <option value="ALL">ทุกลำดับ/บทบาท</option>
               <option value="MANAGER">ผู้จัดการ</option>
+              <option value="SUPERVISOR">หัวหน้างาน</option>
               <option value="SALESPERSON">พนักงานขาย</option>
             </Select>
           </label>
