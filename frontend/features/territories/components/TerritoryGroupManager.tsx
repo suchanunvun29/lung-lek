@@ -4,12 +4,15 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   addTerritoryGroupMember,
   createTerritoryGroup,
+  updateTerritoryGroup,
   updateTerritoryGroupMember,
 } from "@/features/territories/api/territories.api";
 import { listTargets, upsertTerritoryGroupTarget } from "@/features/targets/api/targets.api";
 import { getErrorMessage } from "@/lib/api-client";
 import { Target, Territory, TerritoryGroup, TerritoryGroupMember } from "@/lib/types";
+import { toast } from "@/components/shared/feedback/toast/ToastProvider";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
@@ -54,6 +57,8 @@ export function TerritoryGroupManager({ canEdit, groups, territories, token, onC
   const [memberForm, setMemberForm] = useState({ territoryId: "", effectiveFrom: CURRENT_MONTH, effectiveTo: "" });
   const [endingMemberId, setEndingMemberId] = useState<number | null>(null);
   const [endingMonth, setEndingMonth] = useState("");
+  // In-flight guard กัน double-click ปุ่มลบ/กู้คืน (แบบเดียวกับ togglingId ของหน้าแม่)
+  const [updatingGroupId, setUpdatingGroupId] = useState<number | null>(null);
   const [groupTargetsByYear, setGroupTargetsByYear] = useState<ReadonlyMap<number, ReadonlyMap<string, Target>>>(new Map());
 
   const territoryNames = useMemo(() => new Map(territories.map((territory) => [territory.id, territory.name])), [territories]);
@@ -129,6 +134,27 @@ export function TerritoryGroupManager({ canEdit, groups, territories, token, onC
     }
   }
 
+  // "ลบ" กลุ่มเขต = ปิดใช้งานผ่าน PATCH isActive (backend เก็บกลุ่มกับประวัติสมาชิกไว้ครบ
+  // และ KPI/รายงานกรองกลุ่ม inactive ให้เอง) — T-UX-011 ระดับ 1 (reversible):
+  // กดเดียวสลับทันที + toast บอกผลและวิธีกู้คืน ไม่ใส่ dialog หนัก
+  async function toggleGroupActive(group: TerritoryGroup, nextActive: boolean) {
+    if (!token || updatingGroupId !== null) return;
+    setUpdatingGroupId(group.id);
+    try {
+      await updateTerritoryGroup(token, group.id, { isActive: nextActive });
+      toast.success(
+        nextActive
+          ? `กู้คืนกลุ่มเขต "${group.name}" แล้ว — กลุ่มกลับมาแสดงใน KPI และรายงานตามเดิม`
+          : `ลบกลุ่มเขต "${group.name}" แล้ว — กลุ่มจะหายจาก KPI และรายงาน แต่ประวัติสมาชิกยังอยู่ (กู้คืนได้ที่ปุ่มเดิม)`
+      );
+      await onChanged();
+    } catch (error) {
+      onError(getErrorMessage(error, nextActive ? "กู้คืนกลุ่มเขตไม่สำเร็จ" : "ลบกลุ่มเขตไม่สำเร็จ"));
+    } finally {
+      setUpdatingGroupId(null);
+    }
+  }
+
   async function saveGroupTarget(group: TerritoryGroup, revenueRaw: string, customersRaw: string): Promise<boolean> {
     if (!token) return false;
     const revenueTarget = Number(revenueRaw);
@@ -154,7 +180,7 @@ export function TerritoryGroupManager({ canEdit, groups, territories, token, onC
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="font-semibold text-text-primary">กลุ่มเขต</h2>
-          <p className="mt-1 text-sm text-text-muted">สมาชิกมีผลเต็มเดือน และประวัติจะไม่ถูกลบ</p>
+          <p className="mt-1 text-sm text-text-muted">สมาชิกมีผลเต็มเดือน ประวัติจะไม่ถูกลบ และการลบกลุ่มกู้คืนได้</p>
         </div>
         <label className="text-sm text-text-secondary">
           งวดที่กำลังตั้งเป้า{" "}
@@ -183,8 +209,25 @@ export function TerritoryGroupManager({ canEdit, groups, territories, token, onC
         {groups.map((group) => {
           const activeMembers = group.members.filter((member) => isMemberActiveInMonth(member, selectedMonth));
           return (
-            <div key={group.id} className="rounded-lg border border-border bg-surface p-3">
-              <h3 className="font-medium text-text-primary">{group.name}</h3>
+            <div key={group.id} className={`rounded-lg border border-border bg-surface p-3 ${group.isActive ? "" : "opacity-60"}`}>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="font-medium text-text-primary">
+                  {group.name}
+                  {!group.isActive && <Badge variant="secondary" className="ml-2">ลบแล้ว</Badge>}
+                </h3>
+                {canEdit && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={group.isActive ? "ghost" : "outline"}
+                    disabled={updatingGroupId === group.id}
+                    onClick={() => void toggleGroupActive(group, !group.isActive)}
+                    className={group.isActive ? "h-7 px-2 text-xs text-danger hover:text-danger hover:bg-danger/10" : "h-7 px-2 text-xs"}
+                  >
+                    {group.isActive ? "ลบกลุ่ม" : "กู้คืน"}
+                  </Button>
+                )}
+              </div>
               <div className="mt-3">
                 <p className="text-sm font-medium text-text-secondary">สมาชิกที่มีผลใน {selectedMonth}</p>
                 {activeMembers.length === 0 ? (
@@ -199,7 +242,7 @@ export function TerritoryGroupManager({ canEdit, groups, territories, token, onC
                   </ul>
                 )}
               </div>
-              {canEdit && groupTargets && (
+              {canEdit && group.isActive && groupTargets && (
                 <div className="mt-4">
                   <p className="text-sm font-medium text-text-secondary">เป้ารวมของกลุ่ม ประจำ {selectedMonth}</p>
                   <GroupTargetForm
@@ -210,7 +253,7 @@ export function TerritoryGroupManager({ canEdit, groups, territories, token, onC
                   />
                 </div>
               )}
-              {canEdit && (
+              {canEdit && group.isActive && (
                 <form onSubmit={(event) => void submitMember(event, group.id)} className="mt-4 flex flex-wrap items-end gap-2 rounded-lg bg-surface-subtle p-3 text-sm border border-border">
                   <label className="text-text-secondary">
                     เขต
@@ -260,7 +303,7 @@ export function TerritoryGroupManager({ canEdit, groups, territories, token, onC
                       <th className="p-2">เขต</th>
                       <th className="p-2">เริ่มมีผล</th>
                       <th className="p-2">สิ้นสุด</th>
-                      {canEdit && <th className="p-2" />}
+                      {canEdit && group.isActive && <th className="p-2" />}
                     </tr>
                   </thead>
                   <tbody>
@@ -269,7 +312,7 @@ export function TerritoryGroupManager({ canEdit, groups, territories, token, onC
                         <td className="p-2 text-text-primary">{territoryNames.get(member.territoryId) ?? member.territory.name}</td>
                         <td className="p-2 text-text-secondary">{member.effectiveFrom.slice(0, 10)}</td>
                         <td className="p-2 text-text-secondary">{member.effectiveTo?.slice(0, 10) ?? "ยังมีผล"}</td>
-                        {canEdit && (
+                        {canEdit && group.isActive && (
                           <td className="p-2">
                             {!member.effectiveTo && (
                               endingMemberId === member.id ? (
