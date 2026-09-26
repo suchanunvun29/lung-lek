@@ -143,6 +143,49 @@ public class ImportAndReportEndpointsTests : IClassFixture<CustomWebApplicationF
         Assert.True(json.TryGetProperty("period", out _));
     }
 
+    // ---- WACC-P0-004: GET /reports/territory-overview (JSON) ----
+
+    [Fact]
+    public async Task GetTerritoryOverview_ReturnsTerritoriesAndGroups()
+    {
+        var token = _factory.CreateToken(_factory.ManagerUserId, UserRole.MANAGER);
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/reports/territory-overview?periodType=MONTH&year=2026&periodNumber=1");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await _client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.True(json.TryGetProperty("period", out _));
+        Assert.True(json.TryGetProperty("territories", out var territories));
+        Assert.Equal(JsonValueKind.Array, territories.ValueKind);
+        Assert.NotEqual(0, territories.GetArrayLength());
+        Assert.True(json.TryGetProperty("territoryGroups", out var groups));
+        Assert.Equal(JsonValueKind.Array, groups.ValueKind);
+        // Seed has one group (terr-1 as member) — a MANAGER sees it as a full row.
+        var group = groups.EnumerateArray().First();
+        Assert.Equal("TERRITORY_FULL", group.GetProperty("visibility").GetString());
+        // Three-bucket reconciliation payload is MANAGER-only, same as /territory-kpi/team.
+        Assert.True(json.TryGetProperty("buckets", out var buckets));
+        Assert.Equal(JsonValueKind.Object, buckets.ValueKind);
+    }
+
+    [Fact]
+    public async Task GetTerritoryOverview_Salesperson_GetsNoBuckets()
+    {
+        var token = _factory.CreateToken(_factory.Salesperson2UserId, UserRole.SALESPERSON);
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/reports/territory-overview?periodType=MONTH&year=2026&periodNumber=1");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await _client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        // DefaultIgnoreCondition.Never keeps nulls in the payload — the FE treats
+        // null buckets as "no reconciliation panel".
+        Assert.True(!json.TryGetProperty("buckets", out var buckets) || buckets.ValueKind == JsonValueKind.Null);
+    }
+
     // ---- WACC-P0-004: GET /reports/territory-overview/export ----
 
     [Fact]

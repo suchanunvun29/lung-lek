@@ -66,6 +66,12 @@ public class TerritoryKpiTeamResponse
     public TerritoryKpiBucketsDto? Buckets { get; set; }
 }
 
+/// <summary>GET /reports/territory-overview — the team payload plus group rows aggregated from it.</summary>
+public class TerritoryOverviewResponseDto : TerritoryKpiTeamResponse
+{
+    public List<object> TerritoryGroups { get; set; } = new();
+}
+
 public class TerritoryKpiSingleResponse
 {
     public PeriodKeyDto Period { get; set; } = new();
