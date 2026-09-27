@@ -145,7 +145,7 @@ export function TerritoryGroupManager({ canEdit, groups, territories, token, onC
       toast.success(
         nextActive
           ? `กู้คืนกลุ่มเขต "${group.name}" แล้ว — กลุ่มกลับมาแสดงใน KPI และรายงานตามเดิม`
-          : `ลบกลุ่มเขต "${group.name}" แล้ว — กลุ่มจะหายจาก KPI และรายงาน แต่ประวัติสมาชิกยังอยู่ (กู้คืนได้ที่ปุ่มเดิม)`
+          : `ลบกลุ่มเขต "${group.name}" แล้ว — กลุ่มจะหายจาก KPI รายงาน และการหารเป้าให้สมาชิก (กู้คืนได้ที่ปุ่มเดิม)`
       );
       await onChanged();
     } catch (error) {
@@ -220,11 +220,13 @@ export function TerritoryGroupManager({ canEdit, groups, territories, token, onC
                     type="button"
                     size="sm"
                     variant={group.isActive ? "ghost" : "outline"}
-                    disabled={updatingGroupId === group.id}
+                    disabled={updatingGroupId !== null}
                     onClick={() => void toggleGroupActive(group, !group.isActive)}
                     className={group.isActive ? "h-7 px-2 text-xs text-danger hover:text-danger hover:bg-danger/10" : "h-7 px-2 text-xs"}
                   >
-                    {group.isActive ? "ลบกลุ่ม" : "กู้คืน"}
+                    {updatingGroupId === group.id
+                      ? group.isActive ? "กำลังลบ..." : "กำลังกู้คืน..."
+                      : group.isActive ? "ลบกลุ่ม" : "กู้คืน"}
                   </Button>
                 )}
               </div>

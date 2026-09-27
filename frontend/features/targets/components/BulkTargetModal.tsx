@@ -19,8 +19,6 @@ import {
   ProductGroupTargetInput,
 } from "../api/targets.api";
 
-const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
-
 export interface BulkTargetModalProps {
   year: number;
   scope: TargetScope;
