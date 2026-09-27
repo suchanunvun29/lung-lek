@@ -285,6 +285,13 @@ public class TargetService : ITargetService
             return null;
         }
 
+        // A deleted group's target form is hidden in the UI — close the API path too,
+        // so a stale client cannot resurrect targets that no longer reach derived targets.
+        if (!territoryGroup.IsActive)
+        {
+            throw new ValidationException("ไม่สามารถตั้งเป้าของกลุ่มเขตที่ลบแล้วได้");
+        }
+
         var existing = await _dbContext.Targets
             .Include(t => t.ProductGroupTargets)
             .FirstOrDefaultAsync(t => t.TerritoryGroupId == territoryGroupId && t.Year == year && t.Month == month && t.Scope == TargetScope.TERRITORY_GROUP, cancellationToken);
@@ -621,11 +628,19 @@ public class TargetService : ITargetService
             .Distinct()
             .ToList();
 
+        // A deleted (IsActive=false) group stops feeding derived targets — the same rule
+        // the KPI layer applies (TerritoryKpiService.BuildTerritoryGroupRowsAsync).
+        var activeGroupIds = await _dbContext.TerritoryGroups
+            .AsNoTracking()
+            .Where(g => g.IsActive && groupIds.Contains(g.Id))
+            .Select(g => g.Id)
+            .ToListAsync(cancellationToken);
+
         var targets = await _dbContext.Targets
             .AsNoTracking()
             .Where(t => t.Year == year && t.Month == month &&
                         ((t.Scope == TargetScope.TERRITORY && t.TerritoryId != null && territoryIds.Contains(t.TerritoryId.Value)) ||
-                         (t.Scope == TargetScope.TERRITORY_GROUP && t.TerritoryGroupId != null && groupIds.Contains(t.TerritoryGroupId.Value))))
+                         (t.Scope == TargetScope.TERRITORY_GROUP && t.TerritoryGroupId != null && activeGroupIds.Contains(t.TerritoryGroupId.Value))))
             .ToListAsync(cancellationToken);
 
         var assignmentRows = await _dbContext.TerritoryAssignments
@@ -719,7 +734,7 @@ public class TargetService : ITargetService
             {
                 RevenueTarget = revenueTarget,
                 NewCustomerTarget = newCustomerTarget,
-                Source = groupIds.Count > 0 ? "TERRITORY_GROUP" : "TERRITORY",
+                Source = activeGroupIds.Count > 0 ? "TERRITORY_GROUP" : "TERRITORY",
                 Items = items
             }
         };

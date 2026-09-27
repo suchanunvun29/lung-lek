@@ -155,4 +155,104 @@ public class TargetAndSettingsEndpointsTests : IClassFixture<CustomWebApplicatio
         Assert.Equal(_factory.TerritoryGroupId1, target.GetProperty("territoryGroupId").GetInt32());
         Assert.Equal("TERRITORY_GROUP", target.GetProperty("scope").GetString());
     }
+
+    // ---- Deleted (IsActive=false) territory groups must not accept or feed targets ----
+
+    private async Task<JsonElement> CreateNamedGroupAsync(string token, string name)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/territory-groups");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(new { name });
+        var response = await _client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        return json.GetProperty("territoryGroup");
+    }
+
+    [Fact]
+    public async Task UpsertTerritoryGroupTarget_OnDeletedGroup_Returns400()
+    {
+        var token = _factory.CreateToken(_factory.ManagerUserId, UserRole.MANAGER);
+
+        var group = await CreateNamedGroupAsync(token, "กลุ่มที่ลบแล้ว (test)");
+        var groupId = group.GetProperty("id").GetInt32();
+
+        using var deleteRequest = new HttpRequestMessage(HttpMethod.Patch, $"/territory-groups/{groupId}");
+        deleteRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        deleteRequest.Content = JsonContent.Create(new { isActive = false });
+        (await _client.SendAsync(deleteRequest)).EnsureSuccessStatusCode();
+
+        var upsertRequest = new HttpRequestMessage(HttpMethod.Put, $"/targets/group/{groupId}/2027/5");
+        upsertRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        upsertRequest.Content = JsonContent.Create(new { revenueTarget = 1000m, newCustomerTarget = 2 });
+        var response = await _client.SendAsync(upsertRequest);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("ลบแล้ว", await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task DerivedTarget_DeletedGroupStopsContributing()
+    {
+        var token = _factory.CreateToken(_factory.ManagerUserId, UserRole.MANAGER);
+
+        // Fresh territory + group + assignment so this test does not depend on the shared seed.
+        var territoryRequest = new HttpRequestMessage(HttpMethod.Post, "/territories");
+        territoryRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        territoryRequest.Content = JsonContent.Create(new { name = "เขตทดสอบ derived" });
+        var territoryResponse = await _client.SendAsync(territoryRequest);
+        territoryResponse.EnsureSuccessStatusCode();
+        var territory = await territoryResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var territoryId = territory.GetProperty("territory").GetProperty("id").GetInt32();
+
+        var group = await CreateNamedGroupAsync(token, "กลุ่มทดสอบ derived");
+        var groupId = group.GetProperty("id").GetInt32();
+
+        var memberRequest = new HttpRequestMessage(HttpMethod.Post, $"/territory-groups/{groupId}/members");
+        memberRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        memberRequest.Content = JsonContent.Create(new { territoryId, effectiveFrom = "2026-03-01" });
+        var memberResponse = await _client.SendAsync(memberRequest);
+        Assert.Equal(HttpStatusCode.Created, memberResponse.StatusCode);
+
+        var assignRequest = new HttpRequestMessage(HttpMethod.Put, "/territory-assignments");
+        assignRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        assignRequest.Content = JsonContent.Create(new { territoryId, salespersonId = _factory.SalespersonId1, effectiveFrom = "2026-03-01", isSupervisor = false });
+        var assignResponse = await _client.SendAsync(assignRequest);
+        assignResponse.EnsureSuccessStatusCode();
+
+        var targetRequest = new HttpRequestMessage(HttpMethod.Put, $"/targets/group/{groupId}/2026/3");
+        targetRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        targetRequest.Content = JsonContent.Create(new { revenueTarget = 1000m, newCustomerTarget = 4 });
+        Assert.Equal(HttpStatusCode.OK, (await _client.SendAsync(targetRequest)).StatusCode);
+
+        async Task<JsonElement> GetDerivedAsync()
+        {
+            var getRequest = new HttpRequestMessage(HttpMethod.Get, $"/targets/derived/{_factory.SalespersonId1}/2026/3");
+            getRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            var getResponse = await _client.SendAsync(getRequest);
+            getResponse.EnsureSuccessStatusCode();
+            return await getResponse.Content.ReadFromJsonAsync<JsonElement>();
+        }
+
+        // One owner on the member territory → the full group target flows through.
+        var before = await GetDerivedAsync();
+        Assert.Equal(1000.0, before.GetProperty("derivedTarget").GetProperty("revenueTarget").GetDouble());
+
+        using var deleteRequest = new HttpRequestMessage(HttpMethod.Patch, $"/territory-groups/{groupId}");
+        deleteRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        deleteRequest.Content = JsonContent.Create(new { isActive = false });
+        (await _client.SendAsync(deleteRequest)).EnsureSuccessStatusCode();
+
+        // The membership row stays (history is never deleted), but a deleted group's
+        // target must no longer reach the members' derived targets.
+        var after = await GetDerivedAsync();
+        Assert.Equal(0.0, after.GetProperty("derivedTarget").GetProperty("revenueTarget").GetDouble());
+        foreach (var item in after.GetProperty("derivedTarget").GetProperty("items").EnumerateArray())
+        {
+            if (item.TryGetProperty("territoryGroupId", out var itemGroupId))
+            {
+                Assert.NotEqual(groupId, itemGroupId.GetInt32());
+            }
+        }
+    }
 }
